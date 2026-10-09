@@ -104,7 +104,8 @@ ignore = [
     "RUF003",
     "B905",    # zip() strictness is decided per call site
     "SIM108",
+    "RUF100",  # the codebase keeps pydocstyle-ready `noqa: D102` markers from the skeleton
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["E402", "B018", "NPY002", "E702", "SIM117"]
+"tests/*" = ["E402", "B018", "NPY002", "E702", "SIM117", "SIM300", "I001", "F401", "F841"]  # given spec files keep their own style

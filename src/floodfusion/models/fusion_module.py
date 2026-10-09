@@ -47,12 +47,16 @@ References
 
 from __future__ import annotations
 
+import math
+
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from floodfusion.config import ModelConfig
+from floodfusion.utils.shapes import assert_shape, named_dims
 
-__all__ = ["CrossAttentionFusion", "MissingModalityEmbedding", "AvailabilityGate"]
+__all__ = ["AvailabilityGate", "CrossAttentionFusion", "MissingModalityEmbedding", "reference_attention"]
 
 
 class MissingModalityEmbedding(nn.Module):
@@ -97,13 +101,14 @@ class MissingModalityEmbedding(nn.Module):
     def __init__(self, channels: int) -> None:
         super().__init__()
         self.channels = channels
-        raise NotImplementedError(
-            "Implement the missing-modality embedding. See docs/07 section 7.2."
-        )
+        self.embedding = nn.Parameter(torch.empty(1, channels, 1, 1))
+        nn.init.normal_(self.embedding, mean=0.0, std=0.02)
 
     def forward(self, batch: int, height: int, width: int, *, device: torch.device,
                 dtype: torch.dtype) -> torch.Tensor:  # noqa: D102
-        raise NotImplementedError
+        # ``to`` is differentiable; ``expand`` is a view — nothing (B, C, H, W)-sized is
+        # allocated, and the backward of expand sums the gradient into the parameter.
+        return self.embedding.to(device=device, dtype=dtype).expand(batch, self.channels, height, width)
 
 
 class AvailabilityGate(nn.Module):
@@ -170,9 +175,18 @@ class AvailabilityGate(nn.Module):
         optical_channels: int,
         *,
         bias_init: float = -2.0,
+        hidden_channels: int = 64,
     ) -> None:
         super().__init__()
-        raise NotImplementedError("Implement the gate. See docs/07 section 8.")
+        self.sar_channels = sar_channels
+        self.optical_channels = optical_channels
+        self.hidden = nn.Conv2d(sar_channels + optical_channels + 1, hidden_channels, 1)
+        self.act = nn.SiLU()
+        self.out = nn.Conv2d(hidden_channels, 1, 1)
+        # Small but NON-zero final weight: zero would make g spatially constant at step 0
+        # (a scalar gate in disguise); small keeps g ~= sigmoid(bias_init) everywhere.
+        nn.init.normal_(self.out.weight, mean=0.0, std=0.01)
+        nn.init.constant_(self.out.bias, bias_init)
 
     def forward(
         self,
@@ -180,7 +194,17 @@ class AvailabilityGate(nn.Module):
         optical_features: torch.Tensor,
         optical_quality: torch.Tensor,
     ) -> torch.Tensor:  # noqa: D102
-        raise NotImplementedError
+        dims = named_dims()
+        assert_shape(sar_features, ("B", self.sar_channels, "H", "W"), dims, name="gate.sar")
+        assert_shape(optical_features, ("B", self.optical_channels, "H", "W"), dims, name="gate.optical")
+        assert_shape(optical_quality, ("B", 1, "H", "W"), dims, name="gate.quality")
+        dtype = sar_features.dtype
+        x = torch.cat(
+            [optical_quality.to(dtype), optical_features.to(dtype), sar_features], dim=1
+        )
+        # Nothing follows the sigmoid: no floor, no clamp. g = 0 must be reachable EXACTLY
+        # (requirement R2, tests/test_fusion_module.py contract 3).
+        return torch.sigmoid(self.out(self.act(self.hidden(x))))
 
 
 class CrossAttentionFusion(nn.Module):
@@ -304,10 +328,21 @@ class CrossAttentionFusion(nn.Module):
         self.heads = cfg.attention_heads
         self.head_dim = cfg.attention_head_dim
         self.inner_dim = self.heads * self.head_dim
-        raise NotImplementedError(
-            "Implement cross-attention fusion. The derivation is docs/07 section 5.4; "
-            "the memory arithmetic is docs/07 section 6."
-        )
+        # Pre-norm on the token streams (per token, over channels) stabilises the logit
+        # scale early in training (docs/07 section 4.2); it acts on the ATTENTION branch
+        # only — the residual F_s is never normalised, projected or biased (R2).
+        self.norm_q = nn.LayerNorm(optical_channels)
+        self.norm_kv = nn.LayerNorm(sar_channels)
+        self.q_proj = nn.Linear(optical_channels, self.inner_dim)
+        self.k_proj = nn.Linear(sar_channels, self.inner_dim)
+        self.v_proj = nn.Linear(sar_channels, self.inner_dim)
+        self.out_proj = nn.Linear(self.inner_dim, sar_channels)
+        self.gate = AvailabilityGate(sar_channels, optical_channels, bias_init=cfg.gate_bias_init)
+
+    def _heads(self, tokens: torch.Tensor) -> torch.Tensor:
+        """(B, N, h*d) -> contiguous (B, h, N, d), the layout SDPA's fast path needs."""
+        b, n, _ = tokens.shape
+        return tokens.view(b, n, self.heads, self.head_dim).transpose(1, 2).contiguous()
 
     def forward(
         self,
@@ -315,7 +350,30 @@ class CrossAttentionFusion(nn.Module):
         optical_features: torch.Tensor,
         optical_quality: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:  # noqa: D102
-        raise NotImplementedError
+        dims = named_dims()
+        assert_shape(sar_features, ("B", self.sar_channels, "H", "W"), dims, name="sar_features")
+        assert_shape(optical_features, ("B", self.optical_channels, "H", "W"), dims, name="optical_features")
+        assert_shape(optical_quality, ("B", 1, "H", "W"), dims, name="optical_quality")
+        b, h, w = dims["B"], dims["H"], dims["W"]
+
+        sar_tokens = sar_features.flatten(2).transpose(1, 2)         # (B, N, C_s)
+        opt_tokens = optical_features.flatten(2).transpose(1, 2)     # (B, N, C_o)
+        kv_in = self.norm_kv(sar_tokens)
+        q = self._heads(self.q_proj(self.norm_q(opt_tokens)))      # (B, h, N, d) from OPTICAL
+        k = self._heads(self.k_proj(kv_in))                         # (B, h, N, d) from SAR
+        v = self._heads(self.v_proj(kv_in))                         # (B, h, N, d) from SAR
+        # SDPA applies 1/sqrt(d) itself. No additive mask (it would forfeit the Flash path)
+        # and no dropout (it would make the SAR-only forward stochastic in train mode).
+        attn = F.scaled_dot_product_attention(q, k, v)
+        attn = attn.transpose(1, 2).reshape(b, h * w, self.inner_dim)
+        attn = self.out_proj(attn)                                  # (B, N, C_s)
+        attn = attn.transpose(1, 2).reshape(b, self.sar_channels, h, w)
+
+        gate = self.gate(sar_features, optical_features, optical_quality)
+        assert_shape(gate, ("B", 1, "H", "W"), dims, name="gate")
+        # The whole design in one line: a gated residual on the SAR stream.
+        fused = sar_features + gate * attn
+        return fused, gate
 
 
 def reference_attention(
@@ -356,7 +414,13 @@ def reference_attention(
        agreement to ``float64`` tolerance. If they disagree by a constant factor, you
        have double-scaled (TODO 3 in :class:`CrossAttentionFusion`).
     """
-    raise NotImplementedError(
-        "Implement the reference attention. See docs/07 section 4.1 and docs/10 "
-        "exercise A2 for the backward pass you should be able to derive by hand."
-    )
+    dims = named_dims()
+    assert_shape(query, ("B", "h", "Nq", "d"), dims, name="query")
+    assert_shape(key, ("B", "h", "Nk", "d"), dims, name="key")
+    assert_shape(value, ("B", "h", "Nk", "dv"), dims, name="value")
+    scores = query @ key.transpose(-2, -1) / math.sqrt(dims["d"])
+    assert_shape(scores, ("B", "h", "Nq", "Nk"), dims, name="scores")
+    weights = torch.softmax(scores, dim=-1)  # over the KEY axis: rows sum to one
+    output = weights @ value
+    assert_shape(output, ("B", "h", "Nq", "dv"), dims, name="output")
+    return output, weights

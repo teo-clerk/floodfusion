@@ -33,12 +33,6 @@ from floodfusion.models.segmenter import (  # noqa: E402
     UNetDecoder,
 )
 
-EXPECT_UNIMPLEMENTED = True
-ALWAYS_PASS = frozenset({
-    "test_sar_encoder_input_width_includes_terrain",
-    "test_parameter_budget_matches_the_documented_estimate",
-    "test_static_memory_at_sixteen_bytes_per_parameter",
-})
 
 B, CHIP = 2, 64
 
