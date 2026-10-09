@@ -23,6 +23,8 @@ paths are identical for every row (``docs/09`` section 2.3 rule 2).
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import torch
 import torch.nn as nn
 
@@ -210,7 +212,15 @@ class LateFusionSegmenter(nn.Module):
         return logits, gate
 
 
-_REGISTRY: dict[str, type[nn.Module]] = {
+def _terramind(cfg: ModelConfig) -> nn.Module:
+    from floodfusion.models.terramind import TerraMindSegmenter
+
+    return TerraMindSegmenter(cfg)
+
+
+_REGISTRY: dict[str, Callable[[ModelConfig], nn.Module]] = {
+    "terramind_tiny": _terramind,
+    "terramind_small": _terramind,
     "unet_sar": UNetSegmenter,
     "unet_optical": UNetSegmenter,
     "fusion_early": EarlyFusionSegmenter,

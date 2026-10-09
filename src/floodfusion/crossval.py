@@ -168,11 +168,20 @@ def folds_on_disk(chip_dir: Path, protocol: str | None = None) -> list[Fold]:
 # Driver
 # ---------------------------------------------------------------------------
 def _fold_config(configs_dir: Path, row: int, overlays: Sequence[Path], fold: Fold, seed: int | None) -> Any:
-    from floodfusion.ablation import ROW_CONFIGS
     from floodfusion.config import load_config
 
     overrides = fold.overrides() + ([f"train.seed={seed}"] if seed is not None else [])
-    return load_config(configs_dir / f"{ROW_CONFIGS[row]}.yaml", overlays=overlays, overrides=overrides)
+    return load_config(configs_dir / f"{_config_name(row)}.yaml", overlays=overlays, overrides=overrides)
+
+
+#: Rows run by the CV driver beyond the 13 of the ablation: 14 = the TerraMind comparison.
+EXTRA_ROWS = {14: "comparisons/terramind_small"}
+
+
+def _config_name(row: int) -> str:
+    from floodfusion.ablation import ROW_CONFIGS
+
+    return {**ROW_CONFIGS, **EXTRA_ROWS}[row]
 
 
 def _run_fold(fold: Fold, args: argparse.Namespace, device: Any) -> None:
@@ -194,7 +203,7 @@ def _run_fold(fold: Fold, args: argparse.Namespace, device: Any) -> None:
             run_dir = run_dir_for(root, cfg.name, seed)
             if not _finished(run_dir):
                 fit(load_training_data(cfg, args.data_root), run_dir, device=device, provenance={
-                    "config_path": str(args.configs_dir / f"{ROW_CONFIGS[row]}.yaml"),
+                    "config_path": str(args.configs_dir / f"{_config_name(row)}.yaml"),
                     "overlays": [str(o) for o in args.overlay], "overrides": [*fold.overrides(), f"train.seed={seed}"],
                     "data_root": str(args.data_root), "driver": "floodfusion.crossval",
                     "cv": {"protocol": fold.protocol, "fold": fold.name},

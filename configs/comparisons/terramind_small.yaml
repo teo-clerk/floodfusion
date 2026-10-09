@@ -1,0 +1,16 @@
+# =============================================================================
+#  Comparison model (not part of the 13-row ablation; CV row 14): TerraMind-1.0-small (IBM/ESA),
+#  frozen encoder + UNet decoder, TerraMind's own Sen1Floods11 recipe (TerraTorch).
+#  Needs the optional extra:  uv sync --extra fm
+#  Same data, folds, sampler, loss, schedule, calibration and threshold rule as row 9;
+#  the only change is the network. TerraMind sees post-event VV/VH and S2 B3/B8/B11 —
+#  it is a single-date model, so the pre-event SAR, the change channel and terrain are
+#  not given to it (stated wherever its numbers appear).
+# =============================================================================
+extends: ../base.yaml
+name: "cmp_terramind_small"
+ablation_row: 0   # outside MILESTONES section 6; keyed by name in the reports
+
+model:
+  architecture: "terramind_small"
+  modality_dropout_p: 0.5   # as row 9: SAR-only inference must work

@@ -44,7 +44,7 @@ __all__ = ["CV_GAPS", "build_cv_table", "merge_folds"]
 LOGGER = logging.getLogger(__name__)
 
 #: (row A, row B, question, expected sign of B - A) on real events.
-CV_GAPS: tuple[tuple[int, int, str, str], ...] = (
+CV_GAPS: tuple[tuple[int | str, int | str, str, str], ...] = (
     (1, 2, "What careful engineering adds to naive Otsu", "positive"),
     (2, 3, "What optical adds to the physics baseline", "positive where optical is clear"),
     (2, 4, "What learning adds over the physics baseline (SAR only)", "positive"),
@@ -52,8 +52,13 @@ CV_GAPS: tuple[tuple[int, int, str, str], ...] = (
     (11, 9, "The cost of losing optical at inference (9 − 11)", "positive; small is good"),
     (4, 11, "The fusion model run SAR-only vs the SAR-only U-Net", "≈ 0 or positive"),
     (2, 9, "What the machine learning was worth (9 − 2)", "positive"),
+    (4, "cmp_terramind_small", "TerraMind (frozen, post-event S1 + S2) vs the SAR-only U-Net", "open"),
+    ("cmp_terramind_small", 9, "What the task-specific fusion model adds over the foundation model",
+     "≈ 0 on Sen1Floods11 (PANGAEA: supervised U-Nets match GFMs there)"),
 )
-_ROWS_IN_TABLE = (1, 2, 3, 4, 9, 11)
+TERRAMIND = "cmp_terramind_small"
+_ROWS_IN_TABLE: tuple[int | str, ...] = (1, 2, 3, 4, 9, 11, TERRAMIND)
+_LABELS = {TERRAMIND: "TerraMind-1.0-small, frozen + UNet decoder (single date: post S1 + S2)"}
 
 
 def _seed_key(entry: Mapping[str, Any]) -> int | None:
@@ -220,8 +225,8 @@ def build_cv_table(runs_root: Path | str, *, out: Path | str | None = None, allo
     rows = merge_folds(loeo_folds)
     summaries = {k: _row_summary(k, v, n_boot, alpha) for k, v in rows.items()}
     gap_lines, gaps = _gaps(summaries, rows, n_boot, alpha, gaps=CV_GAPS)
-    leak_lines, leakage = _leakage(loeo_folds, official_folds, ["4", "9", "11"], n_boot, alpha)
-    conformal_lines, conformal = _conformal(loeo_folds, ["4", "9", "11"])
+    leak_lines, leakage = _leakage(loeo_folds, official_folds, ["4", "9", "11", TERRAMIND], n_boot, alpha)
+    conformal_lines, conformal = _conformal(loeo_folds, ["4", "9", "11", TERRAMIND])
     events = sorted({b for s in summaries.values() for b in s["per_basin"]})
     main = ["| # | Configuration | IoU at τ* [95 % CI over events] | F1 | Seeds | Events |", "| --- | --- | --- | --- | --- | --- |"]
     for row in _ROWS_IN_TABLE:
@@ -229,7 +234,9 @@ def build_cv_table(runs_root: Path | str, *, out: Path | str | None = None, allo
         if s is None:
             continue
         mark = "†" if s["n_basins"] < MIN_BASINS_FOR_VERDICT else ""
-        main.append(f"| {row} | {ROW_LABELS[row][0]} | {_fmt(s['iou'])} [{_fmt(s['ci'][0], 2)}, {_fmt(s['ci'][1], 2)}]{mark} "
+        label = _LABELS.get(row) or ROW_LABELS[row][0]
+        main.append(f"| {row if isinstance(row, int) else 'TM'} | {label} | {_fmt(s['iou'])} "
+                    f"[{_fmt(s['ci'][0], 2)}, {_fmt(s['ci'][1], 2)}]{mark} "
                     f"| {_fmt(s['f1'])} | {', '.join(map(str, s['seeds'])) or '—'} | {s['n_basins']} |")
     text = "\n".join([
         "# Sen1Floods11, re-ingested — leave-one-event-out and the published split",
@@ -250,7 +257,8 @@ def build_cv_table(runs_root: Path | str, *, out: Path | str | None = None, allo
         "official test chips are scored twice: by the model trained on the official split, and by the LOEO model "
         "that never saw the event. Positive Δ = what the within-event split adds to the score.", "",
         *(leak_lines if len(leak_lines) > 2 else ["(official protocol not run)"]), "",
-        "## Bolivia — the dataset's own held-out event", "", *_bolivia(loeo_folds, official_folds, ["4", "9", "11"]), "",
+        "## Bolivia — the dataset's own held-out event", "",
+        *_bolivia(loeo_folds, official_folds, ["4", "9", "11", TERRAMIND]), "",
         "## Conformal recall control across events", "",
         "Each fold fits the conformal threshold on its validation event's chips (risk = per-chip false-negative "
         "rate, guarantee E[risk] ≤ α for chips exchangeable with those). The held-out event is a different flood: "

@@ -293,6 +293,8 @@ class ModelConfig:
             "fusion_early",  # row 7
             "fusion_late",  # row 8
             "fusion_crossattn",  # rows 9-13 (the reference design)
+            "terramind_tiny",  # comparison: TerraMind-1.0 foundation model (optional extra)
+            "terramind_small",
         }
     )
 
