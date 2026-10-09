@@ -19,11 +19,13 @@ calibration on validation, and the operational product with its exclusion mask. 
 production code path; only the sizes are small.
 
 The real-data results (Sen1Floods11 re-ingested, the EMSR664 Forlì case study) are in `reports/`."""),
-    ("code", """import json, tempfile
+    ("code", """import json
+import tempfile
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+import rasterio
 import torch
 
 from floodfusion import splits
@@ -45,14 +47,21 @@ One grid, sixteen bands: post- and pre-event γ⁰ (VV, VH), their change, Senti
 slope, HAND, local incidence, the label, the validity bit field, the optical quality and land cover.
 Flood water is dark in the post image and *darker than before*; terrain decides where radar sees nothing."""),
     ("code", """stack, grid, _ = read_event_stack(data_root / "events" / "T1_lowland" / "stack.tif")
-db = lambda b: np.where(stack[b] == -32768, np.nan, stack[b] / 100.0)
+
+
+def db(band):
+    return np.where(stack[band] == -32768, np.nan, stack[band] / 100.0)
+
+
 panels = [(db(ChipBand.VV_PRE), "VV pre (dB)", "gray"), (db(ChipBand.VV_POST), "VV post (dB)", "gray"),
           (db(ChipBand.DELTA_VV), "ΔVV post − pre (dB)", "RdBu"), (stack[ChipBand.MNDWI] / 1e4, "MNDWI", "BrBG"),
           (np.where(stack[ChipBand.LABEL] < 0, np.nan, stack[ChipBand.LABEL]), "label (flood)", "Blues"),
           (stack[ChipBand.VALIDITY], "validity bit field", "magma")]
 fig, axes = plt.subplots(1, 6, figsize=(18, 3.6))
 for ax, (img, title, cmap) in zip(axes, panels):
-    ax.imshow(img, cmap=cmap); ax.set_title(title, fontsize=9); ax.axis("off")
+    ax.imshow(img, cmap=cmap)
+    ax.set_title(title, fontsize=9)
+    ax.axis("off")
 plt.tight_layout()"""),
     ("md", """## 2. A split that does not flatter
 
@@ -100,11 +109,12 @@ their likelihood: the mask says *do not trust this*, it does not erase the evide
 stack_path = data_root / "events" / "T1_lowland" / "stack.tif"
 predict.main(["--run-dir", str(run_dir), "--stack", str(stack_path), "--out", str(WORK / "product.tif"),
               "--package", str(WORK / "package"), "--device", "cpu"])
-import rasterio
 layers = {n: rasterio.open(WORK / "package" / f"{n}.tif").read(1) for n in ("likelihood", "observed_flood", "exclusion_mask")}
 fig, axes = plt.subplots(1, 3, figsize=(12, 3.8))
 for ax, (name, img) in zip(axes, layers.items()):
-    ax.imshow(np.where(img == 255, np.nan, img), cmap="viridis"); ax.set_title(name); ax.axis("off")
+    ax.imshow(np.where(img == 255, np.nan, img), cmap="viridis")
+    ax.set_title(name)
+    ax.axis("off")
 plt.tight_layout()
 item = json.loads((WORK / "package" / "item.json").read_text())
 print(item["stac_extensions"])
