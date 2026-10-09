@@ -13,8 +13,10 @@ RUNS_ROOT  ?= runs
 OVERLAY    ?= configs/overlays/synthetic_demo.yaml
 SEED       ?= 42
 REF_CONFIG := configs/row09_fusion_crossattn.yaml
+EVENT      ?= configs/events/example.yaml
+REAL_ROOT  ?= data/real
 
-.PHONY: help setup lock preflight test test-fast test-all test-gpu cov lint synth splits \
+.PHONY: help setup lock preflight test test-fast test-all test-gpu cov lint synth ingest splits \
         baseline train-p1 vram-budget ablation table predict demo clean
 
 help:  ## List targets
@@ -50,6 +52,9 @@ lint:  ## Static checks
 
 synth:  ## Generate the physics-based synthetic benchmark under $(DATA_ROOT)
 	$(PY) -m floodfusion.data.synthetic.benchmark --out $(DATA_ROOT)
+
+ingest:  ## P1-M0/M1 real event(s) from Planetary Computer: make ingest EVENT=configs/events/x.yaml
+	$(PY) -m floodfusion.data.ingest --event $(EVENT) --out $(REAL_ROOT)
 
 splits:  ## Variogram range, frozen LOBO + row-13 splits, train-only normalisation stats
 	$(PY) -m floodfusion.splits --data-root $(DATA_ROOT) --config $(REF_CONFIG) --overlay $(OVERLAY)

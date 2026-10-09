@@ -36,14 +36,22 @@ import numpy as np
 from floodfusion.config import ValidityFlag
 
 __all__ = [
+    "BAD_SCL_CLASSES",
     "build_validity_mask",
     "cast_shadow_and_layover",
     "hand",
+    "hand_on_dem_support",
     "horn_slope_aspect",
     "local_incidence_angle",
     "permanent_water_from_occurrence",
+    "quality_from_scl",
     "validity_flag_counts",
 ]
+
+#: Sentinel-2 SCL classes treated as unusable for the optical branch: no data, saturated,
+#: dark area, cloud shadow, cloud medium/high probability, thin cirrus (docs/02 7.1).
+#: SCL is used ONLY for this mask — never as an input or a label (docs/02 section 7.3).
+BAD_SCL_CLASSES: tuple[int, ...] = (0, 1, 2, 3, 8, 9, 10)
 
 #: D8 neighbour offsets (row, col), clockwise from north.
 _D8_OFFSETS: tuple[tuple[int, int], ...] = (
@@ -514,6 +522,49 @@ def _height_above_drainage(filled: np.ndarray, down: np.ndarray, drainage: np.nd
     return np.maximum(hand_values, 0.0, where=np.isfinite(hand_values), out=hand_values)
 
 
+#: GLO-30 support scale: HAND is computed where the DEM carries information, not at 10 m.
+DEM_SUPPORT_M = 30.0
+
+
+def hand_on_dem_support(
+    dem: np.ndarray,
+    pixel_size_m: float,
+    *,
+    support_m: float = DEM_SUPPORT_M,
+    accumulation_threshold: float | None = None,
+) -> np.ndarray:
+    """HAND computed at the DEM's native support (30 m), interpolated back to the grid.
+
+    A 30 m DEM bilinearly resampled to 10 m contains no 10 m drainage information; routing
+    flow on it only adds interpolation flats. So the 10 m DEM is block-averaged back to
+    the support scale, HAND is computed there, and the result is interpolated bilinearly
+    onto the analysis grid (``docs/03`` section 8). The same function serves the real
+    ingest and the synthetic benchmark, so both are processed identically.
+
+    ``accumulation_threshold`` (cells at support scale) defaults to
+    ``clip(n_cells // 400, 8, 600)``: a drainage network dense enough to reach every
+    valley of the AOI, sparse enough not to declare every hillslope gully a river.
+    """
+    from scipy import ndimage
+
+    dem = np.asarray(dem, dtype=np.float64)
+    factor = max(1, int(round(support_m / pixel_size_m)))
+    h, w = dem.shape
+    ph, pw = -(-h // factor) * factor, -(-w // factor) * factor
+    filled = np.where(np.isfinite(dem), dem, np.nanmedian(dem) if np.isfinite(dem).any() else 0.0)
+    padded = np.pad(filled, ((0, ph - h), (0, pw - w)), mode="edge")
+    coarse = padded.reshape(ph // factor, factor, pw // factor, factor).mean(axis=(1, 3))
+    threshold = (float(np.clip(coarse.size // 400, 8, 600)) if accumulation_threshold is None
+                 else float(accumulation_threshold))
+    hand_coarse = hand(coarse, threshold, pixel_size_m * factor)
+    if np.isfinite(hand_coarse).any():
+        hand_coarse = np.nan_to_num(hand_coarse, nan=float(np.nanmax(hand_coarse)))
+    else:
+        hand_coarse = np.zeros_like(hand_coarse)
+    fine = ndimage.zoom(hand_coarse, factor, order=1, mode="nearest", grid_mode=True)
+    return np.maximum(fine[:h, :w], 0.0)
+
+
 def build_validity_mask(
     layover: np.ndarray,
     shadow: np.ndarray,
@@ -605,3 +656,21 @@ def permanent_water_from_occurrence(
     if not 0.0 < threshold_percent <= 100.0:
         raise ValueError("threshold_percent must lie in (0, 100]")
     return np.isfinite(occ) & (occ >= threshold_percent) & (occ <= 100.0)
+
+
+def quality_from_scl(scl: np.ndarray, *, dilate_px: int = 3, ramp_px: float = 5.0) -> np.ndarray:
+    """Per-pixel optical quality in [0, 1] from the SCL cloud/shadow classes.
+
+    The bad-class mask is **dilated** (cloud edges are under-detected by Sen2Cor) and the
+    quality then ramps from 0 to 1 over ``ramp_px`` pixels with distance from it — a soft,
+    per-pixel signal for the availability gate (``docs/07`` section 8.2), not a binary cut.
+    """
+    from scipy import ndimage
+
+    bad = np.isin(np.asarray(scl), BAD_SCL_CLASSES)
+    if dilate_px > 0:
+        bad = ndimage.binary_dilation(bad, iterations=dilate_px)
+    if not bad.any():
+        return np.ones(np.shape(scl))
+    distance = ndimage.distance_transform_edt(~bad)
+    return np.clip(distance / ramp_px, 0.0, 1.0)

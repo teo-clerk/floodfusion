@@ -125,14 +125,15 @@ class TestEncoding:
 # ---------------------------------------------------------------------------
 # Synthetic events
 # ---------------------------------------------------------------------------
-class TestSyntheticPhysics:
-    @pytest.fixture(scope="class")
-    def event(self):
-        spec = EventSpec("phys", seed=5, n_basins=2, basin_width_px=256, height_px=320,
-                         terrain="hilly", riparian_forest=True, optical="clear", flood_depth_m=(1.5, 2.0),
-                         wind_speed_ms=1.0)
-        return render_event(spec, GRID, NORM, keep_layers=True)
+@pytest.fixture(scope="module")
+def event():
+    spec = EventSpec("phys", seed=5, n_basins=2, basin_width_px=256, height_px=320,
+                     terrain="hilly", riparian_forest=True, optical="clear", flood_depth_m=(1.5, 2.0),
+                     wind_speed_ms=1.0)
+    return render_event(spec, GRID, NORM, keep_layers=True)
 
+
+class TestSyntheticPhysics:
     def test_render_is_deterministic(self) -> None:
         spec = TINY_EVENTS[0]
         assert np.array_equal(render_event(spec, GRID, NORM).stack, render_event(spec, GRID, NORM).stack)

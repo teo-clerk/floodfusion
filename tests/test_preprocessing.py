@@ -151,6 +151,37 @@ class TestSpeckle:
 
 class TestTerrainCorrection:
     def test_is_backward_geocoded(self) -> None:
-        """Output-first: every output cell filled exactly once (``docs/04`` section 5.3)."""
-        with pytest.raises(NotImplementedError):
-            terrain_correct()
+        """Output-first: every output cell filled exactly once (``docs/04`` section 5.3).
+
+        Test replacement (agreed with the project owner): the original asserted that the
+        skeleton raised ``NotImplementedError``. ``terrain_correct`` is now implemented
+        (Range-Doppler zero-Doppler solve, backward geocoding, area-based RTC — see
+        ``tests/test_geocoding.py`` for the full suite), so this checks the property the
+        docstring states: on a simulated orbit, every output cell inside the swath is
+        filled by exactly one interpolation — no holes — and every cell outside is nodata.
+        """
+        pyproj = pytest.importorskip("pyproj")
+        from floodfusion.data.geocoding import (
+            OrbitStateVectors, SlantRangeGeometry, _enu_basis, geodetic_to_ecef,
+        )
+
+        p0 = geodetic_to_ecef(45.0, 10.0, 0.0)
+        east, north, up = _enu_basis(np.array(45.0), np.array(10.0))
+        t = np.arange(-30.0, 32.0, 2.0)
+        orbit = OrbitStateVectors(
+            t, p0 - 560e3 * east + 700e3 * up + (7000.0 * t)[:, None] * north,
+            np.repeat((7000.0 * north)[None], t.size, 0),
+        )
+        r0 = float(np.hypot(700e3, 560e3))
+        geometry = SlantRangeGeometry(-0.2, 0.002, r0 - 1500.0, 10.0)
+        x0, y0 = pyproj.Transformer.from_crs(4326, 32632, always_xy=True).transform(10.0, 45.0)
+        out, diag = terrain_correct(
+            np.ones((200, 300)), geometry, orbit, np.zeros((300, 300)),
+            (10.0, 0.0, x0 - 1500.0, 0.0, -10.0, y0 + 1500.0), 32632,
+            rtc=None, return_diagnostics=True,
+        )
+        line, pixel = diag["line"], diag["pixel"]
+        inside = (line >= 0) & (line <= 199) & (pixel >= 0) & (pixel <= 299)
+        assert inside.any() and (~inside).any()
+        assert np.isfinite(out[inside]).all(), "a hole inside the swath"
+        assert np.isnan(out[~inside]).all()

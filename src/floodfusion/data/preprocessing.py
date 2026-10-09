@@ -411,56 +411,21 @@ def equivalent_number_of_looks(intensity: np.ndarray) -> float:
 def terrain_correct(*args: object, **kwargs: object) -> np.ndarray:
     r"""Range-Doppler terrain correction, backward-geocoded onto the analysis grid.
 
-    Notes
-    -----
-    Sentinel-1 products are processed to **zero-Doppler** geometry. For a ground target
-    at ECEF position :math:`\mathbf{P}` and a satellite at :math:`\mathbf{S}(t)` with
-    velocity :math:`\mathbf{V}(t)`, the imaging time :math:`t^\star` satisfies
+    Implemented in :func:`floodfusion.data.geocoding.terrain_correct` (this name is kept
+    here because ``docs/04`` section 8 lists it as step 7-8 of the pre-processing chain);
+    see that module for the zero-Doppler solve, backward geocoding in linear power and the
+    area-based RTC of Small (2011):
 
-    .. math:: \mathbf{V}(t^\star)\cdot[\mathbf{P} - \mathbf{S}(t^\star)] = 0
-
-    -- geometrically, closest approach -- and the slant range is
-    :math:`R = \|\mathbf{P} - \mathbf{S}(t^\star)\|`.
-
-    **Backward geocoding**: iterate over the **output** grid, and for each cell solve for
-    :math:`(t^\star, R)` and interpolate the source image there::
-
-        FOR each cell g of the OUTPUT grid:
-            (lat, lon) <- inverse projection of g
-            h          <- DEM(lat, lon)
-            P          <- geodetic_to_ecef(lat, lon, h)
-            t*         <- solve V(t).(P - S(t)) = 0        # Newton / bisection
-            R          <- |P - S(t*)|
-            (line,pix) <- image coordinates from (t*, R)
-            output[g]  <- bilinear(image, line, pix)       # in LINEAR power
-
-    Forward projection -- pushing each input pixel to where it lands -- leaves holes
-    where ground-range sampling stretched and piles multiple inputs where it compressed.
-    Iterating over the output guarantees each cell is filled exactly once by exactly one
-    interpolation. Same argument as inverse warping in image processing.
-
-    **Geocoding is not radiometric terrain correction.** Geocoding moves pixels; it does
-    not change their values. RTC additionally fixes brightness: a slope facing the sensor
-    is foreshortened, so each pixel collects backscatter from more ground and is brighter
-    -- not because the surface scatters more. The modern area-based correction is
-
-    .. math:: \gamma^0_T = \sigma^0_E \cdot \frac{A_{\text{flat}}}{A_{\text{illuminated}}}
-
-    which handles several terrain facets contributing to one pixel, as the naive
-    :math:`1/\cos\theta_{\mathrm{loc}}` cannot.
+    .. math:: \gamma^0_T = \beta^0 \cdot \frac{A_\beta}{A_\gamma}
 
     **And the result is still untrustworthy in layover.** Where
     :math:`\theta_{\mathrm{loc}} \le 0`, returns from multiple distinct ground patches are
-    summed in a single range bin. No division by an area recovers information destroyed
-    in the receiver. Layover is not a radiometric error to correct; it is destroyed
-    information to mask. That is ``P1-M1``'s comprehension question.
+    summed in a single range bin; no division by an area recovers information destroyed in
+    the receiver. That is ``P1-M1``'s comprehension question.
 
-    TODO(student)
-    -------------
-    1. Solve the zero-Doppler condition by Newton's method on the orbit state vectors.
-    2. Backward-geocode onto the analysis grid, interpolating in **linear power**.
-    3. Apply area-based RTC using the DEM-derived illuminated area.
-    4. Validate by SAR simulation cross-correlation (``docs/05`` section 5.1): the peak
-       must lie at (0, 0) to within a fraction of a pixel.
+    Production ingest uses the pre-processed Planetary Computer ``sentinel-1-rtc``
+    collection (Route B, ``docs/04`` section 9), which already ran these steps.
     """
-    raise NotImplementedError("Implement terrain correction. See docs/04 section 5.")
+    from floodfusion.data.geocoding import terrain_correct as _terrain_correct
+
+    return _terrain_correct(*args, **kwargs)  # type: ignore[arg-type]

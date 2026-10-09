@@ -1,0 +1,35 @@
+# Example flood event for the real-data ingest (floodfusion.data.ingest, `make ingest`).
+#
+# EMSR664 — Emilia-Romagna, Italy, May 2023 (CEMS Rapid Mapping, activated 16 May 2023).
+# The AOI below (Lugo / Bagnacavallo, Lamone-Senio floodplain) was checked against Planetary
+# Computer: the first post-event pass is 2023-05-22 05:19 UTC on relative orbit 95
+# (descending), matched by 2023-05-10 on the same orbit; both Sentinel-2 overpasses in the
+# window are cloud-covered (80.6 % and 100 %) — the SAR-first case the model is built for.
+#
+# What the archives cannot provide, you supply:
+#   label_path  the CEMS delineation vector ("observed event" polygons) of the activation,
+#               downloaded from https://mapping.emergency.copernicus.eu/activations/EMSR664
+#               (any OGR-readable format; it is reprojected on read).
+#   aoi_path    (recommended) the CEMS area-of-interest polygon: pixels outside it are
+#               flagged OUTSIDE_AOI and never scored, instead of being counted as dry.
+#   basins_path (recommended) HydroBASINS level-10/12 polygons (https://www.hydrosheds.org);
+#               without it the AOI is a single basin (leave-one-event-out).
+# Paths are relative to this file.
+
+event_id: EMSR664_lugo
+bbox: [11.85, 44.30, 12.10, 44.45]        # west, south, east, north (EPSG:4326)
+flood_start: 2023-05-16                   # day-inclusive
+flood_end: 2023-05-22
+pre_event_window_days: 45                 # short: limits phenology change (docs/01 10.3)
+label_path: ../../data/real/labels/EMSR664_observed_event.gpkg
+label_layer: null
+label_where: {}                           # e.g. {event_type: ["5-Flood"]} to keep one class
+aoi_path: ../../data/real/labels/EMSR664_area_of_interest.gpkg
+reference_water_path: null                # CEMS "hydrography" layer, OR-ed into permanent water
+basins_path: ../../data/real/hydrobasins/hybas_eu_lev10_v1c.shp
+basin_id_field: HYBAS_ID
+catalogue_url: https://planetarycomputer.microsoft.com/api/stac/v1
+max_s2_candidates: 4
+notes: >-
+  Post-event SAR is six days after activation: part of the flood had receded. Label time
+  and image time differ — record it in the data card (docs/05 section 3).

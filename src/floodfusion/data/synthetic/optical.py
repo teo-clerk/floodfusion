@@ -27,8 +27,9 @@ from __future__ import annotations
 import numpy as np
 
 from floodfusion.data.synthetic.landscape import LANDCOVER, Landscape, fbm
+from floodfusion.masks import BAD_SCL_CLASSES, quality_from_scl
 
-__all__ = ["BAD_SCL_CLASSES", "REFLECTANCE", "quality_from_scl", "simulate_optical"]
+__all__ = ["BAD_SCL_CLASSES", "REFLECTANCE", "simulate_optical"]
 
 REFLECTANCE: dict[str, tuple[float, float, float]] = {
     "water": (0.05, 0.02, 0.008),
@@ -43,27 +44,6 @@ REFLECTANCE: dict[str, tuple[float, float, float]] = {
 }
 _CLOUD = np.array([0.55, 0.58, 0.45])
 _SHADOW_FACTOR = np.array([0.55, 0.32, 0.26])
-#: SCL classes treated as unusable: no data, saturated, dark area, cloud shadow,
-#: cloud medium/high probability, thin cirrus (docs/02 section 7.1).
-BAD_SCL_CLASSES = (0, 1, 2, 3, 8, 9, 10)
-
-
-def quality_from_scl(scl: np.ndarray, *, dilate_px: int = 3, ramp_px: float = 5.0) -> np.ndarray:
-    """Per-pixel optical quality in [0, 1] from the SCL cloud/shadow classes.
-
-    The bad-class mask is **dilated** (cloud edges are under-detected) and quality then
-    ramps from 0 to 1 over ``ramp_px`` pixels with distance from it — a soft, per-pixel
-    signal the availability gate can use, rather than a binary cut.
-    """
-    from scipy import ndimage
-
-    bad = np.isin(scl, BAD_SCL_CLASSES)
-    if dilate_px > 0:
-        bad = ndimage.binary_dilation(bad, iterations=dilate_px)
-    if not bad.any():
-        return np.ones(scl.shape)
-    distance = ndimage.distance_transform_edt(~bad)
-    return np.clip(distance / ramp_px, 0.0, 1.0)
 
 
 def simulate_optical(

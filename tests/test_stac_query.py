@@ -21,20 +21,11 @@ import pytest
 
 from floodfusion.data.stac import (
     EventQuery,
+    InMemoryCatalogue,
     MatchedScenes,
     search_matched_pairs,
     summarise_optical_availability,
 )
-
-EXPECT_UNIMPLEMENTED = True
-ALWAYS_PASS = frozenset({
-    "test_query_is_frozen",
-    "test_incidence_mismatch_costs_over_one_db",
-    "test_availability_arithmetic_is_discouraging",
-    "test_independence_assumption_is_optimistic",
-    "test_default_pre_event_window",
-    "test_missing_matching_orbit_raises_rather_than_falling_back",
-})
 
 
 def _query() -> EventQuery:
@@ -43,6 +34,36 @@ def _query() -> EventQuery:
         event_id="e0", bbox=(10.0, 45.0, 10.5, 45.5),
         flood_start=start, flood_end=start + timedelta(days=3),
     )
+
+
+# Test fix: the two orbit tests below originally called search_matched_pairs() with the
+# SAME unreachable URL ("https://example.invalid/stac") while expecting opposite outcomes
+# (a MatchedScenes vs a LookupError) — no deterministic implementation can satisfy both,
+# and ".invalid" never resolves. Each test now injects an offline catalogue that encodes
+# the situation it describes; the assertions are unchanged.
+def _s1(item_id: str, when: str, orbit: int, state: str) -> dict:
+    return {
+        "id": item_id, "collection": "sentinel-1-grd", "bbox": [9.8, 44.9, 10.7, 45.7],
+        "properties": {
+            "datetime": when, "sat:relative_orbit": orbit, "sat:orbit_state": state,
+            "sar:instrument_mode": "IW", "sar:polarizations": ["VV", "VH"],
+            "sar:product_type": "GRD",
+        },
+    }
+
+
+#: A post-event pass on orbit 117 (ascending), and pre-event passes on 117 and on others.
+_MATCHING = [
+    _s1("post_117", "2023-11-05T17:07:25Z", 117, "ascending"),
+    _s1("pre_117", "2023-10-14T17:07:26Z", 117, "ascending"),
+    _s1("pre_168", "2023-10-30T05:28:01Z", 168, "descending"),
+]
+#: The same post-event pass, but every pre-event candidate is on another orbit or pass.
+_NO_MATCH = [
+    _s1("post_117", "2023-11-05T17:07:25Z", 117, "ascending"),
+    _s1("pre_15", "2023-10-31T17:15:22Z", 15, "ascending"),
+    _s1("pre_168", "2023-10-30T05:28:01Z", 168, "descending"),
+]
 
 
 class TestEventQuery:
@@ -69,14 +90,20 @@ class TestRelativeOrbitInvariant:
         assert offset_db == pytest.approx(-1.20, abs=0.1)
 
     def test_matched_pair_shares_relative_orbit(self) -> None:
-        scenes = search_matched_pairs(_query(), "https://example.invalid/stac")
+        scenes = search_matched_pairs(
+            _query(), "https://example.invalid/stac",
+            client=InMemoryCatalogue.from_dicts(_MATCHING),
+        )
         assert isinstance(scenes, MatchedScenes)
         assert scenes.relative_orbit >= 0
 
     def test_missing_matching_orbit_raises_rather_than_falling_back(self) -> None:
         """Drop the EVENT, not the constraint (``docs/05`` section 2.1, criterion 3)."""
         with pytest.raises((LookupError, NotImplementedError)):
-            search_matched_pairs(_query(), "https://example.invalid/stac")
+            search_matched_pairs(
+                _query(), "https://example.invalid/stac",
+                client=InMemoryCatalogue.from_dicts(_NO_MATCH),
+            )
 
 
 class TestOpticalAvailability:

@@ -10,7 +10,6 @@ exactly the code paths real data does.
 
 from __future__ import annotations
 
-import math
 from dataclasses import asdict, dataclass
 from typing import Any
 
@@ -29,7 +28,7 @@ from floodfusion.data.synthetic.sar import simulate_sar
 from floodfusion.masks import (
     build_validity_mask,
     cast_shadow_and_layover,
-    hand,
+    hand_on_dem_support,
     horn_slope_aspect,
     local_incidence_angle,
     permanent_water_from_occurrence,
@@ -37,7 +36,6 @@ from floodfusion.masks import (
 
 __all__ = ["RenderedEvent", "basin_polygons", "incidence_field", "render_event"]
 
-_DEM_SUPPORT_M = 30.0  # GLO-30 support scale: HAND is computed at 30 m, then interpolated
 
 
 @dataclass
@@ -79,23 +77,6 @@ def incidence_field(spec: EventSpec) -> np.ndarray:
     return np.broadcast_to(theta, (spec.height_px, spec.width_px)).copy()
 
 
-def _hand_at_dem_support(dem: np.ndarray, pixel_m: float) -> np.ndarray:
-    """HAND on a block-averaged 30 m DEM, bilinearly interpolated back to the grid."""
-    from scipy import ndimage
-
-    factor = max(1, int(round(_DEM_SUPPORT_M / pixel_m)))
-    h, w = dem.shape
-    ph, pw = math.ceil(h / factor) * factor, math.ceil(w / factor) * factor
-    padded = np.pad(dem, ((0, ph - h), (0, pw - w)), mode="edge")
-    coarse = padded.reshape(ph // factor, factor, pw // factor, factor).mean(axis=(1, 3))
-    n_cells = coarse.size
-    threshold = float(np.clip(n_cells // 400, 8, 600))
-    hand_coarse = hand(coarse, threshold, pixel_m * factor)
-    hand_coarse = np.nan_to_num(hand_coarse, nan=float(np.nanmax(hand_coarse)) if np.isfinite(hand_coarse).any() else 0.0)
-    fine = ndimage.zoom(hand_coarse, factor, order=1, mode="nearest", grid_mode=True)
-    return np.maximum(fine[:h, :w], 0.0)
-
-
 def render_event(
     spec: EventSpec,
     grid_cfg: GridConfig,
@@ -111,7 +92,7 @@ def render_event(
     slope, aspect = horn_slope_aspect(landscape.dem, px, px)
     theta_loc = local_incidence_angle(slope, aspect, theta, phi)
     shadow, layover = cast_shadow_and_layover(landscape.dem, theta, phi, px)
-    hand_m = _hand_at_dem_support(landscape.dem, px)
+    hand_m = hand_on_dem_support(landscape.dem, px)
 
     flood_rng = np.random.default_rng([spec.seed, 1])
     flood = flood_from_hand(landscape, hand_m, flood_rng)
