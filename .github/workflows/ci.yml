@@ -30,7 +30,7 @@ jobs:
       - name: Install the locked environment
         run: uv sync --frozen --extra dev
       - name: Lint
-        run: uv run --no-sync ruff check src tests
+        run: uv run --no-sync ruff check src tests notebooks
       - name: Offline test suite with coverage (no network, no GPU)
         run: >
           uv run --no-sync pytest -m "not network and not gpu"

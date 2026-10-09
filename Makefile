@@ -51,7 +51,7 @@ cov:  ## Offline suite with a line+branch coverage report
 	$(UV) run --no-sync pytest --cov=floodfusion --cov-report=term-missing --cov-fail-under=80
 
 lint:  ## Static checks
-	$(UV) run --no-sync ruff check src tests
+	$(UV) run --no-sync ruff check src tests notebooks
 
 synth:  ## Generate the physics-based synthetic benchmark under $(DATA_ROOT)
 	$(PY) -m floodfusion.data.synthetic.benchmark --out $(DATA_ROOT)
