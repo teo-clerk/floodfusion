@@ -199,3 +199,4 @@ eval:
   cost_ratio: 3.0
   n_bootstrap: 10000
   bootstrap_alpha: 0.05 # resampled over BASINS, never pixels (docs/09 3)
+  conformal_fnr: 0.1 # conformal risk control: E[per-chip FNR] <= 0.1 on exchangeable chips

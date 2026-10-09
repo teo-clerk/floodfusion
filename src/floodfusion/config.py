@@ -488,6 +488,9 @@ class EvalConfig:
     #: matrices rather than storing probability maps is what keeps evaluation inside
     #: the VRAM budget (``docs/08`` section 7.3).
     pr_thresholds: tuple[float, ...] = tuple(i / 200.0 for i in range(1, 200))
+    #: Conformal risk control target: expected per-chip false-negative rate <= this on
+    #: chips exchangeable with the validation chips (recall >= 1 - alpha, in expectation).
+    conformal_fnr: float = 0.1
 
     @property
     def decision_threshold(self) -> float:

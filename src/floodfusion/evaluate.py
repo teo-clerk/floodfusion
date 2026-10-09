@@ -272,16 +272,20 @@ def evaluate_run(
     sar_only = cfg.eval.force_sar_only
     val_reservoir = LogitReservoir(RESERVOIR_CAPACITY, seed=seed)
     val = validate(model, _loader(data.val, cfg), device=device, cfg=cfg, force_sar_only=sar_only,
-                   crop_px=EVAL_CONTEXT_PX, logit_sink=val_reservoir)
+                   crop_px=EVAL_CONTEXT_PX, logit_sink=val_reservoir,
+                   per_chip_thresholds=tuple(_sigmoid(float(z)) for z in _CONFORMAL_Z))
     z_val, y_val = val_reservoir.arrays()
     calibration = calibrate_logits(z_val, y_val, pi_train=record["pi_train"], pi_deploy=record["pi_deploy"])
     thresholds, special = _thresholds(cfg, calibration.temperature, calibration.offset, val["best_threshold"])
+    conformal = _conformal(val["per_chip"], cfg.eval.conformal_fnr, calibration.temperature, calibration.offset)
+    special["conformal"] = conformal["tau"]
+    thresholds = tuple(sorted(set(thresholds) | {conformal["tau"]}))
     target = data.test if split == "test" else data.val
     test_reservoir = LogitReservoir(RESERVOIR_CAPACITY, seed=seed + 1)
     scored = validate(model, _loader(target, cfg), device=device, cfg=cfg, thresholds=thresholds,
                       force_sar_only=sar_only, crop_px=EVAL_CONTEXT_PX, logit_sink=test_reservoir,
                       temperature=calibration.temperature, offset=calibration.offset,
-                      per_chip_threshold=special["tau_star"])
+                      per_chip_thresholds=(special["tau_star"], conformal["tau"]))
     metrics = _test_metrics(scored, special, cfg, seed)
     subset = _cloud_free_subset(model, target, cfg, device, sar_only, calibration, special["tau_star"], seed)
     z_t, y_t = test_reservoir.arrays()
@@ -300,7 +304,8 @@ def evaluate_run(
         "split_sha256": data.split_sha256, "test_chips_sha256": chip_set_sha256(target),
         "cloud_free_subset": subset, "synthetic_data": data.is_synthetic, "evaluation_git": _eval_git(record),
         # [tp, fp, fn, tn] per chip at tau*: lets a report re-score any chip subset (docs/09 5.3).
-        "per_chip_tau_star": scored["per_chip"],
+        "per_chip_tau_star": {c: v[0] for c, v in scored["per_chip"].items()},
+        "conformal": {**conformal, **_conformal_test(scored["per_chip"], target, conformal["alpha"])},
         "per_chip_basin": {r.chip_id: r.basin_id for r in target},
     }
     if latency is not None and getattr(device, "type", "") == "cuda":
@@ -315,6 +320,40 @@ def evaluate_run(
                 result["tau_star"], result["macro_iou_raw_tau_star"], result["macro_iou_oracle"],
                 result["average_precision"], calibration.temperature, ece_raw, ece_cal)
     return result
+
+
+#: Raw-logit grid on which validation chips' misses are counted for conformal risk control.
+_CONFORMAL_Z = np.linspace(-12.0, 12.0, 241)
+
+
+def _conformal(per_chip_val: Mapping[str, Sequence[Sequence[int]]], alpha: float, temperature: float,
+               offset: float) -> dict[str, Any]:
+    """The conformal FNR threshold from validation chips, on the raw score, then calibrated."""
+    from floodfusion.calibration import conformal_fnr_threshold
+
+    rows = list(per_chip_val.values())
+    fn = np.array([[cm[2] for cm in r] for r in rows], dtype=np.float64).reshape(len(rows), len(_CONFORMAL_Z))
+    positives = np.array([r[0][0] + r[0][2] for r in rows], dtype=np.float64)
+    crc = conformal_fnr_threshold(fn, positives, _CONFORMAL_Z, alpha=alpha)
+    tau = _sigmoid((crc["score_threshold"] + offset) / temperature)
+    return {**crc, "tau": min(max(tau, 1e-9), 1.0 - 1e-9)}
+
+
+def _conformal_test(per_chip: Mapping[str, Sequence[Sequence[int]]], records: Sequence[Any],
+                    alpha: float) -> dict[str, Any]:
+    """Did the guarantee hold on test? Mean per-chip FNR at tau_conformal, overall and per basin."""
+    from floodfusion.calibration import CONFORMAL_MIN_POSITIVES
+
+    basin_of = {r.chip_id: r.basin_id for r in records}
+    by_basin: dict[str, list[float]] = {}
+    for chip, cms in per_chip.items():
+        tp, _, fn, _ = cms[1]
+        if tp + fn >= CONFORMAL_MIN_POSITIVES:
+            by_basin.setdefault(basin_of[chip], []).append(fn / (tp + fn))
+    every = [v for vs in by_basin.values() for v in vs]
+    return {"test_mean_chip_fnr": float(np.mean(every)) if every else float("nan"), "test_n_chips": len(every),
+            "test_mean_chip_fnr_by_basin": {b: float(np.mean(v)) for b, v in sorted(by_basin.items())},
+            "test_holds": bool(every) and float(np.mean(every)) <= alpha}
 
 
 def _eval_git(record: Mapping[str, Any]) -> dict[str, Any]:

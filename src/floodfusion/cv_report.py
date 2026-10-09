@@ -181,6 +181,33 @@ def _bolivia(loeo_folds: Mapping[str, Any], official_folds: Mapping[str, Any], r
     return lines
 
 
+def _conformal(loeo_folds: Mapping[str, Mapping[str, Sequence[Mapping[str, Any]]]],
+               rows: Sequence[str]) -> tuple[list[str], dict[str, Any]]:
+    """Did the conformal recall guarantee, fitted on the validation EVENT, carry to the held-out event?"""
+    lines = ["| Row | Seed | α | Events where mean chip FNR ≤ α | Mean chip FNR over events | Worst event |",
+             "| --- | --- | --- | --- | --- | --- |"]
+    out: dict[str, Any] = {}
+    for key in rows:
+        by_seed: dict[int | None, dict[str, float]] = {}
+        alpha = math.nan
+        for _, fold_rows in sorted(loeo_folds.items()):
+            for e in fold_rows.get(key, []):
+                c = e["eval"].get("conformal")
+                if not c:
+                    continue
+                alpha = c["alpha"]
+                by_seed.setdefault(_seed_key(e), {}).update(c.get("test_mean_chip_fnr_by_basin", {}))
+        for seed, per_event in by_seed.items():
+            if not per_event:
+                continue
+            held = sum(v <= alpha for v in per_event.values())
+            worst = max(per_event, key=per_event.get)
+            lines.append(f"| {key} | {seed} | {alpha:g} | {held}/{len(per_event)} | "
+                         f"{np.mean(list(per_event.values())):.3f} | {worst} ({per_event[worst]:.3f}) |")
+            out[f"{key}/seed{seed}"] = {"alpha": alpha, "per_event_mean_chip_fnr": per_event, "events_held": held}
+    return lines, out
+
+
 def build_cv_table(runs_root: Path | str, *, out: Path | str | None = None, allow_dirty: bool = False,
                    n_boot: int = 10_000, alpha: float = 0.05) -> str:
     runs_root = Path(runs_root)
@@ -194,6 +221,7 @@ def build_cv_table(runs_root: Path | str, *, out: Path | str | None = None, allo
     summaries = {k: _row_summary(k, v, n_boot, alpha) for k, v in rows.items()}
     gap_lines, gaps = _gaps(summaries, rows, n_boot, alpha, gaps=CV_GAPS)
     leak_lines, leakage = _leakage(loeo_folds, official_folds, ["4", "9", "11"], n_boot, alpha)
+    conformal_lines, conformal = _conformal(loeo_folds, ["4", "9", "11"])
     events = sorted({b for s in summaries.values() for b in s["per_basin"]})
     main = ["| # | Configuration | IoU at τ* [95 % CI over events] | F1 | Seeds | Events |", "| --- | --- | --- | --- | --- | --- |"]
     for row in _ROWS_IN_TABLE:
@@ -223,6 +251,11 @@ def build_cv_table(runs_root: Path | str, *, out: Path | str | None = None, allo
         "that never saw the event. Positive Δ = what the within-event split adds to the score.", "",
         *(leak_lines if len(leak_lines) > 2 else ["(official protocol not run)"]), "",
         "## Bolivia — the dataset's own held-out event", "", *_bolivia(loeo_folds, official_folds, ["4", "9", "11"]), "",
+        "## Conformal recall control across events", "",
+        "Each fold fits the conformal threshold on its validation event's chips (risk = per-chip false-negative "
+        "rate, guarantee E[risk] ≤ α for chips exchangeable with those). The held-out event is a different flood: "
+        "this measures how far the guarantee carries.", "",
+        *(conformal_lines if len(conformal_lines) > 2 else ["(no conformal results recorded)"]), "",
         "## Per-event IoU at τ* (LOEO)", "", *_per_basin(summaries), "",
         *(["## Reproducibility problems", "", *[f"- {p}" for p in problems[:30]], ""] if problems else []),
     ])
@@ -233,7 +266,8 @@ def build_cv_table(runs_root: Path | str, *, out: Path | str | None = None, allo
         write_json(out.with_suffix(".json"), {
             "rows": {k: {"iou": s["iou"], "ci": list(s["ci"]), "per_event": {b: m.iou for b, m in s["per_basin"].items()},
                          "seeds": s["seeds"]} for k, s in summaries.items()},
-            "gaps": gaps, "leakage": leakage, "events": events, "reproducibility_problems": problems,
+            "gaps": gaps, "leakage": leakage, "conformal": conformal, "events": events,
+            "reproducibility_problems": problems,
         })
     LOGGER.info("wrote %s", out)
     return text

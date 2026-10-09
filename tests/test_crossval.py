@@ -87,7 +87,7 @@ def _cm_json(tp: int, fp: int, fn: int) -> dict:
 
 
 def _write_run(d: Path, row: int, seed: int | None, per_basin: dict, per_chip: dict | None = None,
-               chip_basin: dict | None = None) -> None:
+               chip_basin: dict | None = None, conformal: dict | None = None) -> None:
     d.mkdir(parents=True)
     (d / "run.json").write_text(json.dumps({
         "name": d.parent.name, "ablation_row": row, "status": "finished", "git_sha": "abc", "git_dirty": False,
@@ -97,7 +97,8 @@ def _write_run(d: Path, row: int, seed: int | None, per_basin: dict, per_chip: d
     (d / "eval_test.json").write_text(json.dumps({
         "name": d.parent.name, "ablation_row": row, "macro_iou": float(np.mean(ious)), "manifest_sha256": "m",
         "test_chips_sha256": "t", "baseline": seed is None, "per_basin": per_basin,
-        "per_chip_tau_star": per_chip or {}, "per_chip_basin": chip_basin or {}}))
+        "per_chip_tau_star": per_chip or {}, "per_chip_basin": chip_basin or {},
+        **({"conformal": conformal} if conformal else {})}))
 
 
 @pytest.fixture()
@@ -113,7 +114,7 @@ def cv_runs(tmp_path, monkeypatch):
         _write_run(fold / "row02_baseline_adaptive" / "baseline", 2, None, {event: _cm_json(50, 30, 30)})
         _write_run(fold / "row04_unet_sar_only" / "seed42", 4, 42, {event: _cm_json(60 + k, 20, 20)})
         _write_run(fold / "row09_fusion_crossattn" / "seed42", 9, 42, {event: _cm_json(80 + k, 20, 20)},
-                   chips, basin_of)
+                   chips, basin_of, conformal={"alpha": 0.1, "test_mean_chip_fnr_by_basin": {event: 0.05 + 0.01 * k}})
     # The official (within-event) model, on the same chips: better in every event.
     chips = {f"{e}_c{j}": [70, 5, 5, 500] for e in EVENTS for j in range(2)}
     _write_run(root / "official" / "official" / "row09_fusion_crossattn" / "seed42", 9, 42,
@@ -151,3 +152,5 @@ class TestCvReport:
         # LOEO re-scored on the official test chips, not the fold's own per-event matrix:
         assert leak["iou_loeo_same_chips"] == pytest.approx(np.mean([(40 + k) / (60 + k) for k in range(9)]), abs=1e-9)
         assert "same chips" in text and "| 9 |" in text
+        # Conformal: events E0..E5 have mean chip FNR 0.05..0.10 <= 0.1, E6..E8 exceed it.
+        assert result["conformal"]["9/seed42"]["events_held"] == 6 and "| 9 | 42 | 0.1 | 6/9 |" in text

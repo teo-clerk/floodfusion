@@ -260,3 +260,44 @@ class LogitReservoir:
     def arrays(self) -> tuple[np.ndarray, np.ndarray]:
         n = min(self.seen, self.capacity)
         return self._z[:n].copy(), self._y[:n].copy()
+
+
+#: A chip enters the conformal calibration set only with at least this many flood pixels:
+#: the per-chip false-negative rate of a chip with a handful of flood pixels is 0 or 1 noise.
+CONFORMAL_MIN_POSITIVES = 100
+
+
+def conformal_fnr_threshold(fn: np.ndarray, positives: np.ndarray, score_thresholds: np.ndarray, *,
+                            alpha: float) -> dict[str, float | int | bool]:
+    r"""Conformal risk control (Angelopoulos et al., 2022) of the per-chip false-negative rate.
+
+    ``fn[i, k]`` are chip *i*'s missed flood pixels when flood is declared at score above
+    ``score_thresholds[k]`` (ascending), ``positives[i]`` its flood pixels. The loss
+    :math:`L_i(\lambda) = FN_i(\lambda)/P_i \in [0, 1]` grows with the threshold; the returned
+    threshold is the **largest** :math:`\lambda` with
+
+    .. math:: \frac{n}{n+1}\hat R_n(\lambda) + \frac{1}{n+1} \le \alpha ,
+
+    which guarantees :math:`E[L_{n+1}(\hat\lambda)] \le \alpha` for a new chip exchangeable
+    with the calibration chips. Flood events are not exchangeable with each other: the
+    guarantee is marginal over chips like the validation chips, and leave-one-event-out
+    measures how far it carries to an unseen event.
+    """
+    fn = np.asarray(fn, dtype=np.float64)
+    positives = np.asarray(positives, dtype=np.float64)
+    z = np.asarray(score_thresholds, dtype=np.float64)
+    if fn.shape != (len(positives), len(z)) or not np.all(np.diff(z) > 0):
+        raise ValueError("fn must be (chips, thresholds) with strictly ascending thresholds")
+    if not 0.0 < alpha < 1.0:
+        raise ValueError(f"alpha must lie in (0, 1), got {alpha}")
+    keep = positives >= CONFORMAL_MIN_POSITIVES
+    n = int(keep.sum())
+    if n == 0:
+        return {"score_threshold": float(z[0]), "risk_hat": float("nan"), "bound": float("nan"), "n": 0,
+                "alpha": alpha, "feasible": False}
+    risk = (fn[keep] / positives[keep, None]).mean(axis=0)
+    bound = (n * risk + 1.0) / (n + 1.0)
+    ok = np.flatnonzero(bound <= alpha)
+    k = int(ok.max()) if ok.size else 0
+    return {"score_threshold": float(z[k]), "risk_hat": float(risk[k]), "bound": float(bound[k]), "n": n,
+            "alpha": alpha, "feasible": bool(ok.size)}
