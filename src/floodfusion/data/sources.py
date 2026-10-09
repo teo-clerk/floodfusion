@@ -37,7 +37,10 @@ import numpy as np
 from floodfusion.data.chipping import AnalysisGrid, reproject_to_grid
 
 __all__ = [
+    "ALLOWED_REMOTE_HOSTS",
+    "ALLOWED_REMOTE_SUFFIXES",
     "asset_href",
+    "check_href",
     "read_dem",
     "read_jrc_occurrence",
     "read_s1_rtc",
@@ -52,13 +55,41 @@ __all__ = [
 LOGGER = logging.getLogger(__name__)
 
 
+#: Remote hosts an asset href may point at: Planetary Computer's blob storage and API.
+ALLOWED_REMOTE_SUFFIXES = (".blob.core.windows.net",)
+ALLOWED_REMOTE_HOSTS = ("planetarycomputer.microsoft.com",)
+
+
+def check_href(href: str) -> str:
+    """Refuse asset hrefs a STAC item should never carry; return the href unchanged.
+
+    Remote hrefs must be ``https`` to Planetary Computer storage (an ``http`` annotation could
+    be swapped in transit and silently rotate every shadow mask). GDAL virtual paths
+    (``/vsi*``) and inline VRT XML are refused: they let an item make GDAL open arbitrary
+    URLs or local files. Local paths are allowed — offline fixtures and local mirrors.
+    """
+    from urllib.parse import urlparse
+
+    text = str(href).strip()
+    if text.startswith("/vsi") or text.lstrip().startswith("<"):
+        raise ValueError(f"refusing GDAL virtual path or inline XML as an asset href: {text[:60]!r}")
+    parsed = urlparse(text)
+    if parsed.scheme in ("", "file"):
+        return text
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https" or not (host in ALLOWED_REMOTE_HOSTS or host.endswith(ALLOWED_REMOTE_SUFFIXES)):
+        raise ValueError(f"refusing asset href outside Planetary Computer over https: {parsed.scheme}://{host}")
+    return text
+
+
 def signed(href: str) -> str:
-    """Sign a Planetary Computer blob href (anonymous SAS token); other hrefs unchanged."""
-    if href.startswith("http") and "blob.core.windows.net" in href and "?" not in href:
+    """Check, then sign a Planetary Computer blob href (anonymous SAS token)."""
+    href = check_href(href)
+    if href.startswith("https://") and "?" not in href:
         import planetary_computer
 
         return planetary_computer.sign(href)
-    return href
+    return href.removeprefix("file://")
 
 
 def _item_dict(item: Any) -> dict[str, Any]:

@@ -13,3 +13,12 @@ data:
   # empirical variogram range of 2300 m (gamma0 VV) and 1200 m (label) on this benchmark,
   # so the 1000 m default is refused; 2500 m exceeds the governing range.
   basin_buffer_m: 2500.0
+
+train:
+  # Compute budget, fixed BEFORE any run (not tuned on results): ~330 training chips per
+  # epoch, so 30 epochs of the balanced sampler are ~10 000 chip presentations per run —
+  # the grid then fits a laptop session. Warmup and patience scale with the epoch count
+  # (base: 60 / 5 / 15); early stopping reads validation only.
+  epochs: 30
+  warmup_epochs: 3
+  early_stopping_patience: 8

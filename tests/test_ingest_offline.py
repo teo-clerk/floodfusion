@@ -168,6 +168,21 @@ class TestHelpers:
             "href": "https://acc.blob.core.windows.net/s1-grd/X_C9A0/annotation/rfi/rfi-iw-vv.xml?st=1&sig=2"}}}
         assert product_annotation_href(item) == "https://acc.blob.core.windows.net/s1-grd/X_C9A0/annotation/iw-vv.xml?st=1&sig=2"
 
+    @pytest.mark.parametrize("href", ["http://x.blob.core.windows.net/a.tif", "https://evil.example/a.tif",
+                                      "/vsicurl/https://evil.example/a.tif", "<VRTDataset/>",
+                                      "https://x.blob.core.windows.net.evil.example/a.tif"])
+    def test_untrusted_hrefs_are_refused(self, href) -> None:
+        from floodfusion.data.sources import check_href
+
+        with pytest.raises(ValueError):
+            check_href(href)
+
+    def test_trusted_hrefs_pass(self, tmp_path) -> None:
+        from floodfusion.data.sources import check_href
+
+        for href in ("https://sentinel1euwest.blob.core.windows.net/s1-grd/a.xml", str(tmp_path / "a.tif")):
+            assert check_href(href) == href
+
     def test_event_yaml_example_parses(self) -> None:
         example = Path(__file__).resolve().parents[1] / "configs" / "events" / "example.yaml"
         event = load_event_config(example)

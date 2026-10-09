@@ -122,6 +122,35 @@ class GaussianMixture1D:
         return ashman_d(self.means[0], self.means[1], self.sigmas[0], self.sigmas[1])
 
 
+#: Above this many samples the EM runs on a histogram (see :func:`fit_gmm_1d`).
+GMM_EXACT_MAX_SAMPLES = 4096
+GMM_HISTOGRAM_BINS = 1024
+
+
+def _em_two_gaussians(
+    x: np.ndarray, n: np.ndarray, w: np.ndarray, mu: np.ndarray, var: np.ndarray, *,
+    max_iter: int, tol: float, min_sigma: float, var_correction: float,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, bool, int]:
+    """Weighted EM: ``x`` sample values (or bin centres), ``n`` their multiplicities."""
+    total = float(n.sum())
+    previous, converged, it = -np.inf, False, 0
+    for it in range(1, max_iter + 1):  # noqa: B007 - `it` is reported after the loop
+        log_pdf = -0.5 * ((x[:, None] - mu) ** 2 / var + np.log(2.0 * np.pi * var))
+        log_joint = log_pdf + np.log(np.maximum(w, 1e-300))
+        log_norm = np.logaddexp(log_joint[:, 0], log_joint[:, 1])
+        resp = np.exp(log_joint - log_norm[:, None]) * n[:, None]
+        nk = resp.sum(axis=0) + 1e-12
+        w = nk / total
+        mu = (resp * x[:, None]).sum(axis=0) / nk
+        var = np.maximum((resp * (x[:, None] - mu) ** 2).sum(axis=0) / nk + var_correction, min_sigma**2)
+        ll = float((n * log_norm).sum() / total)
+        if abs(ll - previous) <= tol * max(1.0, abs(ll)):
+            converged = True
+            break
+        previous = ll
+    return w, mu, var, converged, it
+
+
 def fit_gmm_1d(
     values: np.ndarray,
     *,
@@ -134,6 +163,12 @@ def fit_gmm_1d(
     Initialised from the Otsu split (so the result is reproducible — no random restarts),
     iterated to a relative log-likelihood change below ``tol``. Variances are floored at
     ``min_sigma**2`` so a degenerate component cannot collapse onto one value.
+
+    Above :data:`GMM_EXACT_MAX_SAMPLES` values the E and M steps run on a
+    :data:`GMM_HISTOGRAM_BINS`-bin histogram with the counts as weights, plus Sheppard's
+    correction :math:`h^2/12` to the variances: identical to the per-sample EM up to the
+    bin width (~0.03 dB over a 30 dB range — far below the speckle), and independent of the
+    tile size. A 200 x 200 tile then costs 1024 instead of 40 000 evaluations per iteration.
     """
     x = np.asarray(values, dtype=np.float64).ravel()
     x = x[np.isfinite(x)]
@@ -146,23 +181,17 @@ def fit_gmm_1d(
     w = np.array([lo.size, hi.size], dtype=np.float64) / x.size
     mu = np.array([lo.mean(), hi.mean()])
     var = np.maximum(np.array([lo.var(), hi.var()]), min_sigma**2)
-    previous = -np.inf
-    converged = False
-    it = 0
-    for it in range(1, max_iter + 1):  # noqa: B007 - `it` is reported after the loop
-        log_pdf = -0.5 * ((x[:, None] - mu) ** 2 / var + np.log(2.0 * np.pi * var))
-        log_joint = log_pdf + np.log(np.maximum(w, 1e-300))
-        log_norm = np.logaddexp(log_joint[:, 0], log_joint[:, 1])
-        resp = np.exp(log_joint - log_norm[:, None])
-        nk = resp.sum(axis=0) + 1e-12
-        w = nk / x.size
-        mu = (resp * x[:, None]).sum(axis=0) / nk
-        var = np.maximum((resp * (x[:, None] - mu) ** 2).sum(axis=0) / nk, min_sigma**2)
-        ll = float(log_norm.mean())
-        if abs(ll - previous) <= tol * max(1.0, abs(ll)):
-            converged = True
-            break
-        previous = ll
+    if x.size > GMM_EXACT_MAX_SAMPLES and x.max() > x.min():
+        counts, edges = np.histogram(x, bins=GMM_HISTOGRAM_BINS)
+        keep = counts > 0
+        centres = 0.5 * (edges[:-1] + edges[1:])[keep]
+        width = float(edges[1] - edges[0])
+        w, mu, var, converged, it = _em_two_gaussians(centres, counts[keep].astype(np.float64), w, mu, var,
+                                                      max_iter=max_iter, tol=tol, min_sigma=min_sigma,
+                                                      var_correction=width**2 / 12.0)
+    else:
+        w, mu, var, converged, it = _em_two_gaussians(x, np.ones_like(x), w, mu, var, max_iter=max_iter,
+                                                      tol=tol, min_sigma=min_sigma, var_correction=0.0)
     order = np.argsort(mu)
     return GaussianMixture1D(
         weights=(float(w[order[0]]), float(w[order[1]])),

@@ -53,6 +53,11 @@ class TestParsing:
         assert len(annotation.srgr) > 10
         assert annotation.near_range_m == pytest.approx(8.0e5, rel=0.01)
 
+    def test_rejects_entity_declarations(self) -> None:
+        bomb = '<?xml version="1.0"?><!DOCTYPE x [<!ENTITY a "aaaa"><!ENTITY b "&a;&a;&a;">]><product>&b;</product>'
+        with pytest.raises(ValueError, match="DTD"):
+            parse_annotation(bomb)
+
     def test_rejects_non_annotation_xml(self) -> None:
         with pytest.raises(ValueError, match="annotation"):
             parse_annotation("<rfi><adsHeader><missionId>S1A</missionId></adsHeader></rfi>")

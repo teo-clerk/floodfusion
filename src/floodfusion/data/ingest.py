@@ -70,6 +70,7 @@ from floodfusion.data.stac import (
     MatchedScenes,
     open_catalogue,
     profile_for,
+    redact,
     save_matched_scenes,
     search_matched_pairs,
 )
@@ -95,6 +96,12 @@ DEFAULT_SPLIT_EPSG = 3035
 #: Incidence varies by ~0.0006 deg per 10 m pixel: a 16-px lattice + bilinear is exact enough.
 _INCIDENCE_LATTICE_PX = 16
 _HTTP_TIMEOUT_S = 120
+_MAX_FETCH_BYTES = 64 * 1024 * 1024
+#: ~200 B per grid pixel in memory: 5e7 px is ~10 GB — a mistyped bbox, not an AOI.
+MAX_GRID_PIXELS = 50_000_000
+#: GDAL's own HTTP reads (COGs on blob storage) need bounds too.
+_GDAL_ENV = {"GDAL_HTTP_TIMEOUT": 60, "GDAL_HTTP_MAX_RETRY": 3, "GDAL_HTTP_RETRY_DELAY": 2,
+             "GDAL_DISABLE_READDIR_ON_OPEN": "EMPTY_DIR"}
 
 
 # ---------------------------------------------------------------------------
@@ -175,16 +182,28 @@ def load_event_config(path: Path | str) -> EventConfig:
 # Archive access (injectable for offline tests)
 # ---------------------------------------------------------------------------
 def _default_fetch(href: str) -> bytes:
-    """Bytes of a local file or an (anonymously signed) HTTPS href."""
-    if href.startswith(("http://", "https://")):
-        import requests
+    """Bytes of a local file or an allow-listed, signed HTTPS href (no redirects, size-capped)."""
+    from floodfusion.data.sources import check_href, signed
 
-        from floodfusion.data.sources import signed
+    href = check_href(href)
+    if not href.startswith("https://"):
+        path = Path(href.removeprefix("file://"))
+        if not path.is_file() or path.stat().st_size > _MAX_FETCH_BYTES:
+            raise ValueError(f"{path}: not a regular file below {_MAX_FETCH_BYTES} bytes")
+        return path.read_bytes()
+    import requests
 
-        response = requests.get(signed(href), timeout=_HTTP_TIMEOUT_S)
-        response.raise_for_status()
-        return response.content
-    return Path(href.removeprefix("file://")).read_bytes()
+    url = signed(href)
+    with requests.get(url, timeout=(10, _HTTP_TIMEOUT_S), allow_redirects=False, stream=True) as response:
+        if response.status_code != 200:
+            raise OSError(f"HTTP {response.status_code} for {redact(url)}")
+        chunks, size = [], 0
+        for chunk in response.iter_content(chunk_size=1 << 20):
+            size += len(chunk)
+            if size > _MAX_FETCH_BYTES:
+                raise OSError(f"{redact(url)}: larger than {_MAX_FETCH_BYTES} bytes")
+            chunks.append(chunk)
+    return b"".join(chunks)
 
 
 @dataclass(frozen=True)
@@ -532,7 +551,24 @@ def ingest_event(
     sources: IngestSources | None = None,
     split_epsg: int = DEFAULT_SPLIT_EPSG,
 ) -> dict[str, Any]:
-    """Ingest one event into ``<out_root>/events/<event_id>/``; returns its ``event.json``."""
+    """Ingest one event into ``<out_root>/events/<event_id>/``; returns its ``event.json``.
+
+    GDAL's HTTP reads run with explicit timeouts and retries (:data:`_GDAL_ENV`).
+    """
+    import rasterio
+
+    with rasterio.Env(**_GDAL_ENV):
+        return _ingest_event(event, out_root, cfg, sources=sources, split_epsg=split_epsg)
+
+
+def _ingest_event(
+    event: EventConfig,
+    out_root: Path | str,
+    cfg: ExperimentConfig,
+    *,
+    sources: IngestSources | None,
+    split_epsg: int,
+) -> dict[str, Any]:
     from floodfusion.masks import build_validity_mask
 
     profile = profile_for(event.catalogue_url)
@@ -546,6 +582,9 @@ def ingest_event(
     matched = search_matched_pairs(event.query(), event.catalogue_url, client=sources.client, profile=profile)
     save_matched_scenes([matched], event_dir / "scenes.json")
     grid = build_analysis_grid(event.bbox, cfg.grid.pixel_size_m)
+    if grid.width * grid.height > MAX_GRID_PIXELS:
+        raise ValueError(f"{event.event_id}: a {grid.width} x {grid.height} grid exceeds {MAX_GRID_PIXELS} pixels "
+                         "(~200 B/pixel in memory) — split the AOI or check the bbox")
     LOGGER.info("%s: orbit %d %s, grid EPSG:%d %dx%d", event.event_id, matched.relative_orbit,
                 matched.orbit_state, grid.epsg, grid.width, grid.height)
     sar, rtc_qa = _read_sar(sources, matched, grid)
@@ -672,6 +711,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         except LookupError as exc:
             # docs/05 2.1 criterion 3: an event without a same-orbit pre scene is DROPPED.
             LOGGER.error("%s dropped: %s", event.event_id, exc)
+            failures += 1
+        except Exception as exc:  # noqa: BLE001 - one event's failure must not abort the batch
+            # Error texts of HTTP/GDAL failures embed signed URLs: never print the token.
+            LOGGER.error("%s failed: %s: %s", event.event_id, type(exc).__name__, redact(str(exc)))
             failures += 1
     digest = build_dataset(args.out, cfg, split_epsg=args.split_epsg)
     LOGGER.info("manifest %s", digest)

@@ -71,6 +71,7 @@ __all__ = [
     "load_matched_scenes",
     "open_catalogue",
     "profile_for",
+    "redact",
     "save_matched_scenes",
     "search_matched_pairs",
     "summarise_optical_availability",
@@ -162,14 +163,25 @@ PROFILES: dict[str, CatalogueProfile] = {
 }
 
 
+#: Exact catalogue hosts (never a substring test: ``planetarycomputer.evil.example`` and
+#: ``planetarycomputer.microsoft.com@evil.example`` must not pass as Planetary Computer).
+_KNOWN_HOSTS = {"planetarycomputer.microsoft.com": "planetary_computer",
+                "catalogue.dataspace.copernicus.eu": "cdse"}
+_HTTP_TIMEOUT = (10.0, 60.0)
+
+
 def profile_for(catalogue_url: str) -> CatalogueProfile:
-    """Pick the profile from the catalogue host."""
-    host = urlparse(catalogue_url).netloc.lower()
-    if "planetarycomputer" in host:
-        return PROFILES["planetary_computer"]
-    if "dataspace.copernicus.eu" in host:
-        return PROFILES["cdse"]
-    return PROFILES["generic"]
+    """Pick the profile from the catalogue's exact https host; anything else is ``generic``."""
+    parsed = urlparse(catalogue_url)
+    name = _KNOWN_HOSTS.get((parsed.hostname or "").lower()) if parsed.scheme == "https" else None
+    return PROFILES[name or "generic"]
+
+
+def redact(text: str) -> str:
+    """Strip query strings (SAS tokens) from every URL in ``text`` — for logs and errors."""
+    import re
+
+    return re.sub(r"(https?://[^\s?'\"]+)\?[^\s'\"]*", r"\1?<redacted>", str(text))
 
 
 class _Searchable(Protocol):
@@ -186,7 +198,7 @@ def open_catalogue(catalogue_url: str, profile: CatalogueProfile | None = None) 
         import planetary_computer
 
         modifier = planetary_computer.sign_inplace
-    return Client.open(catalogue_url, modifier=modifier)
+    return Client.open(catalogue_url, modifier=modifier, timeout=_HTTP_TIMEOUT)
 
 
 # ---------------------------------------------------------------------------
@@ -517,7 +529,14 @@ class InMemoryCatalogue:
         return out
 
     def save(self, path: Path | str) -> None:
-        Path(path).write_text(json.dumps({"items": self.items}, indent=1, default=str), encoding="utf-8")
+        """Persist the items with every href's query string (a signing token) removed."""
+        def strip(item: Mapping[str, Any]) -> dict[str, Any]:
+            assets = {k: {**v, "href": str(v.get("href", "")).split("?", 1)[0]}
+                      for k, v in dict(item.get("assets", {})).items()}
+            return {**item, "assets": assets}
+
+        Path(path).write_text(json.dumps({"items": [strip(i) for i in self.items]}, indent=1, default=str),
+                              encoding="utf-8")
 
     @classmethod
     def load(cls, path: Path | str) -> InMemoryCatalogue:

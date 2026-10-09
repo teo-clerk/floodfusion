@@ -395,7 +395,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=1.26" },
     { name = "pandas", specifier = ">=2.1" },
     { name = "planetary-computer", specifier = ">=1.0" },
-    { name = "pyarrow", specifier = ">=14" },
+    { name = "pyarrow", specifier = ">=14.0.1" },
     { name = "pyproj", specifier = ">=3.6" },
     { name = "pystac", specifier = ">=1.9" },
     { name = "pystac-client", specifier = ">=0.7" },
@@ -408,7 +408,7 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6" },
     { name = "scipy", specifier = ">=1.11" },
     { name = "shapely", specifier = ">=2.0" },
-    { name = "torch", specifier = ">=2.4" },
+    { name = "torch", specifier = ">=2.6" },
     { name = "torchvision", specifier = ">=0.19" },
     { name = "xarray", specifier = ">=2023.12" },
 ]

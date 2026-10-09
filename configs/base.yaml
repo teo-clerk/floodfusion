@@ -168,6 +168,10 @@ train:
   weight_decay: 1.0e-2 # excluded from norm and bias parameters
   warmup_epochs: 5 # attention logits are unstable early (docs/07 4.2)
   grad_clip_norm: 1.0
+  # Stop when validation macro IoU has not improved for this many epochs (docs/08 7.1:
+  # "60 epochs with early stopping on validation IoU"); 0 disables. Validation only —
+  # the test split is never consulted.
+  early_stopping_patience: 15
 
   # bfloat16 is MANDATED, not preferred. The soft-Dice reduction sums B*H*W terms
   # (524 288 at B=8, 256^2); a sum of order 1e5 OVERFLOWS fp16's 5-bit exponent,

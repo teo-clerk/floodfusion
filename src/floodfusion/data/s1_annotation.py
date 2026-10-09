@@ -13,8 +13,10 @@ geometry the terrain masks need. The matching GRD product's annotation supplies 
 - the **orbit state vectors**, image timing and **SRGR polynomials** — everything
   :func:`floodfusion.data.geocoding.terrain_correct` needs for Route A.
 
-Parsed with the standard library (``xml.etree``; the expat backend does not resolve
-external entities and bounds entity expansion).
+Parsed with the standard library (``xml.etree``: expat does not resolve external entities
+and, from expat 2.4, bounds entity expansion). S1 annotations never carry a DTD, so any
+``<!DOCTYPE``/``<!ENTITY`` is refused outright, and inputs above :data:`MAX_ANNOTATION_BYTES`
+are refused before parsing.
 """
 
 from __future__ import annotations
@@ -29,7 +31,10 @@ import numpy as np
 
 from floodfusion.data.geocoding import OrbitStateVectors, SRGRGeometry
 
-__all__ = ["S1Annotation", "parse_annotation"]
+__all__ = ["MAX_ANNOTATION_BYTES", "S1Annotation", "parse_annotation"]
+
+#: A real GRD product annotation is ~2 MB; anything far larger is not one.
+MAX_ANNOTATION_BYTES = 64 * 1024 * 1024
 
 
 def _time(text: str) -> datetime:
@@ -132,9 +137,18 @@ class S1Annotation:
 def parse_annotation(source: str | bytes | Path) -> S1Annotation:
     """Parse a Sentinel-1 L1 product annotation (XML text, bytes or a file path)."""
     if isinstance(source, Path) or (isinstance(source, str) and not source.lstrip().startswith("<")):
-        root = ET.parse(source).getroot()
+        path = Path(source)
+        if path.stat().st_size > MAX_ANNOTATION_BYTES:
+            raise ValueError(f"{path}: larger than {MAX_ANNOTATION_BYTES} bytes — not an S1 annotation")
+        data = path.read_bytes()
     else:
-        root = ET.fromstring(source)
+        data = source.encode("utf-8") if isinstance(source, str) else bytes(source)
+    if len(data) > MAX_ANNOTATION_BYTES:
+        raise ValueError(f"annotation larger than {MAX_ANNOTATION_BYTES} bytes")
+    head = data[:4096].upper()
+    if b"<!DOCTYPE" in head or b"<!ENTITY" in data.upper():
+        raise ValueError("refusing an annotation with a DTD/entity declaration (S1 annotations have none)")
+    root = ET.fromstring(data)
     header = root.find("adsHeader")
     info = root.find("generalAnnotation/productInformation")
     image = root.find("imageAnnotation/imageInformation")

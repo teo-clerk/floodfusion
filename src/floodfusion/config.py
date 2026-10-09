@@ -355,6 +355,8 @@ class TrainConfig:
     weight_decay: float = 1.0e-2  # excluded from norm and bias parameters
     warmup_epochs: int = 5
     grad_clip_norm: float = 1.0
+    #: Epochs without a new best validation macro IoU before stopping; 0 disables.
+    early_stopping_patience: int = 0
 
     #: bf16, never fp16: the soft-Dice reduction sums ~5e5 terms and overflows fp16's
     #: 5-bit exponent (``docs/08`` section 5.1).
@@ -381,6 +383,8 @@ class TrainConfig:
             raise ValueError("micro_batch_size and grad_accum_steps must be >= 1")
         if self.warmup_epochs >= self.epochs:
             raise ValueError("warmup_epochs must be smaller than epochs")
+        if self.early_stopping_patience < 0:
+            raise ValueError("early_stopping_patience must be >= 0 (0 disables)")
 
     @property
     def effective_batch_size(self) -> int:

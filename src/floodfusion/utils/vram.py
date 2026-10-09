@@ -64,7 +64,9 @@ __all__ = [
     "MemoryBudget",
     "collect_block_shapes",
     "estimate_activation_bytes",
+    "load_overhead_factor",
     "measure_peak",
+    "predict_training_peak",
     "static_bytes",
 ]
 
@@ -297,6 +299,49 @@ def collect_block_shapes(
     return tuple(shapes)
 
 
+def load_overhead_factor(path: Path | str = Path("reports/vram_budget.json")) -> tuple[float, str]:
+    """The calibrated overhead factor ``k`` from a budget run, or the default and why."""
+    path = Path(path)
+    try:
+        rows = json.loads(path.read_text(encoding="utf-8"))["rows"]
+        k = float(rows[0]["overhead_factor_k"])
+        return k, f"calibrated k from {path}"
+    except (OSError, KeyError, IndexError, ValueError, TypeError):
+        return DEFAULT_OVERHEAD_FACTOR, f"default k={DEFAULT_OVERHEAD_FACTOR} ({path} not available)"
+
+
+def predict_training_peak(
+    model: Any,
+    example_inputs_b1: Mapping[str, Any],
+    *,
+    label: str,
+    batch_size: int,
+    chip_size: int,
+    overhead_factor: float,
+    bytes_per_element: int = 2,
+) -> MemoryBudget:
+    """Predict a run's training peak **before** its first step (``P1-M4``).
+
+    The block shapes come from one batch-1 forward of the actual model (activations scale
+    exactly linearly in B); static memory is 16 B/parameter for AdamW with fp32 master
+    weights. ``overhead_factor`` is the ``k`` calibrated by ``make vram-budget``.
+    """
+    was_training = model.training
+    model.eval()
+    try:
+        shapes = collect_block_shapes(model, example_inputs_b1)
+    finally:
+        model.train(was_training)
+    analytic = estimate_activation_bytes(
+        tuple((batch_size, c, h, w) for (_one, c, h, w) in shapes),
+        tensors_per_stage=4, bytes_per_element=bytes_per_element, decoder_mirror=False,
+    )
+    n_params = sum(p.numel() for p in model.parameters())
+    return MemoryBudget(label=label, n_params=n_params, batch_size=batch_size, chip_size=chip_size,
+                        static_bytes=static_bytes(n_params, "adamw"), activation_bytes_analytic=analytic,
+                        overhead_factor=overhead_factor)
+
+
 # ---------------------------------------------------------------------------
 # Calibration CLI — docs/08 section 4.6
 # ---------------------------------------------------------------------------
@@ -322,64 +367,83 @@ SECTION_4_6_CONFIGURATIONS: tuple[BudgetConfiguration, ...] = (
 )
 
 
-def _training_step_peak(cfg: Any, conf: BudgetConfiguration, device: Any) -> tuple[int, int, int, int]:
-    """Measure one bf16 training step; return (allocated, reserved, analytic_act, n_params)."""
+def _budget_model(cfg: Any, conf: BudgetConfiguration, device: Any) -> Any:
+    import torch
+
+    from floodfusion.models.zoo import build_model
+
+    model = build_model(replace(cfg.model, architecture=conf.architecture)).to(device)
+    if conf.checkpointing:
+        model.enable_gradient_checkpointing(True)
+    return model.to(memory_format=torch.channels_last)
+
+
+def _budget_batch(bsz: int, s: int, device: Any) -> dict[str, Any]:
     import torch
 
     from floodfusion.config import N_OPTICAL_CHANNELS, N_SAR_CHANNELS, N_TERRAIN_CHANNELS
-    from floodfusion.models.losses import CompoundFocalDiceLoss
-    from floodfusion.models.zoo import build_model
-    from floodfusion.optim import build_optimizer
 
-    model_cfg = replace(cfg.model, architecture=conf.architecture)
-    model = build_model(model_cfg).to(device)
-    if conf.checkpointing:
-        model.enable_gradient_checkpointing(True)
-    model = model.to(memory_format=torch.channels_last)
+    g = torch.Generator(device="cpu").manual_seed(0)
+    out = {
+        "sar": torch.randn(bsz, N_SAR_CHANNELS, s, s, generator=g),
+        "terrain": torch.rand(bsz, N_TERRAIN_CHANNELS, s, s, generator=g),
+        "optical": torch.rand(bsz, N_OPTICAL_CHANNELS, s, s, generator=g),
+        "optical_quality": torch.ones(bsz, 1, s, s),
+        "optical_available": torch.ones(bsz, dtype=torch.bool),
+    }
+    return {k: (v.to(device, memory_format=torch.channels_last) if v.dim() == 4 else v.to(device))
+            for k, v in out.items()}
+
+
+def _analytic_prediction(cfg: Any, conf: BudgetConfiguration, device: Any) -> tuple[int, int]:
+    """(analytic activation bytes, n_params) from batch-1 block shapes — BEFORE any measurement.
+
+    A batch-1 forward never runs out of memory, so every row gets its prediction even when the
+    measured step then fails: "predicted 9 GiB, measured OOM" is a result; "predicted 0" is not.
+    """
+    import torch
+
+    model = _budget_model(cfg, conf, device)
     n_params = sum(p.numel() for p in model.parameters())
-    b, s = conf.batch_size, conf.chip_size
-
-    def batch(bsz: int) -> dict[str, torch.Tensor]:
-        g = torch.Generator(device="cpu").manual_seed(0)
-        out = {
-            "sar": torch.randn(bsz, N_SAR_CHANNELS, s, s, generator=g),
-            "terrain": torch.rand(bsz, N_TERRAIN_CHANNELS, s, s, generator=g),
-            "optical": torch.rand(bsz, N_OPTICAL_CHANNELS, s, s, generator=g),
-            "optical_quality": torch.ones(bsz, 1, s, s),
-            "optical_available": torch.ones(bsz, dtype=torch.bool),
-        }
-        return {
-            k: (v.to(device, memory_format=torch.channels_last) if v.dim() == 4 else v.to(device))
-            for k, v in out.items()
-        }
-
-    # Analytic count from the actual block shapes at B=1, scaled by B (exactly linear).
-    probe = batch(1)
     model.eval()
-    shapes = collect_block_shapes(model, probe)
-    model.train()
+    shapes = collect_block_shapes(model, _budget_batch(1, conf.chip_size, device))
     analytic = estimate_activation_bytes(
-        tuple((b, c, h, w) for (_one, c, h, w) in shapes),
+        tuple((conf.batch_size, c, h, w) for (_one, c, h, w) in shapes),
         tensors_per_stage=4, bytes_per_element=2, decoder_mirror=False,
     )
+    del model
+    torch.cuda.empty_cache()
+    return analytic, n_params
 
+
+def _training_step_peak(cfg: Any, conf: BudgetConfiguration, device: Any) -> tuple[int, int]:
+    """Measure one bf16 training step: (max allocated, max reserved) bytes."""
+    import torch
+
+    from floodfusion.models.losses import CompoundFocalDiceLoss
+    from floodfusion.optim import build_optimizer
+
+    model = _budget_model(cfg, conf, device)
+    model.train()
+    b, s = conf.batch_size, conf.chip_size
     loss_fn = CompoundFocalDiceLoss(cfg.loss)
     optimizer = build_optimizer(model, cfg.train)
-    inputs = batch(b)
+    inputs = _budget_batch(b, s, device)
     target = (torch.rand(b, 1, s, s, device=device) < 0.02).float()
     valid = torch.ones(b, 1, s, s, dtype=torch.bool, device=device)
-    del probe
     torch.cuda.empty_cache()
-    with measure_peak() as stats:
-        with torch.autocast("cuda", dtype=torch.bfloat16):
-            logits, _gate = model(**inputs)
-            total, _parts = loss_fn(logits, target, valid)
-        total.backward()
-        optimizer.step()
-        optimizer.zero_grad(set_to_none=True)
-    del model, optimizer, inputs, logits, total
-    torch.cuda.empty_cache()
-    return stats["allocated"], stats["reserved"], analytic, n_params
+    try:
+        with measure_peak() as stats:
+            with torch.autocast("cuda", dtype=torch.bfloat16):
+                logits, _gate = model(**inputs)
+                total, _parts = loss_fn(logits, target, valid)
+            total.backward()
+            optimizer.step()
+            optimizer.zero_grad(set_to_none=True)
+    finally:
+        del model, optimizer, inputs
+        torch.cuda.empty_cache()
+    return stats["allocated"], stats["reserved"]
 
 
 def build_budget_table(cfg: Any, *, configurations: Sequence[BudgetConfiguration] = SECTION_4_6_CONFIGURATIONS) -> list[dict[str, Any]]:
@@ -395,12 +459,13 @@ def build_budget_table(cfg: Any, *, configurations: Sequence[BudgetConfiguration
     k: float | None = None
     for conf in configurations:
         # The analytic estimate and the prediction are fixed BEFORE the measurement.
+        analytic, n_params = _analytic_prediction(cfg, conf, device)
         try:
-            allocated, reserved, analytic, n_params = _training_step_peak(cfg, conf, device)
+            allocated, reserved = _training_step_peak(cfg, conf, device)
             oom = False
         except torch.cuda.OutOfMemoryError:
             torch.cuda.empty_cache()
-            allocated = reserved = analytic = n_params = 0
+            allocated = reserved = 0
             oom = True
         static = static_bytes(n_params, "adamw")
         if k is None and not oom:

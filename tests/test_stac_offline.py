@@ -42,6 +42,10 @@ PC = "https://planetarycomputer.microsoft.com/api/stac/v1"
 class TestProfiles:
     def test_host_selects_profile(self) -> None:
         assert profile_for(PC).s1_collection == "sentinel-1-rtc"
+        # Exact https host, never a substring (security review): these are NOT Planetary Computer.
+        for spoof in ("https://planetarycomputer.evil.example/api", "https://planetarycomputer.microsoft.com@evil.example/",
+                      "http://planetarycomputer.microsoft.com/api/stac/v1"):
+            assert profile_for(spoof).name == "generic"
         assert profile_for("https://catalogue.dataspace.copernicus.eu/stac").dem_collection == "cop-dem-glo-30-dged-cog"
         assert profile_for("https://example.org/stac").name == "generic"
 
@@ -143,6 +147,18 @@ class TestPersistence:
         cat.save(tmp_path / "cat.json")
         replay = InMemoryCatalogue.load(tmp_path / "cat.json")
         assert search_matched_pairs(_query(), PC, client=replay).s1_pre_id == "pre"
+
+    def test_saved_catalogue_drops_signing_tokens(self, tmp_path) -> None:
+        item = _s1("a", "2023-11-05T17:07:13Z")
+        item["assets"] = {"vv": {"href": "https://x.blob.core.windows.net/c/vv.tif?st=1&sig=SECRET"}}
+        InMemoryCatalogue.from_dicts([item]).save(tmp_path / "c.json")
+        text = (tmp_path / "c.json").read_text()
+        assert "SECRET" not in text and "vv.tif" in text
+
+    def test_redact(self) -> None:
+        from floodfusion.data.stac import redact
+
+        assert "sig=" not in redact("error for url: https://a.blob.core.windows.net/x.tif?se=2&sig=abc")
 
     def test_search_by_ids(self) -> None:
         cat = InMemoryCatalogue.from_dicts([_s1("a", "2023-11-05T17:07:13Z"), _s1("b", "2023-11-05T17:07:13Z")])

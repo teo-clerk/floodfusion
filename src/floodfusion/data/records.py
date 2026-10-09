@@ -130,6 +130,17 @@ def manifest_sha256(records: Iterable[ChipRecord], base: Path | str | None = Non
     return digest.hexdigest()
 
 
+def _read_umask() -> int:
+    # os.umask can only be read by setting it; done ONCE, at import, so no later file creation
+    # in another thread can race the transient 0 umask.
+    current = os.umask(0o022)
+    os.umask(current)
+    return current
+
+
+_UMASK = _read_umask()
+
+
 def atomic_write_bytes(path: Path, payload: bytes) -> None:
     """Write via a temporary file in the same directory, fsync, then ``os.replace``.
 
@@ -143,9 +154,7 @@ def atomic_write_bytes(path: Path, payload: bytes) -> None:
             handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
-        umask = os.umask(0)
-        os.umask(umask)
-        os.chmod(tmp, 0o666 & ~umask)  # mkstemp creates 0600; keep normal file permissions
+        os.chmod(tmp, 0o666 & ~_UMASK)  # mkstemp creates 0600; keep normal file permissions
         os.replace(tmp, path)
     except BaseException:
         Path(tmp).unlink(missing_ok=True)
