@@ -34,3 +34,4 @@ dist/
 .vscode/
 *.swp
 .DS_Store
+/reports/products/
