@@ -1,5 +1,7 @@
-# --- Local, unpublished material (never committed) -----------------
-portfolio_briefing/
+# --- Local, unpublished material ---------------------------------------------
+# curriculum/ holds the design specification the code cites as docs/NN.
+/curriculum/
+/portfolio_briefing/
 
 # --- Python / tooling ---------------------------------------------------------
 .venv/
