@@ -56,6 +56,7 @@ __all__ = [
     "circular_mean_deg",
     "expand_grid",
     "incidence_on_grid",
+    "label_optical_window_shifts",
     "label_window_shifts",
     "pooled_shift",
     "pooled_shift_ci_halfwidth",
@@ -82,10 +83,11 @@ MIN_QA_WINDOWS = 5
 #: this bound read >= 1 px in 2 % of cases, the others in 36 %. A 1 px verdict is then >= 2 SE
 #: from zero.
 QA_MAX_SE_PX = 0.5
-#: A pooled pass/event shift is applied only if its 95 % interval (chips resampled, since the
-#: windows of one chip are not independent) is at most this wide on each side.
+#: A pooled pass/event shift is applied only if its (approximate) 95 % interval — chips
+#: resampled, since the windows of one chip are not independent — is at most this wide on each
+#: side: the estimate's uncertainty is then no larger than the whole-pixel rounding error.
 SHIFT_MAX_CI_PX = 0.5
-_BOOTSTRAP_RESAMPLES = 200
+_BOOTSTRAP_RESAMPLES = 1000
 #: A systematic SAR-optical misregistration of at least this many pixels is corrected by
 #: moving the optical layers onto the SAR/DEM geometry (measured on the real archive:
 #: Sentinel-2 L2A of 2018-2019 sits ~2 px from the RTC gamma0; see align_optical_to_sar).
@@ -142,6 +144,10 @@ class GridTask:
     #: A shift measured once for the whole optical pass (pooled over many grids); ``None``
     #: measures it on this grid alone.
     optical_shift_px: tuple[int, int] | None = None
+    #: A shift for the label alone, when it was measured not to follow the optical image
+    #: (Sen1Floods11 events whose labels were drawn on another geometry). Overrides
+    #: ``label_follows_optical``.
+    label_shift_px: tuple[int, int] | None = None
     generator: str = "floodfusion.data.ingest (Route B: Planetary Computer sentinel-1-rtc)"
 
 
@@ -393,8 +399,13 @@ def pooled_shift(per_grid_shifts: Sequence[np.ndarray], *,
     dy, dx = np.median(allw, axis=0)
     out["median_shift"] = [float(dy), float(dx)]
     if np.hypot(dy, dx) >= min_shift_px:
-        out["shift_px"] = [round(float(dy)), round(float(dx))]
+        out["shift_px"] = [_round_half_up(dy), _round_half_up(dx)]
     return out
+
+
+def _round_half_up(value: float) -> int:
+    """``round`` is banker's rounding (2.5 -> 2, 3.5 -> 4): a shift must not depend on parity."""
+    return int(math.floor(float(value) + 0.5))
 
 
 def pooled_shift_ci_halfwidth(per_grid_shifts: Sequence[np.ndarray], *, n_boot: int = _BOOTSTRAP_RESAMPLES,
@@ -407,13 +418,31 @@ def pooled_shift_ci_halfwidth(per_grid_shifts: Sequence[np.ndarray], *, n_boot: 
     """
     grids = [np.asarray(s, dtype=np.float64).reshape(-1, 2) for s in per_grid_shifts]
     grids = [g for g in grids if len(g)]
-    if not grids:
+    if len(grids) < 2:  # one grid resampled is always itself: an interval of 0 that means nothing
         return float("nan")
     rng = np.random.default_rng(seed)
     medians = np.array([np.median(np.concatenate([grids[i] for i in rng.integers(0, len(grids), len(grids))]), axis=0)
                         for _ in range(n_boot)])
     lo, hi = np.percentile(medians, [2.5, 97.5], axis=0)
     return float(np.max((hi - lo) / 2.0))
+
+
+def label_optical_window_shifts(reflectance: np.ndarray, label: np.ndarray) -> np.ndarray:
+    """Per-window ``(dy, dx)`` of a water label relative to the optical SWIR, on clear pixels.
+
+    No SAR involved: whether a label was drawn on this optical image is measured directly.
+    """
+    from floodfusion.data.coregistration import median_displacement, structure_image
+
+    lab = np.asarray(label, dtype=np.float64)
+    swir = np.asarray(reflectance[_ALIGNMENT_BAND], dtype=np.float64)
+    valid = np.isfinite(lab) & np.isfinite(swir)
+    if not valid.any():
+        return np.empty((0, 2))
+    swir = np.where(valid, swir, float(np.median(swir[valid])))
+    water = np.where(np.isfinite(lab), lab, 0.0)
+    return median_displacement(structure_image(swir, log=True), structure_image(water, log=False),
+                               valid=valid)["shifts"]
 
 
 def label_window_shifts(sar_post_db: np.ndarray, label: np.ndarray) -> np.ndarray:
@@ -520,6 +549,14 @@ def _coregister(task: GridTask, sar: Mapping[str, np.ndarray], optical: _Optical
                 ref: GridReference) -> tuple[_OpticalLayers, GridReference, dict[str, Any]]:
     if not task.coregister_optical:
         return optical, ref, {"applied_shift_px": [0, 0], "skipped": "off"}
+    if task.label_shift_px is not None:  # the label has its own geometry: move it on its own
+        dy, dx = (int(v) for v in task.label_shift_px)
+        optical, ref, info = _coregister(replace(task, label_shift_px=None, label_follows_optical=False),
+                                         sar, optical, ref)
+        if (dy, dx) != (0, 0):
+            ref = replace(ref, label=shift_pixels(ref.label, dy, dx, np.nan),
+                          inside_aoi=shift_pixels(ref.inside_aoi, dy, dx, False))
+        return optical, ref, {**info, "label_shift_px": [dy, dx], "label_shifted": (dy, dx) != (0, 0)}
     follows = task.label_follows_optical
     if not optical.available:
         # A label drawn on the optical pass is offset like that pass even where this grid's

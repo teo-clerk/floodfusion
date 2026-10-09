@@ -196,35 +196,92 @@ class TestChipReference:
         assert (ref.landcover == 0).all()                                                  # no WorldCover given
 
 
-_OPTICAL_ESTIMATE = {"n_windows": 600, "n_grids": 20, "median_shift": [0.1, 0.3], "shift_px": [0, 0],
-                     "ci_halfwidth_px": 0.4}
+def _estimate(shift, ci, grids=20, median=None):
+    median = list(shift) if median is None else median
+    return {"n_windows": 40 * grids, "n_grids": grids, "median_shift": median, "shift_px": list(shift),
+            "ci_halfwidth_px": ci}
 
 
 class TestEventShiftDecision:
-    """One whole-pixel shift per event for label + optical (DATA_CARD: label registration)."""
+    """One whole-pixel shift per event for labels + optical (DATA_CARD: registration)."""
 
-    OPTICAL = _OPTICAL_ESTIMATE
-
-    def test_a_precise_label_estimate_decides(self) -> None:
+    def test_a_precise_label_estimate_decides_for_labels_and_optical(self) -> None:
         from floodfusion.data.sen1floods11 import choose_event_shift
 
-        label = {"n_windows": 900, "n_grids": 30, "median_shift": [0.2, 2.6], "shift_px": [0, 3], "ci_halfwidth_px": 0.4}
-        out = choose_event_shift(self.OPTICAL, label)
-        assert out["shift_px"] == [0, 3] and out["source"] == "label"
-        assert out["optical"] == self.OPTICAL and out["label"] == label
+        out = choose_event_shift({"optical": _estimate([0, 0], 0.4, median=[0.1, 0.3]),
+                                  "label": _estimate([0, 3], 0.4, median=[0.2, 2.6]),
+                                  "label_vs_optical": _estimate([0, 0], 0.3, median=[0.0, 0.1])})
+        assert out["labels_follow_optical"] and out["label_source"] == out["optical_source"] == "label"
+        assert out["label_shift_px"] == out["optical_shift_px"] == [0, 3]
 
-    def test_an_imprecise_or_missing_label_estimate_falls_back_to_the_optical_one(self) -> None:
+    def test_without_a_precise_label_estimate_the_optical_one_decides_else_none(self) -> None:
         from floodfusion.data.sen1floods11 import choose_event_shift
 
-        vague = {"n_windows": 90, "n_grids": 6, "median_shift": [-0.9, 1.0], "shift_px": [-1, 1], "ci_halfwidth_px": 4.2}
-        assert choose_event_shift(self.OPTICAL, vague)["source"] == "optical"
-        assert choose_event_shift(self.OPTICAL, vague)["shift_px"] == [0, 0]
-        empty = {"n_windows": 0, "n_grids": 0, "median_shift": [float("nan")] * 2, "shift_px": [0, 0],
-                 "ci_halfwidth_px": float("nan")}
-        assert choose_event_shift(self.OPTICAL, empty)["source"] == "optical"
+        vague = _estimate([-1, 1], 4.2, grids=6)
+        out = choose_event_shift({"optical": _estimate([1, 1], 0.3), "label": vague, "label_vs_optical": {}})
+        assert out["label_source"] == "optical" and out["label_shift_px"] == [1, 1]
+        out = choose_event_shift({"optical": _estimate([0, 2], 0.9), "label": vague, "label_vs_optical": {}})
+        assert out["label_source"] == "none" and out["label_shift_px"] == out["optical_shift_px"] == [0, 0]
 
-    def test_too_few_chips_never_decide(self) -> None:
+    def test_labels_drawn_elsewhere_get_their_own_shift(self) -> None:
+        # Measured: the label sits 3 px from the optical image -> do not move optical by the label.
         from floodfusion.data.sen1floods11 import choose_event_shift
 
-        two_chips = {"n_windows": 400, "n_grids": 2, "median_shift": [0.0, 2.0], "shift_px": [0, 2], "ci_halfwidth_px": 0.1}
-        assert choose_event_shift(self.OPTICAL, two_chips)["source"] == "optical"
+        out = choose_event_shift({"optical": _estimate([0, 3], 0.3), "label": _estimate([0, 0], 0.3),
+                                  "label_vs_optical": _estimate([0, -3], 0.3)})
+        assert not out["labels_follow_optical"]
+        assert (out["label_shift_px"], out["label_source"]) == ([0, 0], "label")
+        assert (out["optical_shift_px"], out["optical_source"]) == ([0, 3], "optical")
+
+    def test_gate_boundaries(self) -> None:
+        from floodfusion.data.sen1floods11 import choose_event_shift
+
+        def source(label):
+            return choose_event_shift({"optical": _estimate([0, 0], 9.0), "label": label})["label_source"]
+
+        assert source(_estimate([0, 2], 0.5)) == "label"                  # on the bound: a measurement
+        assert source(_estimate([0, 2], 0.51)) == "none"
+        assert source(_estimate([0, 2], float("nan"))) == "none"          # NaN never passes
+        assert source(_estimate([0, 2], 0.1, grids=11)) == "none"         # too few chips
+
+
+class TestEventShiftEndToEnd:
+    """Synthetic multi-chip events through the IO-free core of the event-shift measurement."""
+
+    @staticmethod
+    def _chip(seed: int, optical_offset, label_offset):
+        from scipy.ndimage import gaussian_filter
+
+        rng = np.random.default_rng(seed)
+        water = gaussian_filter(rng.normal(size=(320, 320)), 6) > 0.0
+        vv = np.where(water, -21.0, -9.0) + rng.normal(0.0, 1.0, water.shape)
+        swir = np.where(np.roll(water, optical_offset, axis=(0, 1)), 0.02, 0.25) + rng.normal(0.0, 0.01, water.shape)
+        rho = np.stack([swir, swir, swir])
+        rho[:, :, :24] = np.nan                                          # a cloud strip
+        raw = np.roll(water, label_offset, axis=(0, 1)).astype(np.float32)
+        raw[:20, :] = -1                                                 # unlabelled rows
+        return vv, raw, rho
+
+    def _event(self, n, optical_offset, label_offset):
+        from floodfusion.data.sen1floods11 import chip_shift_windows, estimate_event_shift
+
+        chips = [self._chip(s, optical_offset, label_offset) for s in range(n)]
+        return estimate_event_shift([chip_shift_windows(*c) for c in chips])
+
+    def test_labels_drawn_on_an_offset_optical_image_are_registered_with_it(self) -> None:
+        record = self._event(12, (2, -3), (2, -3))
+        assert record["labels_follow_optical"] and record["label_source"] == "label"
+        assert record["label_shift_px"] == record["optical_shift_px"] == [2, -3]
+        assert record["n_chips_read"] == 12 and record["estimates"]["label"]["n_grids"] == 12
+
+    def test_labels_on_the_sar_geometry_stay_while_the_optical_moves(self) -> None:
+        record = self._event(12, (0, 3), (0, 0))
+        assert not record["labels_follow_optical"]
+        assert record["label_shift_px"] == [0, 0] and record["optical_shift_px"] == [0, 3]
+
+    def test_too_few_chips_move_nothing_and_the_record_is_json(self) -> None:
+        import json
+
+        record = self._event(3, (0, 3), (0, 3))
+        assert record["label_source"] == "none" and record["label_shift_px"] == [0, 0]
+        json.dumps(record, allow_nan=False)

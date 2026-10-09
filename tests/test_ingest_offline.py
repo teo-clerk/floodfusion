@@ -316,6 +316,13 @@ class TestSen1Floods11Route:
         assert report["summary"]["ok"] == 1 and report["events"]["Testland"]["Testland_1"].startswith("ok")
         again = ingest_sen1floods11(raw, out, cfg, sources=IngestSources(client=archive[1]), margin_px=32)
         assert again["summary"] == {"ok": 0, "done-before": 1, "dropped": 0, "failed": 0}
+        # Review finding: the decision behind each event's shift must survive a resume.
+        first = report["events"]["Testland"]["event_shift"]
+        assert again["events"]["Testland"]["event_shift"] == first
+        assert {"label_shift_px", "optical_shift_px", "label_source", "estimates"} <= set(first)
+        stored = json.loads((out / "events" / "S1F11_Testland_1" / "event.json").read_text())["event_shift"]
+        assert stored == first and set(stored["estimates"]) == {"optical", "label", "label_vs_optical"}
+        assert sum(report["qa"].values()) == report["summary"]["ok"]
 
     def test_labels_inputs_and_group(self, s1f11_ingested, cfg) -> None:
         _, out, _ = s1f11_ingested

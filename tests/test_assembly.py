@@ -144,7 +144,7 @@ def test_a_cloudy_chip_still_moves_its_label_by_the_pass_shift() -> None:
     no_optical = _OpticalLayers((), 0.05, None, None, None)
 
     class Task:
-        coregister_optical, label_follows_optical, optical_shift_px = True, True, (0, 2)
+        coregister_optical, label_follows_optical, optical_shift_px, label_shift_px = True, True, (0, 2), None
 
     _, moved, info = _coregister(Task(), {"vv_post_db": np.zeros((40, 40))}, no_optical, ref)
     assert info["applied_shift_px"] == [0, 2] and info["label_shifted"]
@@ -208,12 +208,19 @@ class TestPooledShiftPrecision:
         grids = [np.column_stack([rng.normal(0.0, 0.3, 40), rng.normal(4.0 * (i % 2), 0.3, 40)]) for i in range(8)]
         assert pooled_shift_ci_halfwidth(grids) > 1.0
 
-    def test_is_deterministic_and_nan_without_grids(self) -> None:
+    def test_is_deterministic_and_nan_without_two_grids(self) -> None:
         from floodfusion.data.assembly import pooled_shift_ci_halfwidth
 
         grids = [np.random.default_rng(i).normal(0.0, 1.0, (30, 2)) for i in range(5)]
         assert pooled_shift_ci_halfwidth(grids) == pooled_shift_ci_halfwidth(grids)
         assert np.isnan(pooled_shift_ci_halfwidth([])) and np.isnan(pooled_shift_ci_halfwidth([np.empty((0, 2))]))
+        assert np.isnan(pooled_shift_ci_halfwidth(grids[:1]))   # one grid resampled is always itself
+
+    def test_whole_pixel_shifts_round_half_up(self) -> None:
+        from floodfusion.data.assembly import pooled_shift
+
+        assert pooled_shift([np.tile([2.5, -1.5], (20, 1))])["shift_px"] == [3, -1]
+        assert pooled_shift([np.tile([3.5, 0.0], (20, 1))])["shift_px"] == [4, 0]
 
 
 class TestCoregistrationQA:
@@ -231,3 +238,63 @@ class TestCoregistrationQA:
         out = qa_verdict({"a": dict(precise), "b": dict(failed), "c": dict(noise)})
         assert out["p1_m1_pass"] is False
         assert (out["a"]["measurable"], out["b"]["measurable"], out["c"]["measurable"]) == (True, True, False)
+
+
+class TestLabelAndOpticalMoveTogether:
+    """Review finding: no test made label and reflectance move by the same (dy, dx)."""
+
+    @staticmethod
+    def _ref_and_optical(with_optical: bool):
+        from floodfusion.data.assembly import GridReference, _OpticalLayers
+
+        rng = np.random.default_rng(5)
+        label = (rng.random((48, 48)) > 0.5).astype(np.float64)
+        ref = GridReference(label=label, inside_aoi=np.ones((48, 48), bool), permanent=np.zeros((48, 48), bool),
+                            landcover=np.zeros((48, 48), np.uint8))
+        rho = rng.random((3, 48, 48)) if with_optical else None
+        quality = np.ones((48, 48)) if with_optical else None
+        return ref, _OpticalLayers((), 1.0 if with_optical else 0.0, rho, quality, None)
+
+    @pytest.mark.parametrize("shift", [(2, -3), (-1, 2)])
+    def test_the_label_moves_identically_with_or_without_usable_optical(self, shift) -> None:
+        from floodfusion.data.assembly import GridTask, _coregister, shift_pixels
+
+        task = GridTask(event_id="e", out_dir=Path("."), grid=None, matched=None, annotations=(),
+                        reference=None, basins={}, dem_items=(), label_follows_optical=True,
+                        optical_shift_px=shift)
+        sar = {"vv_post_db": np.zeros((48, 48))}
+        ref, optical = self._ref_and_optical(True)
+        moved_optical, with_opt, _ = _coregister(task, sar, optical, ref)
+        ref2, cloudy = self._ref_and_optical(False)
+        _, without_opt, _ = _coregister(task, sar, cloudy, ref2)
+
+        np.testing.assert_array_equal(with_opt.label, without_opt.label)
+        np.testing.assert_array_equal(with_opt.label, shift_pixels(ref.label, *shift, np.nan))
+        np.testing.assert_array_equal(moved_optical.reflectance, shift_pixels(optical.reflectance, *shift, np.nan))
+
+    def test_a_label_on_its_own_geometry_moves_on_its_own(self) -> None:
+        from floodfusion.data.assembly import GridTask, _coregister, shift_pixels
+
+        task = GridTask(event_id="e", out_dir=Path("."), grid=None, matched=None, annotations=(),
+                        reference=None, basins={}, dem_items=(), label_follows_optical=True,
+                        optical_shift_px=(1, 1), label_shift_px=(0, -2))
+        ref, optical = self._ref_and_optical(True)
+        moved_optical, moved, info = _coregister(task, {"vv_post_db": np.zeros((48, 48))}, optical, ref)
+
+        np.testing.assert_array_equal(moved.label, shift_pixels(ref.label, 0, -2, np.nan))
+        np.testing.assert_array_equal(moved_optical.reflectance, shift_pixels(optical.reflectance, 1, 1, np.nan))
+        assert info["label_shift_px"] == [0, -2] and info["applied_shift_px"] == [1, 1]
+
+
+def test_a_label_drawn_on_the_optical_image_has_no_offset_to_it() -> None:
+    from scipy.ndimage import gaussian_filter
+
+    from floodfusion.data.assembly import label_optical_window_shifts, pooled_shift
+
+    rng = np.random.default_rng(8)
+    water = gaussian_filter(rng.normal(size=(320, 320)), 6) > 0.0
+    swir = np.where(water, 0.02, 0.25) + rng.normal(0.0, 0.01, water.shape)
+    rho = np.stack([swir, swir, swir])
+    assert pooled_shift([label_optical_window_shifts(rho, water.astype(float))])["shift_px"] == [0, 0]
+    drawn_elsewhere = np.roll(water, (0, 3), axis=(0, 1)).astype(float)
+    assert pooled_shift([label_optical_window_shifts(rho, drawn_elsewhere)])["shift_px"] == [0, 3]

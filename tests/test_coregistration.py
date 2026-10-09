@@ -89,6 +89,11 @@ class TestMedianShiftPrecision:
         shifts = np.random.default_rng(2).normal(0.0, 1.0, size=(64, 2))
         assert median_shift_se(shifts, overlap_factor=4.0) == pytest.approx(2.0 * median_shift_se(shifts))
 
+    def test_identical_windows_cannot_give_a_zero_error(self) -> None:
+        # Five windows agree to the last digit, four are wild: MAD 0 must not read "exact".
+        shifts = np.array([[0.0, 1.0]] * 5 + [[40.0, -30.0], [-25.0, 60.0], [33.0, 7.0], [-50.0, -45.0]])
+        assert median_shift_se(shifts) > 0.0
+
     def test_no_windows_is_nan(self) -> None:
         assert np.isnan(median_shift_se(np.empty((0, 2))))
 

@@ -106,6 +106,10 @@ def structure_image(image: np.ndarray, *, sigma: float = 1.5, log: bool = True) 
     return np.hypot(ndimage.sobel(x, axis=0), ndimage.sobel(x, axis=1))
 
 
+#: Resolution of :func:`phase_correlation` at the default ``upsample_factor`` of 20.
+_SHIFT_QUANTUM_PX = 0.05
+
+
 def median_displacement(
     reference: np.ndarray,
     moving: np.ndarray,
@@ -184,7 +188,9 @@ def median_shift_se(shifts: np.ndarray, *, overlap_factor: float = 1.0) -> float
     s = np.asarray(shifts, dtype=np.float64).reshape(-1, 2)
     if len(s) < 2:
         return float("nan")
-    sigma = 1.4826 * np.median(np.abs(s - np.median(s, axis=0)), axis=0)
+    # Floored at the correlation's quantisation: half the windows agreeing exactly would
+    # otherwise give a MAD, and an error, of 0 whatever the other half say.
+    sigma = np.maximum(1.4826 * np.median(np.abs(s - np.median(s, axis=0)), axis=0), _SHIFT_QUANTUM_PX)
     se = 1.2533 * sigma / np.sqrt(len(s) / overlap_factor)
     return float(np.hypot(se[0], se[1]))
 
