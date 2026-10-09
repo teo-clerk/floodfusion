@@ -1,0 +1,110 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "floodfusion"
+version = "0.1.0"
+description = "Multimodal Sentinel-1 / Sentinel-2 / DEM fusion for near-real-time flood mapping (CEMS Rapid Mapping)"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = { text = "MIT" }
+authors = [{ name = "Teo Clerk" }]
+keywords = ["sentinel-1", "sentinel-2", "sar", "flood-mapping", "copernicus", "multimodal-fusion"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "pyyaml>=6.0",
+    "pandas>=2.1",
+    "pyarrow>=14",
+    "matplotlib>=3.8",
+    "torch>=2.4",
+    "torchvision>=0.19",
+    "rasterio>=1.3.9",
+    "pyproj>=3.6",
+    "shapely>=2.0",
+    "geopandas>=0.14",
+    "pystac>=1.9",
+    "pystac-client>=0.7",
+    "planetary-computer>=1.0",
+    "rioxarray>=0.15",
+    "xarray>=2023.12",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+floodfusion-preflight = "floodfusion.preflight:main"
+floodfusion-synth = "floodfusion.data.synthetic.benchmark:main"
+floodfusion-ingest = "floodfusion.data.ingest:main"
+floodfusion-splits = "floodfusion.splits:main"
+floodfusion-baseline = "floodfusion.baseline_runner:main"
+floodfusion-train = "floodfusion.train:main"
+floodfusion-eval = "floodfusion.evaluate:main"
+floodfusion-predict = "floodfusion.predict:main"
+floodfusion-ablation = "floodfusion.ablation:main"
+floodfusion-vram = "floodfusion.utils.vram:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/floodfusion"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra --strict-markers --import-mode=importlib -m \"not network\""
+markers = [
+    "slow: long-running test (seconds to a minute); deselect with -m 'not slow'",
+    "gpu: requires a CUDA device; skips automatically when none is present",
+    "network: hits a live STAC catalogue or blob store; excluded by default, run with -m network",
+    "data: requires a real dataset under $ESA_DATA_ROOT",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:pystac_client.*",
+]
+
+[tool.coverage.run]
+source = ["floodfusion"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "NPY", "RUF"]
+ignore = [
+    "E501",    # line length is advisory; formatter-free scientific code keeps maths readable
+    "RUF001",  # Greek letters and unicode maths in strings/docstrings are intentional
+    "RUF002",
+    "RUF003",
+    "B905",    # zip() strictness is decided per call site
+    "SIM108",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402", "B018", "NPY002", "E702", "SIM117"]
