@@ -364,6 +364,10 @@ class TrainConfig:
     channels_last: bool = True
     grad_checkpointing: bool = False  # needed at 512, not at 256
     cudnn_benchmark: bool = True  # only valid because chip shapes are FIXED
+    #: ``torch.use_deterministic_algorithms(True, warn_only=True)`` (docs/08 7.2). Measured on the
+    #: RTX 4060 Laptop: 2.9x slower per chip for the reference model. The docs' defensible
+    #: position is to seed everything, accept residual non-determinism and run three seeds.
+    deterministic: bool = False
 
     seed: int = 42
 

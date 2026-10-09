@@ -66,6 +66,8 @@ __all__ = [
     "zero_doppler_time",
 ]
 
+#: Targets per chunk in the zero-Doppler seed search (memory ~ chunk x n_state_vectors x 8 B).
+_ZD_CHUNK = 262_144
 WGS84_A = 6_378_137.0
 WGS84_F = 1.0 / 298.257223563
 WGS84_E2 = WGS84_F * (2.0 - WGS84_F)
@@ -162,8 +164,14 @@ def zero_doppler_time(
     """
     p = np.asarray(targets, dtype=np.float64)
     flat = p.reshape(-1, 3)
-    dist = np.linalg.norm(flat[:, None, :] - orbit.positions[None, :, :], axis=-1)
-    t = orbit.times[np.argmin(dist, axis=1)].astype(np.float64)
+    # Seed from the nearest state vector, in chunks: |p - s|^2 = |p|^2 - 2 p.s + |s|^2 needs an
+    # (N, M) array per chunk instead of (N, M, 3) for the whole grid.
+    s_sq = np.einsum("ij,ij->i", orbit.positions, orbit.positions)
+    nearest = np.empty(flat.shape[0], dtype=np.int64)
+    for start in range(0, flat.shape[0], _ZD_CHUNK):
+        block = flat[start:start + _ZD_CHUNK]
+        nearest[start:start + _ZD_CHUNK] = np.argmin(s_sq[None, :] - 2.0 * block @ orbit.positions.T, axis=1)
+    t = orbit.times[nearest].astype(np.float64)
     for _ in range(max_iter):
         s, v, a = orbit.interpolate(t)
         d = flat - s

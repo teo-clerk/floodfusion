@@ -57,6 +57,7 @@ from floodfusion.config import (
     config_sha256,
     config_to_dict,
 )
+from floodfusion.data.records import chip_set_sha256
 from floodfusion.metrics import (
     ConfusionMatrix,
     average_precision,
@@ -162,7 +163,7 @@ def flag_fractions(records: Sequence[Any], cfg: ExperimentConfig) -> dict[str, f
         by_path.setdefault(str(r.raster_path), []).append(r)
     for path, recs in by_path.items():
         if not Path(path).is_file():
-            continue
+            raise FileNotFoundError(f"{path}: stack missing — flag fractions would be silently wrong")
         with rasterio.open(path) as src:
             for r in recs:
                 col, row, w, h = r.window
@@ -201,7 +202,14 @@ def _test_metrics(test: Mapping[str, Any], special: Mapping[str, float], cfg: Ex
     pooled = [sum_confusions([v[k] for v in per_basin_all.values()]) for k in range(len(thresholds))]
     macro_curve = [macro_iou({b: v[k] for b, v in per_basin_all.items()}) for k in range(len(thresholds))]
     oracle = int(np.nanargmax(np.where(np.isfinite(macro_curve), macro_curve, -1.0)))
-    precisions, recalls = precision_recall_curve(tuple(pooled))
+    # AP on the FIXED threshold grid only — the row-specific special points would make AP
+    # differ between rows for reasons that have nothing to do with ranking quality.
+    grid = set(cfg.eval.pr_thresholds)
+    try:
+        precisions, recalls = precision_recall_curve(tuple(m for t, m in zip(thresholds, pooled) if t in grid))
+        ap = average_precision(precisions, recalls)
+    except ValueError:  # no positive pixel in the evaluated set
+        precisions, recalls, ap = (), (), float("nan")
     n_boot, alpha = cfg.eval.n_bootstrap, cfg.eval.bootstrap_alpha
     macro_ci = basin_bootstrap_ci(dict(tau_cm), n_boot=n_boot, alpha=alpha, seed=seed, statistic="macro")
     pooled_ci = basin_bootstrap_ci(dict(tau_cm), n_boot=n_boot, alpha=alpha, seed=seed, statistic="pooled")
@@ -217,7 +225,7 @@ def _test_metrics(test: Mapping[str, Any], special: Mapping[str, float], cfg: Ex
         "macro_iou_val_selected": macro_iou(at(special["val_selected"])),
         "val_selected_threshold": special["val_selected"],
         "macro_iou_oracle": macro_curve[oracle], "oracle_threshold": thresholds[oracle],
-        "average_precision": average_precision(precisions, recalls),
+        "average_precision": ap,
         "pr_curve": {"precision": list(precisions), "recall": list(recalls)},
         "operating_point": {"precision": pooled_tau.precision, "recall": pooled_tau.recall},
         "per_basin_confusion_by_threshold": {b: [[m.tp, m.fp, m.fn, m.tn] for m in v]
@@ -237,17 +245,27 @@ def evaluate_run(
     latency: Callable[[Any, Any, bool], dict[str, Any]] | None = None,
     figures: bool = True,
     seed: int = 0,
+    overwrite: bool = False,
 ) -> dict[str, Any]:
     r"""Evaluate one trained run on ``split``, per basin; writes ``eval_<split>.json``.
 
     ``force_sar_only`` evaluates the same checkpoint with the optical branch replaced by
     the missing-modality embedding everywhere (ablation row 11); calibration is then refit
     on SAR-only validation logits, because the SAR-only predictor is a different model of
-    the same weights. ``latency`` is called as ``latency(model, device, sar_only)``.
+    the same weights, and it **must** go to its own ``out_dir`` (never over row 9's result).
+    The test split is evaluated once: an existing ``eval_<split>.json`` is never overwritten
+    unless ``overwrite=True``. ``latency`` is called as ``latency(model, device, sar_only)``.
     """
     from floodfusion.train import EVAL_CONTEXT_PX, resolve_device, validate
 
     run_dir = Path(run_dir)
+    out = Path(out_dir) if out_dir else run_dir
+    if force_sar_only and out.resolve() == run_dir.resolve():
+        raise ValueError("a SAR-only evaluation needs its own --out-dir (e.g. runs/row11_fusion_eval_sar_only/"
+                         "seed<N>); writing it into the source run would replace that run's result")
+    if (out / f"eval_{split}.json").exists() and not overwrite:
+        raise FileExistsError(f"{out / f'eval_{split}.json'} exists: the {split} split is evaluated once "
+                              "(pass overwrite=True / --overwrite to replace it deliberately)")
     device = resolve_device(device) if not hasattr(device, "type") else device
     cfg, data, model, record, best_epoch = _load(run_dir, Path(data_root) if data_root else None, device,
                                                  force_sar_only)
@@ -264,6 +282,7 @@ def evaluate_run(
                       force_sar_only=sar_only, crop_px=EVAL_CONTEXT_PX, logit_sink=test_reservoir,
                       temperature=calibration.temperature, offset=calibration.offset)
     metrics = _test_metrics(scored, special, cfg, seed)
+    subset = _cloud_free_subset(model, target, cfg, device, sar_only, calibration, special["tau_star"], seed)
     z_t, y_t = test_reservoir.arrays()
     ece_raw, _ = expected_calibration_error(apply_calibration(z_t, 1.0), y_t)
     ece_cal, _ = expected_calibration_error(apply_calibration(z_t, calibration.temperature, calibration.offset), y_t)
@@ -277,12 +296,12 @@ def evaluate_run(
         f"ece_{split}_raw": ece_raw, f"ece_{split}_calibrated": ece_cal, **metrics,
         "flag_fractions": flag_fractions(target, cfg),
         "val_best_macro_iou_raw": val["best_macro_iou"], "manifest_sha256": data.manifest_sha256,
-        "synthetic_data": data.is_synthetic,
+        "split_sha256": data.split_sha256, "test_chips_sha256": chip_set_sha256(target),
+        "cloud_free_subset": subset, "synthetic_data": data.is_synthetic, "evaluation_git": _eval_git(record),
     }
     if latency is not None and getattr(device, "type", "") == "cuda":
         result["latency"] = latency(model, device, sar_only)
-    out = Path(out_dir) if out_dir else run_dir
-    if sar_only and out != run_dir:
+    if sar_only:
         _write_derived_record(out, record, cfg, run_dir)
     write_json(out / f"eval_{split}.json", result)
     if figures:
@@ -292,6 +311,34 @@ def evaluate_run(
                 result["tau_star"], result["macro_iou_raw_tau_star"], result["macro_iou_oracle"],
                 result["average_precision"], calibration.temperature, ece_raw, ece_cal)
     return result
+
+
+def _eval_git(record: Mapping[str, Any]) -> dict[str, Any]:
+    """The evaluation's own provenance: SHA, dirty flag, and whether the code still equals training's."""
+    from floodfusion.utils.env import code_changed_since, git_state
+
+    state = git_state()
+    return {**state, "code_identical_to_training": not code_changed_since(record.get("git_sha"))}
+
+
+def _cloud_free_subset(model: Any, target: Sequence[Any], cfg: ExperimentConfig, device: Any, sar_only: bool,
+                       calibration: Any, tau: float, seed: int) -> dict[str, Any] | None:
+    """IoU at tau* on the cloud-free chips of the evaluated split — row 6's own test set.
+
+    Row 6 (optical only) is defined on cloud-free chips only, so it cannot be compared with any
+    row on the full test set; this gives every row a number on the same subset.
+    """
+    from floodfusion.train import EVAL_CONTEXT_PX, ROW6_MIN_CLEAR_FRACTION, validate
+
+    chips = [r for r in target if r.optical_available and r.optical_clear_fraction >= ROW6_MIN_CLEAR_FRACTION]
+    if not chips:
+        return None
+    result = validate(model, _loader(chips, cfg), device=device, cfg=cfg, thresholds=(tau,),
+                      force_sar_only=sar_only, crop_px=EVAL_CONTEXT_PX,
+                      temperature=calibration.temperature, offset=calibration.offset)
+    per_basin = {b: v[0] for b, v in result["per_basin"].items()}
+    return {"n_chips": len(chips), "chips_sha256": chip_set_sha256(chips), "macro_iou": macro_iou(per_basin),
+            "per_basin": _basin_summary(per_basin)}
 
 
 def _row11_name(cfg: ExperimentConfig) -> str:
@@ -336,7 +383,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--split", choices=("val", "test"), default="test")
     parser.add_argument("--data-root", type=Path, default=None, help="defaults to the run's recorded data root")
     parser.add_argument("--force-sar-only", action="store_true", help="ablation row 11: optical replaced everywhere")
-    parser.add_argument("--out-dir", type=Path, default=None)
+    parser.add_argument("--out-dir", type=Path, default=None, help="required with --force-sar-only")
+    parser.add_argument("--overwrite", action="store_true", help="replace an existing eval_<split>.json")
     parser.add_argument("--device", default=None)
     parser.add_argument("--latency", action="store_true", help="measure latency/throughput (GPU, docs/09 7)")
     parser.add_argument("--warmup-s", type=float, default=30.0)
@@ -354,7 +402,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.run_dir is None:
         parser.error("give --run-dir (or --ablation-table --runs-root)")
     evaluate_run(args.run_dir, split=args.split, data_root=args.data_root, device=args.device,
-                 force_sar_only=args.force_sar_only, out_dir=args.out_dir,
+                 force_sar_only=args.force_sar_only, out_dir=args.out_dir, overwrite=args.overwrite,
                  latency=_latency_fn(args.warmup_s, args.throughput_s) if args.latency else None)
     return 0
 

@@ -87,7 +87,7 @@ def _train_and_evaluate(row: int, seed: int, args: argparse.Namespace, device: A
     """Train + evaluate one (row, seed) unless already finished; returns wall seconds spent."""
     from floodfusion.evaluate import evaluate_run
     from floodfusion.runs import run_dir_for
-    from floodfusion.train import fit, load_training_data
+    from floodfusion.train import EmptySplitError, fit, load_training_data
 
     cfg = _config(args.configs_dir, row, overlays, seed)
     run_dir = run_dir_for(args.runs_root, cfg.name, seed)
@@ -95,7 +95,12 @@ def _train_and_evaluate(row: int, seed: int, args: argparse.Namespace, device: A
         LOGGER.info("row %d seed %d already finished — skipped", row, seed)
         return 0.0
     started = time.perf_counter()
-    data = load_training_data(cfg, args.data_root)
+    try:
+        data = load_training_data(cfg, args.data_root)
+    except EmptySplitError as exc:
+        # Row 6 on data without cloud-free chips in some split: the row is "not run", the grid goes on.
+        LOGGER.warning("row %d seed %d not run: %s", row, seed, exc)
+        return 0.0
     fit(data, run_dir, device=device, provenance={
         "config_path": str(args.configs_dir / f"{ROW_CONFIGS[row]}.yaml"), "overlays": [str(o) for o in overlays],
         "overrides": [f"train.seed={seed}"], "data_root": str(args.data_root), "driver": "floodfusion.ablation",
@@ -164,7 +169,7 @@ def run_grid(args: argparse.Namespace) -> Path:
         if first == 0.0:  # resumed after the first run but before the decision was written
             first = float(json.loads((args.runs_root / ROW_CONFIGS[9] / f"seed{seeds[0]}" / "run.json")
                                      .read_text(encoding="utf-8"))["train_seconds"])
-        latency_s = args.warmup_s + args.throughput_s + 5.0
+        latency_s = args.warmup_s + args.throughput_s + 5.0 if device.type == "cuda" else 0.0
         protocol = _decide_protocol(first, latency_s, seeds, args.budget_minutes, args.protocol)
         write_json(protocol_path, protocol)
     LOGGER.info("seed protocol: %s (projected full grid %.0f min, budget %.0f min)", protocol["protocol"],

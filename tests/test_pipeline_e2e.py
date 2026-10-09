@@ -83,19 +83,44 @@ def test_training_writes_a_complete_run(trained) -> None:
     assert record["vram_prediction"]["predicted_bytes"] > 0 and record["manifest_sha256"]
 
 
-def test_resume_continues_from_last(pipeline, trained) -> None:
+def test_resume_after_a_crash(pipeline, monkeypatch) -> None:
+    """Kill the run inside epoch 1; resuming from last.pt finishes it with one log line per epoch."""
+    from floodfusion import train as train_module
+
+    work, data_root, _, cfg = pipeline
+    data = train_module.load_training_data(cfg, data_root)
+    run_dir = work / "runs" / "crash" / "seed42"
+    real_epoch = train_module.train_one_epoch
+    calls = {"n": 0}
+
+    def crashing(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise KeyboardInterrupt
+        return real_epoch(*args, **kwargs)
+
+    monkeypatch.setattr(train_module, "train_one_epoch", crashing)
+    with pytest.raises(KeyboardInterrupt):
+        train_module.fit(data, run_dir, device=torch.device("cpu"), provenance={"data_root": str(data_root)})
+    monkeypatch.setattr(train_module, "train_one_epoch", real_epoch)
+    record = train_module.fit(data, run_dir, device=torch.device("cpu"), resume=run_dir / "last.pt",
+                              provenance={"data_root": str(data_root)})
+    epochs = [json.loads(line)["epoch"] for line in (run_dir / "metrics.jsonl").read_text().splitlines()]
+    assert record["epochs_run"] == 2 and epochs == [0, 1]
+    assert record["train_seconds"] > 0
+
+
+def test_resume_refuses_a_foreign_checkpoint(pipeline, trained) -> None:
     from dataclasses import replace
 
     from floodfusion.train import fit, load_training_data
 
     _, data_root, _, cfg = pipeline
     run_dir, _ = trained
-    longer = replace(cfg, train=replace(cfg.train, epochs=3))
-    data = load_training_data(longer, data_root)
-    record = fit(data, run_dir.parent / "resumed", device=torch.device("cpu"), resume=run_dir / "last.pt",
-                 provenance={"data_root": str(data_root)})
-    assert record["epochs_run"] == 3
-    assert len((run_dir.parent / "resumed" / "metrics.jsonl").read_text().splitlines()) == 1
+    other = replace(cfg, train=replace(cfg.train, epochs=3))
+    with pytest.raises(ValueError, match="different configuration"):
+        fit(load_training_data(other, data_root), run_dir.parent / "foreign", device=torch.device("cpu"),
+            resume=run_dir / "last.pt")
 
 
 def test_evaluation_calibrates_on_validation_and_scores_test(trained) -> None:
@@ -111,6 +136,22 @@ def test_evaluation_calibrates_on_validation_and_scores_test(trained) -> None:
     assert result["macro_iou_oracle"] + 1e-9 >= max(result["macro_iou"], result["macro_iou_val_selected"]) - 1e-9 or \
         np.isnan(result["macro_iou"])
     assert (run_dir / "eval_test.json").is_file() and (run_dir / "figures" / "pr_test.png").is_file()
+
+
+def test_test_split_is_evaluated_once(trained) -> None:
+    from floodfusion.evaluate import evaluate_run
+
+    run_dir, _ = trained
+    with pytest.raises(FileExistsError):
+        evaluate_run(run_dir, device="cpu", figures=False)
+
+
+def test_sar_only_never_overwrites_the_source_run(trained) -> None:
+    from floodfusion.evaluate import evaluate_run
+
+    run_dir, _ = trained
+    with pytest.raises(ValueError, match="out-dir"):
+        evaluate_run(run_dir, device="cpu", force_sar_only=True)
 
 
 def test_row11_is_row9_weights_evaluated_sar_only(trained) -> None:

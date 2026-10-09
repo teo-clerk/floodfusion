@@ -56,7 +56,7 @@ from floodfusion.data.dataset import (
     iter_batches_to_device,
     natural_prior,
 )
-from floodfusion.data.records import ChipRecord, load_manifest, load_manifest_meta
+from floodfusion.data.records import ChipRecord, chip_set_sha256, load_manifest, load_manifest_meta
 from floodfusion.metrics import (
     ConfusionMatrix,
     accumulate_confusion,
@@ -73,7 +73,9 @@ from floodfusion.splits import load_norm_stats, load_splits
 
 __all__ = [
     "EVAL_CONTEXT_PX",
+    "EmptySplitError",
     "TrainingData",
+    "chip_set_sha256",
     "fit",
     "load_training_data",
     "main",
@@ -96,6 +98,10 @@ OPTICAL_FUSION_ARCHITECTURES = frozenset({"fusion_early", "fusion_late", "fusion
 # ---------------------------------------------------------------------------
 # Data
 # ---------------------------------------------------------------------------
+class EmptySplitError(ValueError):
+    """A split has no chips for this configuration (row 6 on cloudy data): the row is not run."""
+
+
 @dataclass(frozen=True)
 class TrainingData:
     """Everything a run reads from disk, with the hashes that bind it together."""
@@ -109,6 +115,7 @@ class TrainingData:
     split_path: Path
     split_strategy: str
     norm_stats_path: Path
+    split_sha256: str = ""
 
     @property
     def is_synthetic(self) -> bool:
@@ -137,10 +144,13 @@ def load_training_data(cfg: ExperimentConfig, data_root: Path | str) -> Training
         parts = [_filter_row6(p) for p in parts]
     for name, part in zip(("train", "val", "test"), parts):
         if not part:
-            raise ValueError(f"the {name} split is empty for {cfg.name}")
+            raise EmptySplitError(f"the {name} split is empty for {cfg.name}")
+    import hashlib
+
     return TrainingData(*parts, cfg=cfg, manifest_sha256=meta["manifest_sha256"],
                         manifest_provenance=meta.get("provenance", {}), split_path=split_path,
-                        split_strategy=split.strategy, norm_stats_path=norm_path)
+                        split_strategy=split.strategy, norm_stats_path=norm_path,
+                        split_sha256=hashlib.sha256(split_path.read_bytes()).hexdigest())
 
 
 # ---------------------------------------------------------------------------
@@ -224,7 +234,11 @@ def train_one_epoch(
         sums["loss_dice"] += float(parts["dice"])
         _gate_stats(gate, available, sums)
         if (i + 1) % accum == 0:
-            sums["grad_norm"] += float(nn.utils.clip_grad_norm_(model.parameters(), cfg.train.grad_clip_norm))
+            grad_norm = float(nn.utils.clip_grad_norm_(model.parameters(), cfg.train.grad_clip_norm))
+            if not math.isfinite(grad_norm):
+                raise FloatingPointError(f"non-finite gradient norm at micro-batch {i} "
+                                         f"(chips {list(batch['chip_id'])[:4]})")
+            sums["grad_norm"] += grad_norm
             optimizer.step()
             optimizer.zero_grad(set_to_none=True)
             scheduler.step()
@@ -295,6 +309,9 @@ def validate(
             logits, _ = model(**model_inputs(batch, batch["optical_available"], force_sar_only=force_sar_only))
         logits = _crop(logits.float(), crop_px)
         label, valid = _crop(batch["label"], crop_px), _crop(batch["valid"], crop_px)
+        if not bool(torch.isfinite(logits[valid]).all()):
+            # NaN sorts last in searchsorted and would be counted as flood: fail instead.
+            raise FloatingPointError(f"non-finite logits on valid pixels (chips {list(batch['chip_id'])[:4]})")
         basins = list(batch["basin_id"])
         for basin in dict.fromkeys(basins):
             idx = torch.tensor([j for j, b in enumerate(basins) if b == basin], device=logits.device)
@@ -325,11 +342,25 @@ def validate(
 # ---------------------------------------------------------------------------
 # The run
 # ---------------------------------------------------------------------------
-def seed_everything(seed: int) -> None:
-    """Seed Python, NumPy and torch (``docs/08`` 7.2); residual non-determinism is accepted."""
+def seed_everything(seed: int, *, deterministic: bool = False) -> None:
+    """Seed Python, NumPy and torch (``docs/08`` 7.2); optionally deterministic kernels.
+
+    With ``deterministic``: ``use_deterministic_algorithms(True, warn_only=True)`` —
+    deterministic implementations where they exist, a once-per-op warning where they do not.
+    Off by default (``train.deterministic``): it costs 2.9x throughput here, and the
+    residual non-determinism is measured by running three seeds instead.
+    """
+    import warnings
+
     random.seed(seed)
     np.random.seed(seed % 2**32)  # noqa: NPY002 - the legacy global RNG third-party code uses
     torch.manual_seed(seed)
+    if deterministic:
+        os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")  # deterministic cuBLAS GEMMs
+        torch.use_deterministic_algorithms(True, warn_only=True)
+        warnings.filterwarnings("once", message=".*deterministic.*")
+    else:
+        torch.use_deterministic_algorithms(False)
 
 
 def configure_torch(cfg: ExperimentConfig, device: torch.device) -> None:
@@ -348,8 +379,9 @@ def _refuse_untrainable(cfg: ExperimentConfig) -> None:
     if cfg.model.architecture == "threshold_baseline":
         raise SystemExit(f"{cfg.name}: rows 1-3 are not trained — run `python -m floodfusion.baseline_runner`")
     if cfg.eval.force_sar_only:
-        raise SystemExit(f"{cfg.name}: row 11 evaluates row 9's checkpoints SAR-only — "
-                         "run `python -m floodfusion.evaluate --run-dir <row09 run> --force-sar-only`")
+        raise SystemExit(f"{cfg.name}: row 11 evaluates row 9's checkpoints SAR-only — run `python -m "
+                         "floodfusion.evaluate --run-dir <row09 run> --force-sar-only "
+                         "--out-dir runs/row11_fusion_eval_sar_only/seed<N>`")
 
 
 def _example_inputs(cfg: ExperimentConfig, device: torch.device, batch_size: int = 1) -> dict[str, torch.Tensor]:
@@ -399,6 +431,10 @@ def _loaders(data: TrainingData, cfg: ExperimentConfig) -> tuple[Any, Any, Balan
     return train_loader, val_loader, sampler
 
 
+def _without_seed(config: Mapping[str, Any]) -> dict[str, Any]:
+    return {**config, "train": {k: v for k, v in config["train"].items() if k != "seed"}}
+
+
 def _run_record(cfg: ExperimentConfig, data: TrainingData, model: nn.Module, sampler: BalancedChipSampler,
                 device: torch.device, provenance: Mapping[str, Any]) -> dict[str, Any]:
     from floodfusion.utils.env import environment_record, git_state
@@ -406,8 +442,11 @@ def _run_record(cfg: ExperimentConfig, data: TrainingData, model: nn.Module, sam
     return {
         "name": cfg.name, "ablation_row": cfg.ablation_row, "architecture": cfg.model.architecture,
         "seed": cfg.train.seed, "config": config_to_dict(cfg), "config_sha256": config_sha256(config_to_dict(cfg)),
+        "config_sha256_without_seed": config_sha256(_without_seed(config_to_dict(cfg))),
         "manifest_sha256": data.manifest_sha256, "synthetic_data": data.is_synthetic,
         "split_file": str(data.split_path), "split_strategy": data.split_strategy,
+        "split_sha256": data.split_sha256, "val_chips_sha256": chip_set_sha256(data.val),
+        "test_chips_sha256": chip_set_sha256(data.test),
         "norm_stats_file": str(data.norm_stats_path),
         "n_chips": {"train": len(data.train), "val": len(data.val), "test": len(data.test)},
         "pi_train": sampler.training_prior(), "pi_deploy": natural_prior(data.val),
@@ -424,18 +463,23 @@ class _Progress:
     best_epoch: int = -1
     epochs_run: int = 0
     peak_vram_bytes: int = 0
+    elapsed_seconds: float = 0.0  # training time of earlier sessions (resume)
 
 
 def _restore(path: Path, model: nn.Module, optimizer: Any, scheduler: Any, generator: torch.Generator,
-             device: torch.device) -> _Progress:
+             device: torch.device, config_sha256_expected: str) -> _Progress:
+    """Continue from ``last.pt`` — only if it was written by this exact configuration."""
     state = torch.load(path, map_location=device, weights_only=True)  # never unpickle arbitrary code
+    if state.get("config_sha256") != config_sha256_expected:
+        raise ValueError(f"{path} was written by a different configuration; refusing to resume")
     model.load_state_dict(state["model"])
     optimizer.load_state_dict(state["optimizer"])
     scheduler.load_state_dict(state["scheduler"])
-    generator.set_state(state["dropout_generator"])
+    generator.set_state(state["dropout_generator"].cpu())  # Generator state must live on the CPU
     LOGGER.info("resumed from %s (epoch %d, best %.4f)", path, state["epoch"], state["best"])
     return _Progress(start_epoch=state["epoch"] + 1, best=state["best"], best_epoch=state["best_epoch"],
-                     epochs_run=state["epoch"] + 1)
+                     epochs_run=state["epoch"] + 1, peak_vram_bytes=int(state.get("peak_vram_bytes", 0)),
+                     elapsed_seconds=float(state.get("elapsed_seconds", 0.0)))
 
 
 def _log_epoch(cfg: ExperimentConfig, epoch: int, stats: Mapping[str, float], val: Mapping[str, Any]) -> dict[str, Any]:
@@ -460,7 +504,7 @@ def fit(
 ) -> dict[str, Any]:
     """Train ``data.cfg`` (one configuration, one seed); returns the final ``run.json``."""
     cfg = data.cfg
-    seed_everything(cfg.train.seed)
+    seed_everything(cfg.train.seed, deterministic=cfg.train.deterministic)
     configure_torch(cfg, device)
     run_dir.mkdir(parents=True, exist_ok=True)
     model = build_model(cfg.model).to(device)
@@ -474,8 +518,11 @@ def fit(
     loss_fn = CompoundFocalDiceLoss(cfg.loss)
     generator = torch.Generator().manual_seed(cfg.train.seed + 1)
     record = _run_record(cfg, data, model, sampler, device, provenance or {})
+    if resume is None:
+        (run_dir / "metrics.jsonl").unlink(missing_ok=True)  # a fresh run never appends to a stale log
     write_run_record(run_dir, record)  # the VRAM prediction is on disk BEFORE step 1
-    progress = _restore(resume, model, optimizer, scheduler, generator, device) if resume else _Progress()
+    progress = (_restore(resume, model, optimizer, scheduler, generator, device, record["config_sha256"])
+                if resume else _Progress())
     started = time.perf_counter()
     for epoch in range(progress.start_epoch, cfg.train.epochs):
         sampler.set_epoch(epoch)
@@ -490,7 +537,10 @@ def fit(
                                         "config_sha256": record["config_sha256"]})
         _save(run_dir / "last.pt", {"model": model.state_dict(), "optimizer": optimizer.state_dict(),
                                     "scheduler": scheduler.state_dict(), "epoch": epoch, "best": progress.best,
-                                    "best_epoch": progress.best_epoch, "dropout_generator": generator.get_state()})
+                                    "best_epoch": progress.best_epoch, "dropout_generator": generator.get_state(),
+                                    "config_sha256": record["config_sha256"],
+                                    "peak_vram_bytes": progress.peak_vram_bytes,
+                                    "elapsed_seconds": progress.elapsed_seconds + time.perf_counter() - started})
         append_metrics(run_dir, _log_epoch(cfg, epoch, stats, val))
         patience = cfg.train.early_stopping_patience
         if patience and epoch - progress.best_epoch >= patience:
@@ -500,14 +550,18 @@ def fit(
     predicted = record["vram_prediction"]["predicted_bytes"]
     final = {
         **record, "status": "finished", "best_epoch": progress.best_epoch, "best_val_macro_iou": progress.best,
-        "epochs_run": progress.epochs_run, "train_seconds": time.perf_counter() - started,
+        "epochs_run": progress.epochs_run,
+        "train_seconds": progress.elapsed_seconds + time.perf_counter() - started,
         "peak_vram_bytes": peak, "finished_unix": time.time(),
         "vram_prediction": {**record["vram_prediction"],
                             "relative_error": (predicted - peak) / peak if peak else None},
     }
     write_run_record(run_dir, final)
-    del model, optimizer, train_loader, val_loader
+    del model, optimizer, scheduler, train_loader, val_loader
     if device.type == "cuda":
+        import gc
+
+        gc.collect()
         torch.cuda.empty_cache()
     return final
 

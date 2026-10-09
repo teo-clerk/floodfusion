@@ -208,8 +208,9 @@ def run_baseline_row(cfg: ExperimentConfig, data_root: Path, out_dir: Path, *, a
                     sweep[split][k] = _merge(sweep[split][k], score_windows(pred, scene, by_event[path]))
         elapsed += (time.perf_counter() - started) / len(OFFSETS_DB)
         n_scored_chips += len(windows["val"].get(path, [])) + len(windows["test"].get(path, []))
-        scene_info[path.parent.name]["scene"] = scene
-        scene_info[path.parent.name]["surface"] = surface
+        if attribution:  # ~46 B/px per scene: keep the layers only when row 2's attribution needs them
+            scene_info[path.parent.name]["scene"] = scene
+            scene_info[path.parent.name]["surface"] = surface
     r = cfg.eval.cost_ratio
     best = int(np.argmin([_cost(pb, r) if pb else math.inf for pb in sweep["val"]]))
     offset = float(OFFSETS_DB[best])
@@ -244,7 +245,9 @@ def _attribution(test_windows: Mapping[Path, Any], scene_info: Mapping[str, Any]
 def _row_result(cfg: ExperimentConfig, sweep: Mapping[str, Sequence[Mapping[str, ConfusionMatrix]]], best: int,
                 offset: float, seed: int, variants: Mapping[str, Mapping[str, ConfusionMatrix]],
                 scene_info: Mapping[str, Any], data: Any) -> dict[str, Any]:
+    from floodfusion.data.records import chip_set_sha256
     from floodfusion.evaluate import _basin_summary, _macro
+    from floodfusion.utils.env import git_state
 
     test = dict(sweep["test"][best])
     zero = list(OFFSETS_DB).index(0.0)
@@ -273,7 +276,9 @@ def _row_result(cfg: ExperimentConfig, sweep: Mapping[str, Sequence[Mapping[str,
         "sweep_val_macro_iou": [macro_iou(dict(pb)) if pb else float("nan") for pb in sweep["val"]],
         "sweep_test_macro_iou": [macro_iou(dict(pb)) if pb else float("nan") for pb in sweep["test"]],
         "mask_attribution": attribution, "scenes": dict(scene_info), "n_chips": len(data.test),
-        "manifest_sha256": data.manifest_sha256, "synthetic_data": data.is_synthetic,
+        "manifest_sha256": data.manifest_sha256, "split_sha256": data.split_sha256,
+        "test_chips_sha256": chip_set_sha256(data.test), "synthetic_data": data.is_synthetic,
+        "evaluation_git": git_state(),
     }
 
 

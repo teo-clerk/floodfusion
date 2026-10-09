@@ -22,6 +22,7 @@ from typing import Any
 __all__ = [
     "ChipRecord",
     "atomic_write_bytes",
+    "chip_set_sha256",
     "load_manifest",
     "load_manifest_meta",
     "manifest_meta_path",
@@ -139,6 +140,11 @@ def _read_umask() -> int:
 
 
 _UMASK = _read_umask()
+
+
+def chip_set_sha256(records: Iterable[ChipRecord]) -> str:
+    """Identity of a chip set: two rows are evaluated on the same test set iff these match."""
+    return hashlib.sha256("\n".join(sorted(r.chip_id for r in records)).encode("utf-8")).hexdigest()
 
 
 def atomic_write_bytes(path: Path, payload: bytes) -> None:

@@ -14,9 +14,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
-__all__ = ["environment_record", "git_state"]
+__all__ = ["CODE_PATHS", "code_changed_since", "environment_record", "git_state"]
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+#: The tracked paths that determine every number: code, configs and the locked environment.
+#: Documentation, tests and generated reports do not change a result, so editing them neither
+#: makes a run "dirty" nor invalidates a run made at an earlier commit.
+CODE_PATHS = ("src", "configs", "pyproject.toml", "uv.lock", "Makefile")
 
 
 def _git(*args: str, cwd: Path = REPO_ROOT) -> str | None:
@@ -33,18 +37,36 @@ def git_state(cwd: Path = REPO_ROOT) -> dict[str, Any]:
     """Return ``{"git_sha", "git_branch", "git_dirty"}``.
 
     ``git_sha`` is ``None`` outside a repository or before the first commit, and
-    ``git_dirty`` is ``True`` whenever tracked files differ from ``HEAD`` — a run made
-    from a dirty tree cannot be regenerated from its SHA alone, so the ablation table
-    refuses it without ``--allow-dirty``.
+    ``git_dirty`` is ``True`` whenever a tracked file under :data:`CODE_PATHS` differs from
+    ``HEAD`` — a run made from such a tree cannot be regenerated from its SHA alone, so the
+    ablation table refuses it without ``--allow-dirty``.
     """
     sha = _git("rev-parse", "HEAD", cwd=cwd)
     branch = _git("rev-parse", "--abbrev-ref", "HEAD", cwd=cwd)
-    status = _git("status", "--porcelain", "--untracked-files=no", cwd=cwd)
+    # Untracked files under the code paths count too: a new module that is not committed would
+    # not exist at the recorded SHA.
+    status = _git("status", "--porcelain", "--untracked-files=normal", "--", *CODE_PATHS, cwd=cwd)
     return {
         "git_sha": sha,
         "git_branch": branch,
         "git_dirty": True if sha is None else bool(status),
     }
+
+
+def code_changed_since(sha: str | None, cwd: Path = REPO_ROOT) -> bool:
+    """``True`` unless the code paths of the working tree are identical to those at ``sha``.
+
+    A run made at an earlier commit is still reproducible by the current tree when only
+    documentation, tests or reports changed since — what ``P1-M6.3`` actually requires.
+    """
+    if not sha:
+        return True
+    try:
+        result = subprocess.run(["git", "diff", "--quiet", sha, "--", *CODE_PATHS], cwd=cwd,
+                                capture_output=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return True
+    return result.returncode != 0
 
 
 def environment_record() -> dict[str, Any]:

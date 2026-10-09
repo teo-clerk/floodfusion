@@ -78,7 +78,7 @@ table:  ## Regenerate the ablation table from existing run directories (one comm
 predict:  ## Product GeoTIFF for one event stack: make predict RUN=runs/... STACK=... OUT=...
 	$(PY) -m floodfusion.predict --run-dir $(RUN) --stack $(STACK) --out $(OUT)
 
-demo: synth splits ablation  ## Synthetic benchmark -> splits -> full ablation grid -> table
+demo: synth splits vram-budget ablation  ## Synthetic benchmark -> splits -> VRAM budget -> ablation grid -> table
 
 clean:  ## Remove caches (keeps data/ and runs/)
 	find . -name '__pycache__' -type d -prune -exec $(RM) -r {} +

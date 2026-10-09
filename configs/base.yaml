@@ -181,6 +181,9 @@ train:
   channels_last: true # apply to BOTH model and inputs, or neither
   grad_checkpointing: false # unnecessary at 256^2; the lever at 512^2
   cudnn_benchmark: true # valid only because chip shapes are FIXED
+  # Deterministic kernels cost 2.9x throughput on this GPU (measured): seed everything, accept
+  # residual non-determinism and measure it with three seeds instead (docs/08 7.2).
+  deterministic: false
 
   seed: 42
 

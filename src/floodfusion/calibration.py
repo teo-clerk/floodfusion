@@ -160,7 +160,7 @@ class CalibrationResult:
     reliability_raw: dict[str, Any]
     reliability_calibrated: dict[str, Any]
 
-    def summary(self) -> dict[str, float]:
+    def summary(self) -> dict[str, Any]:
         return {k: getattr(self, k) for k in (
             "method", "temperature", "offset", "pi_train", "pi_deploy", "ece_raw", "ece_prior",
             "ece_temperature", "ece_platt", "ece_calibrated", "nll_raw", "nll_temperature", "nll_platt",
@@ -169,9 +169,16 @@ class CalibrationResult:
 
 def calibrate_logits(logits: np.ndarray, labels: np.ndarray, *, pi_train: float, pi_deploy: float,
                      n_bins: int = 15) -> CalibrationResult:
-    """Prior correction + temperature (``docs/09`` 4.3); Platt only if clearly better on NLL."""
+    """Prior correction + temperature (``docs/09`` 4.3); Platt only if clearly better on NLL.
+
+    A validation set with a single class (or a prior of exactly 0 or 1) cannot identify any
+    calibration map: the identity is returned with ``method="identity"`` and the reason is
+    visible in every report, rather than a crash or an invented number.
+    """
     z = np.asarray(logits, dtype=np.float64).ravel()
     y = np.asarray(labels, dtype=np.float64).ravel()
+    if z.size == 0 or y.min() == y.max() or not (0.0 < pi_train < 1.0 and 0.0 < pi_deploy < 1.0):
+        return _identity_result(z, y, pi_train, pi_deploy, n_bins)
     offset = prior_correction_offset(pi_train, pi_deploy)
     t = fit_temperature(z, y, offset=offset)
     a, b = fit_platt(z, y, init=(1.0 / t, offset / t))
@@ -191,6 +198,19 @@ def calibrate_logits(logits: np.ndarray, labels: np.ndarray, *, pi_train: float,
         reliability_raw={k: np.asarray(v).tolist() for k, v in rel_raw.items()},
         reliability_calibrated={k: np.asarray(v).tolist() for k, v in (rel_p if use_platt else rel_t).items()},
     )
+
+
+def _identity_result(z: np.ndarray, y: np.ndarray, pi_train: float, pi_deploy: float, n_bins: int) -> CalibrationResult:
+    if z.size:
+        ece, rel = expected_calibration_error(apply_calibration(z, 1.0), y, n_bins=n_bins)
+        nll = _nll(z, y)
+    else:
+        ece, rel, nll = float("nan"), {}, float("nan")
+    reliability = {k: np.asarray(v).tolist() for k, v in rel.items()}
+    return CalibrationResult(method="identity", temperature=1.0, offset=0.0, pi_train=pi_train, pi_deploy=pi_deploy,
+                             ece_raw=ece, ece_prior=ece, ece_calibrated=ece, ece_temperature=ece, ece_platt=ece,
+                             nll_raw=nll, nll_temperature=nll, nll_platt=nll, nll_calibrated=nll, n_pixels=int(z.size),
+                             reliability_raw=reliability, reliability_calibrated=reliability)
 
 
 class LogitReservoir:

@@ -5,8 +5,10 @@ r"""The ablation table of ``MILESTONES.md`` section 6, regenerated from run dire
 Every number comes from the ``eval_test.json`` / ``run.json`` files the single evaluation
 code path wrote; nothing is re-typed. The builder
 
-1. discovers the runs and **refuses** to emit a table if any run's git SHA differs from the
-   current tree, or the tree is dirty — unless ``--allow-dirty`` (``P1-M6.3``);
+1. discovers the runs and **refuses** to emit a table if any run was made from a dirty tree, or
+   if the code that determines the numbers (``src/``, ``configs/``, ``pyproject.toml``,
+   ``uv.lock``, ``Makefile``) differs between the run's SHA and the current tree — unless
+   ``--allow-dirty`` (``P1-M6.3``). Documentation-only commits keep runs valid;
 2. pools each learned row's seeds **per basin** (confusion counts summed over seeds), reports
    macro-over-basin IoU at :math:`\tau^\star` with a 95 % percentile bootstrap over test
    basins, and the seed spread separately (basin-to-basin and seed-to-seed variance are
@@ -76,6 +78,10 @@ GAPS: tuple[tuple[int, int, str, str], ...] = (
     (2, 9, "What the machine learning was actually worth (9 − 2)", "positive"),
 )
 _NOT_COMPARABLE = {6}
+#: Below this many test basins a percentile basin bootstrap undercovers badly (simulated
+#: coverage ~0.80 at K = 4 for a nominal 0.95; false "resolvable" rate ~0.2 instead of 0.05),
+#: so no verdict is issued: per-basin differences and their sign counts are reported instead.
+MIN_BASINS_FOR_VERDICT = 8
 
 
 def _cm(d: Mapping[str, Any]) -> ConfusionMatrix:
@@ -104,26 +110,63 @@ def collect_rows(runs_root: Path) -> dict[str, list[dict[str, Any]]]:
 
 
 def _check_reproducibility(rows: Mapping[str, Sequence[Mapping[str, Any]]], allow_dirty: bool) -> dict[str, Any]:
-    from floodfusion.utils.env import git_state
+    """Refuse a table that does not regenerate from the current code (``P1-M6.3``).
 
-    current = git_state()
-    problems = []
+    Checked: every training run AND every evaluation was made from a clean tree whose code
+    (``env.CODE_PATHS``) equals the current tree's — a later documentation or report commit does
+    not invalidate a number, a code change does — plus the cross-run invariants a pooled table
+    silently depends on: one manifest; one test set for every row except row 6 (cloud-free
+    subset by definition); and, within a row, one configuration up to the seed.
+    """
+    from floodfusion.utils import env
+
+    current = env.git_state()
+    problems: list[str] = []
     if current.get("git_dirty"):
-        problems.append("the working tree is dirty")
-    for entries in rows.values():
+        problems.append("the working tree has uncommitted code/config changes")
+    checked: dict[str | None, bool] = {}
+
+    def code_ok(sha: str | None) -> bool:
+        if sha not in checked:
+            checked[sha] = sha == current.get("git_sha") or not env.code_changed_since(sha)
+        return checked[sha]
+
+    manifests, test_sets = set(), set()
+    for key, entries in rows.items():
+        configs = {e["run"].get("config_sha256_without_seed") for e in entries} - {None}
+        if len(configs) > 1:
+            problems.append(f"row {key}: seeds were trained with different configurations")
         for e in entries:
-            sha, dirty = e["run"].get("git_sha"), e["run"].get("git_dirty")
-            if sha != current.get("git_sha") or dirty:
-                problems.append(f"{e['dir']}: git {str(sha)[:10]}{' (dirty)' if dirty else ''}")
+            run, ev = e["run"], e["eval"]
+            if run.get("git_dirty") or not code_ok(run.get("git_sha")):
+                problems.append(f"{e['dir']}: training at git {str(run.get('git_sha'))[:10]}"
+                                f"{' (dirty)' if run.get('git_dirty') else ' (code differs)'}")
+            eg = ev.get("evaluation_git") or {}
+            if eg and (eg.get("git_dirty") or not code_ok(eg.get("git_sha"))):
+                problems.append(f"{e['dir']}: evaluation at git {str(eg.get('git_sha'))[:10]} (dirty or code differs)")
+            manifests.add(ev.get("manifest_sha256") or run.get("manifest_sha256"))
+            if key != "6" and ev.get("test_chips_sha256"):
+                test_sets.add(ev["test_chips_sha256"])
+    if len(manifests - {None}) > 1:
+        problems.append(f"runs from {len(manifests - {None})} different manifests are mixed")
+    if len(test_sets) > 1:
+        problems.append(f"rows were evaluated on {len(test_sets)} different test sets (row 6 excepted)")
     if problems and not allow_dirty:
         raise ValueError("refusing to emit a table that does not regenerate from one SHA (P1-M6.3):\n  "
                          + "\n  ".join(problems[:20]) + "\n(pass --allow-dirty to override)")
     return {**current, "reproducibility_problems": problems}
 
 
-def _pool_seeds(entries: Sequence[Mapping[str, Any]]) -> dict[str, ConfusionMatrix]:
+def _seed_of(entry: Mapping[str, Any]) -> int | None:
+    seed = entry["run"].get("seed")
+    return int(seed) if isinstance(seed, int) else None
+
+
+def _pool_seeds(entries: Sequence[Mapping[str, Any]], seeds: set[int | None] | None = None) -> dict[str, ConfusionMatrix]:
     pooled: dict[str, ConfusionMatrix] = {}
     for e in entries:
+        if seeds is not None and _seed_of(e) not in seeds:
+            continue
         for basin, d in e["eval"]["per_basin"].items():
             cm = _cm(d)
             pooled[basin] = pooled[basin] + cm if basin in pooled else cm
@@ -140,8 +183,14 @@ def _row_summary(key: str, entries: Sequence[Mapping[str, Any]], n_boot: int, al
     vram_err = [e["run"]["vram_prediction"]["relative_error"] for e in trained
                 if (e["run"].get("vram_prediction") or {}).get("relative_error") is not None]
     first = entries[0]["eval"]
+    subsets = [e["eval"].get("cloud_free_subset") for e in entries if e["eval"].get("cloud_free_subset")]
     return {
-        "key": key, "n_seeds": len(entries), "per_basin": pooled, "iou": macro_iou(pooled), "ci": (lo, hi),
+        "key": key, "n_seeds": len(entries), "seeds": sorted(s for s in map(_seed_of, entries) if s is not None),
+        "n_basins": len(pooled), "per_basin": pooled, "iou": macro_iou(pooled),
+        "ci": (lo, hi) if len(pooled) >= 2 else (float("nan"), float("nan")),
+        "cloud_free_iou": float(np.mean([c["macro_iou"] for c in subsets])) if subsets else None,
+        "cloud_free_chips": subsets[0]["n_chips"] if subsets else None,
+        "cloud_free_sha": subsets[0]["chips_sha256"] if subsets else None,
         "f1": float(np.mean(f1s)) if f1s else float("nan"),
         "seed_mean": float(np.mean(seeds)), "seed_sd": float(np.std(seeds, ddof=1)) if len(seeds) > 1 else float("nan"),
         "peak_vram_gib": max((e["run"].get("peak_vram_bytes", 0) for e in trained), default=0) / 1024**3 or None,
@@ -172,7 +221,8 @@ def _main_table(summaries: Mapping[str, Mapping[str, Any]]) -> list[str]:
         if s is None:
             lines.append(f"| {row} | {config} | {purpose} | not run | | | | |")
             continue
-        iou = f"{_fmt(s['iou'])} [{_fmt(s['ci'][0], 2)}, {_fmt(s['ci'][1], 2)}]"
+        mark = "†" if s["n_basins"] < MIN_BASINS_FOR_VERDICT else ""
+        iou = f"{_fmt(s['iou'])} [{_fmt(s['ci'][0], 2)}, {_fmt(s['ci'][1], 2)}]{mark}"
         vram = "—" if not s["trained"] else (f"{s['peak_vram_gib']:.2f} GiB" if s["peak_vram_gib"] else "—")
         train_h = "—" if not s["trained"] else _fmt(s["train_h"], 3)
         if row == 11:
@@ -190,28 +240,48 @@ def _supplementary(summaries: Mapping[str, Mapping[str, Any]]) -> list[str]:
         sd = "" if not math.isfinite(s["seed_sd"]) else f" ± {s['seed_sd']:.3f}"
         err = "—" if s["vram_error"] is None else f"{100 * s['vram_error']:+.1f} %"
         ece = "—" if s["baseline"] else f"{_fmt(s['ece_raw'], 4)} → {_fmt(s['ece_cal'], 4)}"
-        lines.append(f"| {key} | {s['n_seeds']} | {_fmt(s['seed_mean'])}{sd} | {_fmt(s['pooled_iou'])} | "
+        seeds = ", ".join(map(str, s["seeds"])) or "—"
+        lines.append(f"| {key} | {seeds} | {_fmt(s['seed_mean'])}{sd} | {_fmt(s['pooled_iou'])} | "
                      f"{_fmt(s['raw_tau'])} | {_fmt(s['val_selected'])} | {_fmt(s['oracle'])} | {_fmt(s['ap'])} | "
                      f"{ece} | {', '.join(s['calibration'])} | {err} |")
     return lines
 
 
-def _gaps(summaries: Mapping[str, Mapping[str, Any]], n_boot: int, alpha: float) -> tuple[list[str], dict[str, Any]]:
-    lines = ["| Gap (B − A) | Question | Δ IoU [95 % paired CI] | Resolvable? | Expected sign |",
-             "| --- | --- | --- | --- | --- |"]
+def _gaps(summaries: Mapping[str, Mapping[str, Any]], rows: Mapping[str, Sequence[Mapping[str, Any]]],
+          n_boot: int, alpha: float) -> tuple[list[str], dict[str, Any]]:
+    """Paired gaps on MATCHED seeds; a verdict only with enough basins to support one."""
+    lines = ["| Gap (B − A) | Question | Seeds | Δ IoU [95 % paired CI] | B > A in | Verdict | Expected sign |",
+             "| --- | --- | --- | --- | --- | --- | --- |"]
     out: dict[str, Any] = {}
     for a, b, question, expected in GAPS:
-        sa, sb = summaries.get(str(a)), summaries.get(str(b))
-        if sa is None or sb is None or a in _NOT_COMPARABLE or b in _NOT_COMPARABLE:
+        ra, rb = rows.get(str(a)), rows.get(str(b))
+        if ra is None or rb is None or a in _NOT_COMPARABLE or b in _NOT_COMPARABLE:
             continue
-        if set(sa["per_basin"]) != set(sb["per_basin"]):
-            lines.append(f"| {b} − {a} | {question} | not comparable (different basins) | | {expected} |")
+        seeds_a, seeds_b = {_seed_of(e) for e in ra}, {_seed_of(e) for e in rb}
+        # A seedless row (baseline) pairs with any seed set; otherwise only common seeds are compared,
+        # so a 3-seed row is never set against a 1-seed row (the seed noise would differ).
+        common = seeds_b if seeds_a == {None} else seeds_a if seeds_b == {None} else seeds_a & seeds_b
+        if not common:
             continue
-        delta, lo, hi = paired_bootstrap_delta(sa["per_basin"], sb["per_basin"], n_boot=n_boot, alpha=alpha,
-                                               seed=0, statistic="macro")
-        resolvable = "yes" if lo > 0 or hi < 0 else "no (CI contains 0)"
-        lines.append(f"| {b} − {a} | {question} | {delta:+.3f} [{lo:+.3f}, {hi:+.3f}] | {resolvable} | {expected} |")
-        out[f"{b}-{a}"] = {"delta": delta, "ci": [lo, hi], "resolvable": lo > 0 or hi < 0}
+        pa = _pool_seeds(ra, None if seeds_a == {None} else common)
+        pb = _pool_seeds(rb, None if seeds_b == {None} else common)
+        if set(pa) != set(pb):
+            lines.append(f"| {b} − {a} | {question} | | not comparable (different basins) | | | {expected} |")
+            continue
+        delta, lo, hi = paired_bootstrap_delta(pa, pb, n_boot=n_boot, alpha=alpha, seed=0, statistic="macro")
+        per_basin = {k: pb[k].iou - pa[k].iou for k in pa if not (math.isnan(pa[k].iou) or math.isnan(pb[k].iou))}
+        wins, k = sum(d > 0 for d in per_basin.values()), len(per_basin)
+        if len(pa) < MIN_BASINS_FOR_VERDICT:
+            verdict = f"none: K = {len(pa)} < {MIN_BASINS_FOR_VERDICT} basins"
+            resolvable = None
+        else:
+            resolvable = lo > 0 or hi < 0
+            verdict = "resolvable" if resolvable else "not resolvable (CI contains 0)"
+        seeds_txt = ", ".join(str(x) for x in sorted(s for s in common if s is not None)) or "—"
+        lines.append(f"| {b} − {a} | {question} | {seeds_txt} | {delta:+.3f} [{lo:+.3f}, {hi:+.3f}] | "
+                     f"{wins}/{k} basins | {verdict} | {expected} |")
+        out[f"{b}-{a}"] = {"delta": delta, "ci": [lo, hi], "resolvable": resolvable, "basins_b_better": wins,
+                           "n_basins": k, "per_basin_delta": per_basin, "seeds": sorted(s for s in common if s is not None)}
     return lines, out
 
 
@@ -221,6 +291,20 @@ def _per_basin(summaries: Mapping[str, Mapping[str, Any]]) -> list[str]:
     for key, s in sorted(summaries.items(), key=lambda kv: (not kv[0].isdigit(), int(kv[0]) if kv[0].isdigit() else 0, kv[0])):
         cells = [_fmt(s["per_basin"][b].iou) if b in s["per_basin"] else "—" for b in basins]
         lines.append(f"| {key} | " + " | ".join(cells) + " |")
+    return lines
+
+
+def _cloud_free(summaries: Mapping[str, Mapping[str, Any]]) -> list[str]:
+    """Every row on row 6's own test set (cloud-free chips), so the optical ceiling has comparators."""
+    have = {k: s for k, s in summaries.items() if s.get("cloud_free_iou") is not None}
+    if not have:
+        return []
+    reference = summaries.get("6", {}).get("cloud_free_sha")
+    lines = ["| Row | Macro IoU at τ* on the cloud-free test chips | Chips | Same chips as row 6? |",
+             "| --- | --- | --- | --- |"]
+    for key, s in sorted(have.items(), key=lambda kv: (not kv[0].isdigit(), int(kv[0]) if kv[0].isdigit() else 0, kv[0])):
+        same = "—" if reference is None else ("yes" if s["cloud_free_sha"] == reference else "no")
+        lines.append(f"| {key} | {_fmt(s['cloud_free_iou'])} | {s['cloud_free_chips']} | {same} |")
     return lines
 
 
@@ -243,13 +327,21 @@ def _statements(gaps: Mapping[str, Any]) -> list[str]:
         g = gaps.get(key)
         if g is None:
             return None
-        verdict = "resolvable at this number of basins" if g["resolvable"] else "NOT resolvable at this number of basins"
+        if g["resolvable"] is None:
+            verdict = (f"higher in {g['basins_b_better']} of {g['n_basins']} test basins; with this few basins no "
+                       "interval-based verdict is possible")
+        else:
+            verdict = "resolvable" if g["resolvable"] else "NOT resolvable at this number of basins"
         return f"- {text}: **{g['delta']:+.3f}** [{g['ci'][0]:+.3f}, {g['ci'][1]:+.3f}] — {verdict}."
 
     candidates = [say("9-11", "Row 9 − row 11 (the honest operational expectation: the cost of losing optical)"),
                   say("13-9", "Row 13 − row 9 (the size of the spatial-leakage illusion)"),
                   say("9-2", "Row 9 − row 2 (what the machine learning was actually worth)")]
     return [c for c in candidates if c]
+
+
+def kv_is_row(key: str) -> bool:
+    return key.isdigit() and int(key) in ROW_LABELS
 
 
 def build_ablation_table(
@@ -268,20 +360,26 @@ def build_ablation_table(
         raise FileNotFoundError(f"no evaluated runs under {runs_root}")
     git = _check_reproducibility(rows, allow_dirty)
     summaries = {k: _row_summary(k, v, n_boot, alpha) for k, v in rows.items()}
-    gap_lines, gaps = _gaps(summaries, n_boot, alpha)
+    gap_lines, gaps = _gaps(summaries, rows, n_boot, alpha)
+    protocol_path = Path(runs_root) / "ablation_protocol.json"
+    protocol = json.loads(protocol_path.read_text(encoding="utf-8")) if protocol_path.is_file() else None
     any_eval = next(iter(rows.values()))[0]
     synthetic = any(e["eval"].get("synthetic_data") or e["run"].get("synthetic_data") for v in rows.values() for e in v)
     test_basins = sorted({b for s in summaries.values() if not s["baseline"] for b in s["per_basin"]})
-    seeds = sorted({s["n_seeds"] for k, s in summaries.items() if s["trained"]})
+    seeds = ", ".join(f"row {k}: {len(s['seeds'])}" for k, s in sorted(summaries.items(), key=lambda kv: kv[0].zfill(3))
+                      if s["trained"] and kv_is_row(k))
+    protocol_text = (f"seed protocol **{protocol['protocol']}** (decided before the grid from a measured row-9 run: "
+                     f"projected full grid {protocol['projected_full_grid_minutes']:.0f} min vs budget "
+                     f"{protocol['budget_minutes']:.0f} min)" if protocol else "seed protocol not recorded")
     header = [
         "# Ablation table — MILESTONES.md section 6",
         "",
         *(["> **SYNTHETIC BENCHMARK.** Every number below is measured on the physics-based synthetic "
            "benchmark (`floodfusion.data.synthetic`), not on real Sentinel-1/2 data. It validates the "
            "pipeline and the experimental design; it is **not** a real-world accuracy claim.", ""] if synthetic else []),
-        f"**Protocol** (docs/09 §2.2, the affordable protocol): one fixed basin-blocked train/val/test split; "
-        f"test basins: {', '.join(test_basins)} ({len(test_basins)}); seeds per learned row: "
-        f"{', '.join(map(str, seeds)) or '—'}. **IoU** = macro over test basins at the cost-optimal τ* = 1/(1+r) = "
+        f"**Protocol** (docs/09 §2.2): one fixed basin-blocked train/val/test split; "
+        f"test basins: {', '.join(test_basins)} ({len(test_basins)}); {protocol_text}; seeds per learned row — "
+        f"{seeds or '—'}; gaps compare **matched seeds only**. **IoU** = macro over test basins at the cost-optimal τ* = 1/(1+r) = "
         "0.25 (r = 3) after calibration on validation (prior correction + temperature, Platt if clearly better); "
         "seeds pooled per basin; **[CI]** = 95 % percentile bootstrap over test basins (10 000 resamples). "
         "Baselines (rows 1–3): threshold offset chosen on validation by the same cost rule. **Peak VRAM** = "
@@ -296,12 +394,17 @@ def build_ablation_table(
     body = [
         *header, *_main_table(summaries), "",
         "**Uncertainty from a single fixed split reflects basin-to-basin variation, not variation in the choice "
-        "of split** (docs/09 §2.2). With this few test basins the intervals are wide; that is the honest "
-        "statement of what the data can resolve.", "",
+        "of split** (docs/09 §2.2). † Fewer than "
+        f"{MIN_BASINS_FOR_VERDICT} test basins: a percentile bootstrap over so few basins undercovers (simulated "
+        "coverage ≈ 0.80 at K = 4 for a nominal 0.95), so the intervals are **indicative only** and the gaps below "
+        "carry no resolvable/not-resolvable verdict — the per-basin direction is reported instead. That is the "
+        "honest statement of what this data can resolve.", "",
         "## Beneath the table: the gaps that matter (paired basin bootstrap, docs/09 §3.3 and §5.1)", "",
         *gap_lines, "", *_statements(gaps), "",
         "Row 6 is scored on cloud-free chips only — a different test set — and is excluded from every paired "
-        "comparison.", "",
+        "comparison; its comparators on the same chips are below.", "",
+        *(["## Row 6's test set: every row on the cloud-free test chips", "", *_cloud_free(summaries), ""]
+          if _cloud_free(summaries) else []),
         "## Supplementary", "", *_supplementary(summaries), "",
         "## Per-basin IoU at τ* (seeds pooled)", "", *_per_basin(summaries), "",
     ]
@@ -314,6 +417,7 @@ def build_ablation_table(
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(text, encoding="utf-8")
         write_json(out.with_suffix(".json"), {
+            "protocol": protocol,
             "rows": {k: {**{kk: vv for kk, vv in s.items() if kk != "per_basin"},
                          "per_basin": {b: {"tp": m.tp, "fp": m.fp, "fn": m.fn, "tn": m.tn, "iou": m.iou}
                                        for b, m in s["per_basin"].items()}} for k, s in summaries.items()},

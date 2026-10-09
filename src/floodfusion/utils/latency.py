@@ -81,6 +81,16 @@ def measure_inference(
     def autocast() -> Any:
         return torch.autocast("cuda", dtype=torch.bfloat16, enabled=bf16)
 
+    # Peak inference memory FIRST, with nothing but the model and one chip on the device.
+    one = _inputs(1, chip_size, device, sar_only=sar_only)
+    torch.cuda.empty_cache()
+    torch.cuda.reset_peak_memory_stats(device)
+    base = torch.cuda.memory_allocated(device)
+    with autocast():
+        model(**one)
+    torch.cuda.synchronize(device)
+    peak_b1 = torch.cuda.max_memory_allocated(device)
+
     batch = _largest_batch(model, chip_size, device, sar_only=sar_only, autocast=autocast)
     big = _inputs(batch, chip_size, device, sar_only=sar_only)
     started = time.perf_counter()
@@ -89,7 +99,6 @@ def measure_inference(
             model(**big)
     torch.cuda.synchronize(device)
 
-    one = _inputs(1, chip_size, device, sar_only=sar_only)
     for _ in range(warmup_iters):
         with autocast():
             model(**one)
@@ -102,13 +111,6 @@ def measure_inference(
         torch.cuda.synchronize(device)
         timings.append(1e3 * (time.perf_counter() - t0))
 
-    torch.cuda.empty_cache()
-    torch.cuda.reset_peak_memory_stats(device)
-    base = torch.cuda.memory_allocated(device)
-    with autocast():
-        model(**one)
-    torch.cuda.synchronize(device)
-    peak_b1 = torch.cuda.max_memory_allocated(device)
 
     n, t0 = 0, time.perf_counter()
     while time.perf_counter() - t0 < throughput_s:

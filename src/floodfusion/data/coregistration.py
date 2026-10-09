@@ -167,9 +167,9 @@ def simulate_backscatter(
     cos = np.cos(np.radians(np.asarray(theta_loc_deg, dtype=np.float64)))
     db = 10.0 * np.log10(np.clip(cos, 1e-3, 1.0) ** exponent)
     if shadow is not None:
-        db = np.where(shadow, db.min(), db)
+        db = np.where(shadow, np.nanmin(db), db)
     if layover is not None:
-        db = np.where(layover, db.max(), db)
+        db = np.where(layover, np.nanmax(db), db)
     return db
 
 

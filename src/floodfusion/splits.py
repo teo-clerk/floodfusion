@@ -174,32 +174,97 @@ def _boundaries_as_dict(basin_boundaries: object) -> dict[str, Any] | None:
     raise TypeError("basin_boundaries must be None, a mapping basin_id -> geometry, or a GeoDataFrame")
 
 
+#: Up to this many basins the partition is searched exhaustively (3**13 ≈ 1.6 M candidates).
+EXHAUSTIVE_MAX_BASINS = 13
+#: A basin is "optical-bearing" if it holds at least this share of the optical weight.
+OPTICAL_BEARING_SHARE = 0.05
+#: The optical weight counts evaluation chips this clear — row 6's own definition.
+OPTICAL_CLEAR_FOR_SPLITS = 0.9
+
+
+def _partition_exhaustive(
+    basins: Sequence[str], weights: Mapping[str, float], secondary: Mapping[str, float],
+    targets: Mapping[str, float], seed: int,
+) -> dict[str, str] | None:
+    """Best partition over all 3**K assignments: shares of flood weight AND optical weight as
+    close as possible to the targets, every split non-empty, and the optical case spread over
+    the splits: a basin is *optical-bearing* if it holds at least
+    :data:`OPTICAL_BEARING_SHARE` of the optical weight; with five or more such basins train
+    and test need two each and validation one (with three or four, one each). Ties are broken
+    by a seeded random key, so the result is deterministic."""
+    k = len(basins)
+    names = ("train", "val", "test")
+    codes = np.indices((3,) * k).reshape(k, -1).T.astype(np.int8)  # (3**k, k)
+    w = np.array([weights[b] for b in basins], dtype=np.float64)
+    o = np.array([secondary.get(b, 0.0) for b in basins], dtype=np.float64)
+    t = np.array([targets[n] for n in names])
+    onehot = codes[:, :, None] == np.arange(3)[None, None, :]          # (N, k, 3)
+    share_w = (onehot * w[None, :, None]).sum(1) / max(w.sum(), 1e-12)
+    share_o = (onehot * o[None, :, None]).sum(1) / max(o.sum(), 1e-12)
+    n_basins = onehot.sum(1)
+    feasible = (n_basins >= 1).all(1)
+    if o.sum() > 0:
+        bearing = o >= OPTICAL_BEARING_SHARE * o.sum()
+        n_optical = (onehot & bearing[None, :, None]).sum(1)
+        n_bearing = int(bearing.sum())
+        need = np.array([2, 1, 2]) if n_bearing >= 5 else np.array([1, 1, 1]) if n_bearing >= 3 else np.zeros(3)
+        feasible &= (n_optical >= need[None, :]).all(1)
+    if not feasible.any():
+        return None
+    cost = ((share_w - t) ** 2).sum(1) + ((share_o - t) ** 2).sum(1) if o.sum() > 0 else ((share_w - t) ** 2).sum(1)
+    cost = np.where(feasible, cost, np.inf)
+    best = np.flatnonzero(np.isclose(cost, cost.min(), rtol=0.0, atol=1e-12))
+    pick = best[int(np.random.default_rng(seed).integers(best.size))]
+    return {b: names[int(c)] for b, c in zip(basins, codes[pick])}
+
+
 def _partition_basins(
-    weights: Mapping[str, float], train_fraction: float, val_fraction: float, seed: int
+    weights: Mapping[str, float], train_fraction: float, val_fraction: float, seed: int,
+    secondary: Mapping[str, float] | None = None,
 ) -> dict[str, str]:
     """Greedy, deterministic partition of basins balanced by weight (flood pixels).
 
-    Basins are visited heaviest first (ties broken by a seeded shuffle) and each goes to
-    the split furthest below its target share. With three or more basins every split gets
-    at least one.
+    Basins are visited heaviest first (ties broken by a seeded shuffle) and each goes to the
+    split furthest below its target share. With ``secondary`` weights (optical-available
+    evaluation area) the optical case must be spread over the splits too — a test set whose
+    optical chips all sit in one basin cannot support any statement about what optical adds
+    (row 9 vs row 11, row 6) — and two objectives defeat a greedy pass, so up to
+    :data:`EXHAUSTIVE_MAX_BASINS` basins the partition is searched exhaustively
+    (:func:`_partition_exhaustive`); beyond that the greedy pass sums both deficits. With
+    three or more basins every split gets at least one.
     """
     targets = {"train": train_fraction, "val": val_fraction, "test": 1.0 - train_fraction - val_fraction}
     basins = sorted(weights)
+    if secondary is not None and 3 <= len(basins) <= EXHAUSTIVE_MAX_BASINS:
+        exact = _partition_exhaustive(basins, weights, secondary, targets, seed)
+        if exact is not None:
+            return exact
     rng = np.random.default_rng(seed)
     tiebreak = {b: float(r) for b, r in zip(basins, rng.random(len(basins)))}
     order = sorted(basins, key=lambda b: (-weights[b], tiebreak[b]))
     total = sum(weights.values()) or 1.0
+    second = {b: float((secondary or {}).get(b, 0.0)) for b in basins}
+    total_second = sum(second.values())
     assigned: dict[str, str] = {}
-    load = {s: 0.0 for s in targets}
+    load = dict.fromkeys(targets, 0.0)
+    load_second = dict.fromkeys(targets, 0.0)
     empty = [s for s in ("test", "val", "train") if targets[s] > 0]
+
+    def deficit(split: str, basin: str) -> float:
+        primary = targets[split] - load[split] / total
+        if total_second <= 0 or second[basin] <= 0:
+            return primary
+        return primary + (targets[split] - load_second[split] / total_second)
+
     for basin in order:
         remaining = len(order) - len(assigned)
         if len(empty) and remaining <= len(empty):
             split = empty[0]          # make sure no split stays empty
         else:
-            split = max(targets, key=lambda s: targets[s] - load[s] / total)
+            split = max(targets, key=lambda s: deficit(s, basin))
         assigned[basin] = split
         load[split] += weights[basin]
+        load_second[split] += second[basin]
         if split in empty:
             empty.remove(split)
     return assigned
@@ -216,6 +281,7 @@ def assign_basins(
     seed: int = 0,
     chip_size_m: float = 2560.0,
     basin_weights: Mapping[str, float] | None = None,
+    optical_weights: Mapping[str, float] | None = None,
     report: dict[str, Any] | None = None,
 ) -> SplitAssignment:
     """Partition **basins** — never chips — into train, validation and test.
@@ -238,6 +304,9 @@ def assign_basins(
     basin_weights
         Per-basin balancing weight — flood-pixel counts, not chip counts; one basin can
         dominate the positive class (``docs/05`` section 6.4 step 6). Defaults to chip counts.
+    optical_weights
+        Optional per-basin optical-available area, balanced as a second objective so the
+        optical case reaches every split (see :func:`_partition_basins`).
     report
         Optional dict filled with per-reason drop counts and the basin partition.
 
@@ -300,7 +369,8 @@ def assign_basins(
         weight_map = {b: float(weights[b]) for b in basins}
     else:
         weight_map = {b: float(basin_weights.get(b, 0.0)) for b in basins}
-    split_of_basin = _partition_basins(weight_map, train_fraction, val_fraction, seed) if basins else {}
+    split_of_basin = (_partition_basins(weight_map, train_fraction, val_fraction, seed, secondary=optical_weights)
+                      if basins else {})
 
     def split_of(chip: str) -> str:
         return split_of_basin[str(chip_basins[chip])]
@@ -369,6 +439,7 @@ def random_chip_split(
     val_fraction: float = 0.2,
     seed: int = 0,
     fixed_test_chips: Sequence[str] | None = None,
+    fixed_val_chips: Sequence[str] | None = None,
     match_counts: Mapping[str, tuple[int, int]] | None = None,
     positive_chips: Sequence[str] | None = None,
 ) -> SplitAssignment:
@@ -388,7 +459,10 @@ def random_chip_split(
     exactly what a naive chip-then-split pipeline does. ``match_counts``
     (``{"train": (n, n_pos), "val": (n, n_pos)}``) subsamples them to row 9's sizes and
     positive-chip counts, so the only difference between rows 9 and 13 is *where* the
-    training chips come from — not how many there are.
+    training chips come from — not how many there are. With ``fixed_val_chips`` the
+    validation set is row 9's too, so calibration, early stopping and checkpoint selection
+    see the same chips and the **training split is the only variable** (a validation set
+    drawn from the leaky pool would carry a different prior and confound the gap).
 
     Row 13 is expected to score **higher** than row 9. **Never use this for a headline
     number**: ``strategy`` is recorded so the evaluator can refuse to.
@@ -402,12 +476,26 @@ def random_chip_split(
         train, val, test = perm[:n_train], perm[n_train:n_train + n_val], perm[n_train + n_val:]
     else:
         test = sorted(set(fixed_test_chips))
-        unknown = set(test) - set(ids)
+        fixed_val = sorted(set(fixed_val_chips or ()))
+        unknown = (set(test) | set(fixed_val)) - set(ids)
         if unknown:
-            raise ValueError(f"fixed test chips missing from chip_ids: {sorted(unknown)[:5]}")
-        pool = [c for c in ids if c not in set(test)]
+            raise ValueError(f"fixed test/val chips missing from chip_ids: {sorted(unknown)[:5]}")
+        if set(test) & set(fixed_val):
+            raise ValueError("fixed validation and test chips overlap")
+        pool = [c for c in ids if c not in set(test) and c not in set(fixed_val)]
         pool = [pool[i] for i in rng.permutation(len(pool))]
-        if match_counts is not None:
+        if fixed_val_chips is not None:
+            val = fixed_val
+            if match_counts is not None:
+                positives = set(positive_chips or ())
+                n_total, n_pos = match_counts["train"]
+                pos_pool = [c for c in pool if c in positives]
+                neg_pool = [c for c in pool if c not in positives]
+                take_pos = min(n_pos, len(pos_pool))
+                train = pos_pool[:take_pos] + neg_pool[:min(n_total - take_pos, len(neg_pool))]
+            else:
+                train = pool
+        elif match_counts is not None:
             positives = set(positive_chips or ())
             pos_pool = [c for c in pool if c in positives]
             neg_pool = [c for c in pool if c not in positives]
@@ -664,15 +752,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     # 2. Leave-one-basin-out with buffer; val/test keep only the non-overlapping eval grid.
     area = cfg.data.chip_size**2
     weights: Counter[str] = Counter()
+    optical: Counter[str] = Counter()
     for r in records:
         if r.eval_grid:
             weights[r.basin_id] += r.positive_fraction * r.valid_fraction * area
+            if r.optical_available and r.optical_clear_fraction >= OPTICAL_CLEAR_FOR_SPLITS:
+                optical[r.basin_id] += area
     report: dict[str, Any] = {}
     lobo = assign_basins(
         {r.chip_id: r.basin_id for r in records},
         {r.chip_id: (r.centroid_x, r.centroid_y) for r in records},
         basins, buffer_m=buffer_m, chip_size_m=cfg.data.chip_size * cfg.grid.pixel_size_m,
         basin_weights={b: float(weights.get(b, 0.0)) for b in basins["basin_id"]},
+        optical_weights={b: float(optical.get(b, 0.0)) for b in basins["basin_id"]},
         seed=args.seed, report=report,
     )
     by_id = {r.chip_id: r for r in records}
@@ -704,7 +796,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     leaky = random_chip_split(
         [r.chip_id for r in records], {r.chip_id: r.basin_id for r in records},
-        seed=args.seed, fixed_test_chips=lobo.test_chips,
+        seed=args.seed, fixed_test_chips=lobo.test_chips, fixed_val_chips=lobo.val_chips,
         match_counts={"train": counts(lobo.train_chips), "val": counts(lobo.val_chips)},
         positive_chips=positives,
     )
@@ -712,7 +804,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     leak = test_pixels_covered_by_training(leaky, records)
     freeze_splits(leaky, chip_dir / "splits_random_chip.json", metadata={
         **common, "test_pixels_covered_by_training": leak,
-        "note": "ablation row 13 only: test chips identical to splits.json, train/val random",
+        "note": "ablation row 13 only: test AND validation chips identical to splits.json; "
+                "training chips drawn at random from every other chip (the only variable)",
     })
     LOGGER.info("LOBO: %d/%d/%d chips, basins %s/%s/%s; row-13 leak: %.0f %% of test pixels inside training windows",
                 len(lobo.train_chips), len(lobo.val_chips), len(lobo.test_chips),

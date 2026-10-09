@@ -53,6 +53,8 @@ __all__ = [
 ]
 
 LOGGER = logging.getLogger(__name__)
+#: Linear power is positive; a few zeros at swath edges are tolerated, a dB layer is mostly negative.
+_MAX_NON_POSITIVE_FRACTION = 0.05
 
 
 #: Remote hosts an asset href may point at: Planetary Computer's blob storage and API.
@@ -71,7 +73,8 @@ def check_href(href: str) -> str:
     from urllib.parse import urlparse
 
     text = str(href).strip()
-    if text.startswith("/vsi") or text.lstrip().startswith("<"):
+    local = text.removeprefix("file://")  # check the path GDAL will actually open
+    if local.startswith("/vsi") or local.lstrip().startswith("<"):
         raise ValueError(f"refusing GDAL virtual path or inline XML as an asset href: {text[:60]!r}")
     parsed = urlparse(text)
     if parsed.scheme in ("", "file"):
@@ -130,8 +133,9 @@ def verify_rtc_linear_power(values: np.ndarray, *, name: str = "gamma0") -> dict
     if finite.size == 0:
         raise ValueError(f"{name}: no finite pixels")
     median = float(np.median(finite))
-    if median < 0 or median > 10:
-        raise ValueError(f"{name}: median {median:.3g} looks like dB, but linear power is expected")
+    if median < 0 or median > 10 or float(np.mean(finite <= 0)) > _MAX_NON_POSITIVE_FRACTION:
+        raise ValueError(f"{name}: median {median:.3g}, {100 * float(np.mean(finite <= 0)):.1f} % non-positive — "
+                         "looks like dB, but linear power is expected")
     db = 10 * np.log10(np.clip(finite, 1e-6, None))
     counts, edges = np.histogram(db, bins=80, range=(-40, 10))
     return {
@@ -152,8 +156,10 @@ def read_s1_rtc(items: Sequence[Any], grid: AnalysisGrid, polarisation: str) -> 
     """
     hrefs = [asset_href(it, polarisation.lower()) for it in items]
     linear = _mosaic(hrefs, grid, kind="continuous")  # the file's own nodata (-32768 on PC)
-    linear[~(linear > 0)] = np.nan
+    # Verify the RAW mosaic: masking non-positive values first would hide a dB layer (whose
+    # negative values would vanish and leave a plausible positive median) — fail closed.
     qa = verify_rtc_linear_power(linear, name=f"gamma0_{polarisation}")
+    linear[~(linear > 0)] = np.nan
     with np.errstate(divide="ignore", invalid="ignore"):
         return 10.0 * np.log10(linear), qa
 

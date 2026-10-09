@@ -68,6 +68,8 @@ __all__ = [
     "EventQuery",
     "InMemoryCatalogue",
     "MatchedScenes",
+    "NoMatchingPairError",
+    "group_by_time",
     "load_matched_scenes",
     "open_catalogue",
     "profile_for",
@@ -78,6 +80,13 @@ __all__ = [
 ]
 
 LOGGER = logging.getLogger(__name__)
+
+class NoMatchingPairError(LookupError):
+    """No acceptable post-event scene, or no same-orbit/same-pass pre-event reference: drop the event."""
+
+
+#: Sentinel-2 tiles of one overpass are sensed within seconds of each other.
+_SAME_OVERPASS = timedelta(seconds=90)
 
 #: Two frames of one Sentinel-1 datatake are ~25 s apart; scenes closer than this are
 #: one acquisition (mosaicked together), farther apart they are different passes.
@@ -198,7 +207,15 @@ def open_catalogue(catalogue_url: str, profile: CatalogueProfile | None = None) 
         import planetary_computer
 
         modifier = planetary_computer.sign_inplace
-    return Client.open(catalogue_url, modifier=modifier, timeout=_HTTP_TIMEOUT)
+    # Public catalogues rate-limit (CDSE answers HTTP 429 from its WAF): retry with exponential
+    # backoff, honouring Retry-After, instead of failing a query that will succeed seconds later.
+    from pystac_client.stac_api_io import StacApiIO
+    from urllib3.util.retry import Retry
+
+    retry = Retry(total=6, backoff_factor=2.0, status_forcelist=(429, 500, 502, 503, 504),
+                  allowed_methods=frozenset({"GET", "POST"}), respect_retry_after_header=True)
+    stac_io = StacApiIO(timeout=_HTTP_TIMEOUT, max_retries=retry)
+    return Client.open(catalogue_url, modifier=modifier, stac_io=stac_io)
 
 
 # ---------------------------------------------------------------------------
@@ -290,7 +307,7 @@ def _s2_dedupe_key(item: Mapping[str, Any]) -> tuple[str, str]:
     different item ids — which would double-count overpasses and mix baselines in a mosaic.
     """
     props = item.get("properties", {})
-    tile = str(props.get("s2:mgrs_tile") or props.get("mgrs:utm_zone", ""))
+    tile = str(props.get("s2:mgrs_tile") or "")
     if not tile:
         parts = str(item.get("id", "")).split("_")
         tile = next((p for p in parts if len(p) == 6 and p.startswith("T")), str(item.get("id")))
@@ -364,7 +381,7 @@ def search_matched_pairs(
     post_items = [i for i in _search(client, profile.s1_collection, query.bbox, _interval(start, end))
                   if _is_usable_s1(i, profile)]
     if not post_items:
-        raise LookupError(
+        raise NoMatchingPairError(
             f"{query.event_id}: no Sentinel-1 IW VV+VH scene between {start.date()} and "
             f"{end.date()} in {profile.s1_collection}"
         )
@@ -381,7 +398,7 @@ def search_matched_pairs(
         and str(i["properties"]["sat:orbit_state"]).lower() == state
     ]
     if not candidates:
-        raise LookupError(
+        raise NoMatchingPairError(
             f"{query.event_id}: no pre-event scene on relative orbit {rel} ({state}) within "
             f"{query.pre_event_window_days} days before {start.date()}. Drop the event — do "
             "not relax the constraint (docs/05 section 2.1, criterion 3)."
@@ -478,11 +495,26 @@ def _overpass_cloud_cover(m: MatchedScenes) -> list[float]:
     """
     if len(m.s2_datetimes) != len(m.s2_cloud_cover):
         return list(m.s2_cloud_cover)
-    groups: dict[str, list[float]] = {}
-    for when, cover in zip(m.s2_datetimes, m.s2_cloud_cover):
-        groups.setdefault(str(when)[:16], []).append(cover)
+    groups = group_by_time(m.s2_datetimes)
     return [float(np.nanmean(v)) if np.isfinite(v).any() else math.nan
-            for v in (np.asarray(g, dtype=np.float64) for g in groups.values())]
+            for v in (np.asarray([m.s2_cloud_cover[i] for i in g], dtype=np.float64) for g in groups)]
+
+
+def group_by_time(datetimes: Sequence[str], gap: timedelta = _SAME_OVERPASS) -> list[list[int]]:
+    """Indices grouped into overpasses: sorted by time, a new group after a gap > ``gap``.
+
+    By elapsed time, not by clock minute — two tiles of one pass straddling a minute boundary
+    are still one pass.
+    """
+    parsed = sorted((datetime.fromisoformat(str(t).replace("Z", "+00:00")), i) for i, t in enumerate(datetimes))
+    groups: list[list[int]] = []
+    previous = None
+    for when, i in parsed:
+        if previous is None or when - previous > gap:
+            groups.append([])
+        groups[-1].append(i)
+        previous = when
+    return groups
 
 
 # ---------------------------------------------------------------------------

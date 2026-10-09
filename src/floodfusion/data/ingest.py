@@ -68,6 +68,8 @@ from floodfusion.data.stac import (
     PROFILES,
     EventQuery,
     MatchedScenes,
+    NoMatchingPairError,
+    group_by_time,
     open_catalogue,
     profile_for,
     redact,
@@ -402,10 +404,11 @@ def _select_optical(
     if not matched.s2_ids:
         return [], 0.0
     items = _items_by_id(sources.client, "sentinel-2-l2a", matched.s2_ids)
-    passes: dict[str, list[dict[str, Any]]] = {}
-    for item, when in zip(items, matched.s2_datetimes or [""] * len(items)):
-        passes.setdefault(str(when)[:16] or item["id"], []).append(item)
-    ranked = sorted(passes.values(), key=lambda p: np.nanmean(
+    if len(matched.s2_datetimes) == len(items):
+        passes = [[items[i] for i in group] for group in group_by_time(matched.s2_datetimes)]
+    else:
+        passes = [[item] for item in items]
+    ranked = sorted(passes, key=lambda p: np.nanmean(
         [float(i["properties"].get("eo:cloud_cover", math.nan)) for i in p]))
     best: tuple[list[dict[str, Any]], float] = ([], 0.0)
     for group in ranked[:max_candidates]:
@@ -591,6 +594,9 @@ def _ingest_event(
     annotations = _read_geometry(sources, matched)
     phi = _circular_mean_deg([a.look_azimuth_deg for a in annotations])
     theta = incidence_on_grid(annotations, grid)
+    if not matched.dem_ids:
+        raise ValueError(f"{event.event_id}: no {profile.dem_collection} tiles found for the AOI "
+                         "(see the DEM search warning above)")
     terrain = _terrain(_items_by_id(sources.client, profile.dem_collection, matched.dem_ids), grid, theta, phi)
     reference = _reference_layers(sources, event, grid)
     optical = _optical_layers(sources, event, matched, grid, reference["inside_aoi"])
@@ -701,14 +707,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     failures = 0
     for path in args.event:
         event = load_event_config(path)
-        if (args.out / "events" / event.event_id / "chips.parquet").is_file() and not args.force:
+        # event.json is written LAST: its presence means the whole ingest, QA included, finished.
+        if (args.out / "events" / event.event_id / "event.json").is_file() and not args.force:
             LOGGER.info("%s already ingested (use --force to redo)", event.event_id)
             continue
         try:
             meta = ingest_event(event, args.out, cfg, split_epsg=args.split_epsg)
             LOGGER.info("%s: %d chips, flood %.1f %% of valid pixels", event.event_id, meta["n_chips"],
                         100 * meta["flood_fraction_of_valid"])
-        except LookupError as exc:
+        except NoMatchingPairError as exc:
             # docs/05 2.1 criterion 3: an event without a same-orbit pre scene is DROPPED.
             LOGGER.error("%s dropped: %s", event.event_id, exc)
             failures += 1
