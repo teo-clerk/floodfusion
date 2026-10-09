@@ -1,0 +1,15 @@
+# Ablation row 10 — Row 9 MINUS modality dropout.
+# Question: is modality dropout LOAD-BEARING?
+#
+# One of the three scientific-core rows. Trained only on whatever optical availability
+# the data happens to offer, so the training distribution is a biased sample of
+# deployment — biased toward clear weather, which is precisely NOT when floods are
+# mapped. Expect row 10 to look competitive at row-9 evaluation and to COLLAPSE when
+# evaluated SAR-only. Run the row-11 evaluation against this checkpoint too; the
+# difference between the two collapses is the measurement.
+extends: base.yaml
+name: "row10_fusion_no_modality_dropout"
+ablation_row: 10
+model:
+  architecture: "fusion_crossattn"
+  modality_dropout_p: 0.0 # THE ablated field

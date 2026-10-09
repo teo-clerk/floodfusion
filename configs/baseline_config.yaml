@@ -1,0 +1,46 @@
+# =============================================================================
+#  DEPRECATED — superseded by `base.yaml` + `rowNN_*.yaml`.
+# =============================================================================
+#  This file was produced by an earlier authoring pass and carried three defects
+#  that contradicted the curriculum it was supposed to configure:
+#
+#    1. `mixed_precision: "fp16"`   — fp16's 5-bit exponent OVERFLOWS the soft-Dice
+#                                     reduction, which sums B*H*W ~ 5e5 terms. A
+#                                     GradScaler does not help: it addresses vanishing
+#                                     gradients in the backward pass, not an overflow
+#                                     in the forward reduction. docs/08 section 5.1.
+#                                     `config.py` now REJECTS "float16" at
+#                                     construction time.
+#
+#    2. `spatial_split_strategy: "leave_event_out"`
+#                                   — the curriculum specifies leave-one-BASIN-out.
+#                                     A basin is the unit of independence: its own
+#                                     drainage network, land cover, terrain and flood
+#                                     dynamics. docs/05 section 6.3.
+#
+#    3. A key layout (`experiment:` / `hardware:` / `training:` / `evaluation:`)
+#                                   — that does not match `ExperimentConfig` in
+#                                     src/floodfusion/config.py, so it could not be
+#                                     loaded at all.
+#
+#  It is retained only so that a stale reference to this filename resolves to an
+#  explanation rather than to a 404 or, worse, to a silently wrong run. The two
+#  corrected settings are stated explicitly below.
+#
+#  USE INSTEAD:
+#    configs/base.yaml                     defaults inherited by every row
+#    configs/row09_fusion_crossattn.yaml   the reference model (ablation row 9)
+#    configs/rowNN_*.yaml                  the 13-row grid of MILESTONES.md section 6
+# =============================================================================
+
+extends: base.yaml
+name: "p01_deprecated_baseline_config"
+ablation_row: 0
+
+train:
+  # Corrected from "fp16". Mandated, not preferred — see note 1 above.
+  amp_dtype: "bfloat16"
+
+data:
+  # Corrected from "leave_event_out". See note 2 above.
+  split_strategy: "leave_one_basin_out"

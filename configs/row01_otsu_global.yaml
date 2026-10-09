@@ -1,0 +1,19 @@
+# Ablation row 1 — Global Otsu on VV, no masks.
+# Question: THE FLOOR. Is anything learned at all?
+#
+# Expected to FAIL badly, and that failure is the result. Otsu's three assumptions
+# all break here (docs/06 section 3.3): a 2 % water scene is not bimodal, the water
+# mode is a bump on the tail of the land mode, and one threshold cannot suit a swath
+# spanning 29-46 degrees of incidence angle. Expect a threshold several dB too high
+# and a badly over-detected map. Record it; do not fix it.
+extends: base.yaml
+name: "row01_otsu_global"
+ablation_row: 1
+model:
+  architecture: "threshold_baseline"
+baseline:
+  threshold_mode: "global_otsu"
+  use_change_term: false # amplitude alone
+  use_optical_override: false # SAR alone
+  apply_terrain_masks: false # "no masks" is the point of this row
+  apply_permanent_water_mask: false

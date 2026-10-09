@@ -1,0 +1,21 @@
+# Ablation row 11 — Row 9, EVALUATED SAR-ONLY at inference.
+# Question: GRACEFUL DEGRADATION — and this is the OPERATIONAL NUMBER.
+#
+# Optical is unavailable most of the time a flood is mapped (docs/02 section 6), so
+# row 11 is what a duty officer actually gets. Row 9 is the number for an abstract.
+# A model whose row-11 IoU collapses is NOT DEPLOYABLE regardless of row 9.
+#
+# This row trains NOTHING. It loads the row-9 checkpoint and forces the optical branch
+# to the learned missing-modality embedding everywhere. Point --resume at row 9.
+#
+# Diagnosis (docs/09 section 5.2): if row 11 ~ row 4, optical never mattered; if
+# row 11 > row 4, the optical branch improved the SAR representation DURING TRAINING
+# even though it is absent at inference — which is a genuinely interesting result.
+extends: base.yaml
+name: "row11_fusion_eval_sar_only"
+ablation_row: 11
+model:
+  architecture: "fusion_crossattn"
+  modality_dropout_p: 0.5
+eval:
+  force_sar_only: true # inference-time only; the weights are row 9's

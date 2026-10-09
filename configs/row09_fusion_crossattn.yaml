@@ -1,0 +1,20 @@
+# Ablation row 9 — THE REFERENCE MODEL.
+# Cross-attention fusion: Q from optical, K/V from SAR, gated residual on the SAR
+# stream, trained under modality dropout.
+#
+#     F_fused = F_sar + g * CrossAttn(Q=F_opt, K=F_sar, V=F_sar)
+#
+# Every retrievable value is a real SAR feature (attention output lies in the convex
+# hull of V), and g -> 0 gives F_fused == F_sar EXACTLY — so operational requirement
+# R2 is satisfied structurally, not by hoping the network learns it.
+# Derivation: docs/07 section 5.4. Do not copy it; derive it (P1-M3.2).
+#
+# This is the row the Makefile's `train-p1` target points at, and the checkpoint that
+# rows 11 and 12 re-use. Train it with THREE SEEDS (P1-M4).
+extends: base.yaml
+name: "row09_fusion_crossattn"
+ablation_row: 9
+model:
+  architecture: "fusion_crossattn"
+  use_terrain: true
+  modality_dropout_p: 0.5 # re-set to match your measured p_clear (docs/02 6.3)

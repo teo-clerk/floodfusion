@@ -1,0 +1,13 @@
+# Ablation row 7 — Early fusion (channel concatenation).
+# Question: does NAIVE fusion help?
+#
+# One encoder over all 12 channels. Maximal interaction depth, but no
+# modality-specific inductive bias: the first convolution mixes dB backscatter with
+# reflectance, quantities of different physics and different noise structure. Missing
+# optical must be filled with a constant, which the model then has to learn to read as
+# "absent" while that value also occurs legitimately (docs/07 section 2.1).
+extends: base.yaml
+name: "row07_fusion_early"
+ablation_row: 7
+model:
+  architecture: "fusion_early"

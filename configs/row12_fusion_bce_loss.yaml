@@ -1,0 +1,21 @@
+# Ablation row 12 — Row 9 MINUS the compound loss (plain BCE).
+# Question: does the IMBALANCE OBJECTIVE matter?
+#
+# focal_gamma = 0 collapses focal loss to weighted BCE (the modulating factor becomes
+# 1); focal_alpha = 0.5 makes it unweighted; dice_weight = 0 removes the set-level
+# term entirely. What remains is plain BCE, whose minimiser at a 2 % positive rate is
+# very nearly the constant "dry" predictor.
+#
+# dice_smooth stays 1.0 because config.py forbids 0 — the Dice term is switched off by
+# its WEIGHT, not by degrading its smoothing into the zero-gradient trap.
+extends: base.yaml
+name: "row12_fusion_bce_loss"
+ablation_row: 12
+model:
+  architecture: "fusion_crossattn"
+loss:
+  focal_weight: 1.0
+  dice_weight: 0.0 # no set-level term
+  focal_gamma: 0.0 # focal -> weighted BCE
+  focal_alpha: 0.5 # -> unweighted BCE
+  dice_smooth: 1.0

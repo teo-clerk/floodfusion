@@ -1,0 +1,15 @@
+# Ablation row 5 — U-Net, SAR + DEM derivatives.
+# Question: what is terrain CONTEXT worth?
+#
+# Differs from row 4 in exactly one field: use_terrain. The gap measures what slope,
+# log1p(HAND) and the local incidence angle contribute as input channels — separately
+# from their role as hard exclusions, which both rows apply.
+extends: base.yaml
+name: "row05_unet_sar_dem"
+ablation_row: 5
+model:
+  architecture: "unet_sar"
+  use_terrain: true
+train:
+  micro_batch_size: 8
+  grad_accum_steps: 2

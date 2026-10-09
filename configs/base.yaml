@@ -1,0 +1,187 @@
+# =============================================================================
+#  Project 01 — Flood mapping by SAR–optical fusion
+#  BASE CONFIGURATION: defaults inherited by every ablation row.
+# =============================================================================
+#  This file holds the DEFAULTS. Each `rowNN_*.yaml` declares `extends: base.yaml`
+#  and overrides only the fields that define its row, so a diff between two row
+#  files shows exactly what the ablation varies — which is the pedagogical point.
+#  (Convention: 00_FOUNDATIONS/11_reproducibility_and_research_hygiene.md section 5.)
+#
+#  "Frozen" means the RESOLVED configuration is snapshotted into the run directory
+#  at launch, alongside the git SHA. The delta files are source; the snapshot is
+#  the reproducibility record (P1-M6.3).
+#
+#  Schema: src/floodfusion/config.py :: ExperimentConfig. Unknown keys are an
+#  ERROR, not a warning — a silently ignored typo is a reproducibility failure.
+#
+#  Hardware target: RTX 4060 Laptop, 8 GB VRAM (~7.6 GiB usable), 45 W TGP.
+# =============================================================================
+
+name: "p01_base"
+# 0 == "not an ablation row". Rows 1-13 map onto MILESTONES.md section 6.
+ablation_row: 0
+output_dir: "runs"
+
+# -----------------------------------------------------------------------------
+# Sentinel-1 C-band instrument constants (docs/01 section 1)
+# -----------------------------------------------------------------------------
+sensor:
+  carrier_frequency_hz: 5.405e9
+  wavelength_m: 0.05551 # c / f = 5.55 cm
+  incidence_min_deg: 29.1 # IW swath, near range
+  incidence_max_deg: 46.0 # IW swath, far range
+  equivalent_number_of_looks: 4.4 # IW GRDH -> sigma_dB = 2.17, sigma_delta = 3.07
+  nesz_db: -22.0 # below this you measure the receiver, not the surface
+
+# -----------------------------------------------------------------------------
+# The single analysis grid (docs/03 section 3)
+# -----------------------------------------------------------------------------
+grid:
+  pixel_size_m: 10.0
+  origin_snap_m: 10.0 # snapped origin => grid is a function of the AOI alone
+  epsg: null # null => derive the UTM zone from the AOI centroid
+  nodata_int16: -32768
+  db_scale: 100.0 # int16 storage of dB x 100 (docs/04 section 8.1)
+
+# -----------------------------------------------------------------------------
+# Normalisation — computed on the TRAINING SPLIT ONLY, then frozen here.
+# NEVER normalise per chip: a flooded chip is dark, and that is the signal.
+# (docs/05 section 7.1)
+# -----------------------------------------------------------------------------
+norm:
+  # Per-channel z-score for [VV_post, VH_post, VV_pre, VH_pre, delta_VV], in dB.
+  # REPLACE these with statistics measured on your own training split.
+  sar_mean_db: [-12.5, -18.2, -12.3, -18.0, 0.0]
+  sar_std_db: [4.8, 5.1, 4.8, 5.1, 3.1]
+  # Sentinel-2: rho = (DN + BOA_ADD_OFFSET) / QUANTIFICATION_VALUE.
+  # Read BOTH from product metadata; they changed at processing baseline 04.00 and
+  # ignoring the offset shifts every reflectance by 0.1 — larger than the water
+  # signal itself (docs/05 section 7.2).
+  optical_scale: 10000.0
+  optical_offset: -1000.0
+  hand_log_scale: 3.932 # log1p(50)
+  slope_scale_deg: 90.0
+  incidence_scale_deg: 90.0
+
+# -----------------------------------------------------------------------------
+# Data, chipping and splits (docs/05 sections 6, 8)
+# -----------------------------------------------------------------------------
+data:
+  chip_root: "chips"
+  manifest_name: "manifest.parquet"
+  split_file_name: "splits.json"
+
+  chip_size: 256 # 2.56 km at 10 m
+  train_stride: 128 # 50 % overlap — acceptable WITHIN a split only
+  eval_stride: 256 # no overlap: every pixel scored exactly once
+
+  min_valid_fraction: 0.5
+  positive_fraction_threshold: 0.005
+  negative_to_positive_ratio:
+    3.0 # resampling => prior shift => correction is
+    # MANDATORY before thresholding (docs/05 8.3)
+
+  # MUST exceed the empirical variogram range you measure in docs/05 section 6.2.
+  # Do not guess this.
+  basin_buffer_m: 1000.0
+  split_strategy: "leave_one_basin_out"
+
+  num_workers: 6 # measure; the dataloader is often the bottleneck
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 4
+
+# -----------------------------------------------------------------------------
+# Architecture (docs/07)
+# -----------------------------------------------------------------------------
+model:
+  architecture: "fusion_crossattn"
+  use_terrain: true # terrain concatenated to the SAR encoder input
+  encoder_channels: [64, 128, 256, 512]
+  fusion_stage:
+    3 # s3 = 32x32 for a 256 chip; 134 MB naive attention
+    # vs 2.15 GB at s2 (docs/07 section 6)
+  attention_heads: 8
+  attention_head_dim: 32 # <= 128 keeps the FlashAttention path
+  decoder_channels: [256, 128, 64, 32]
+  norm_groups: 8 # GroupNorm, not BatchNorm (docs/07 section 3.3)
+  dropout: 0.1
+  # Principled value MATCHES the deployment frequency of missing optical measured
+  # in docs/02 section 6.3 — not 0.5 by default. Re-set it once you have p_clear.
+  modality_dropout_p: 0.5
+  gate_bias_init: -2.0 # start near SAR-only; optical must be EARNED
+
+# -----------------------------------------------------------------------------
+# Physics baseline (docs/06 sections 4, 5). Tuned on VALIDATION, then frozen.
+# -----------------------------------------------------------------------------
+baseline:
+  threshold_mode: "tile_adaptive"
+  apply_terrain_masks: true
+  apply_permanent_water_mask: true
+
+  tile_size: 200
+  min_tile_valid_fraction: 0.5
+  ashman_min: 2.0 # D > 2 => two separable populations
+  min_component_weight: 0.10 # water fraction in [10 %, 90 %]
+  water_mode_max_db: -14.0 # the dark mode must be dark enough to BE water
+
+  # From speckle statistics, NOT a round number: k * sigma_delta_dB(L_eff),
+  # k ~ 2-3. At L = 4.4, sigma_delta = 3.07 dB => 2 sigma ~ 6.1 dB (docs/01 10.2).
+  delta_min_db: 6.0
+  tau_mndwi: 0.0
+  slope_max_deg: 10.0
+  hand_max_m: 15.0
+
+  use_change_term: true
+  use_optical_override: true
+  speckle_filter: "refined_lee"
+  speckle_window: 7
+
+# -----------------------------------------------------------------------------
+# Objective (docs/08 section 2)
+# -----------------------------------------------------------------------------
+loss:
+  focal_weight: 1.0
+  dice_weight: 1.0
+  focal_gamma: 2.0
+  focal_alpha: 0.75
+  # MUST be > 0 and MUST appear in BOTH numerator and denominator. With smoothing
+  # in the denominator only, an all-negative chip yields EXACTLY zero gradient —
+  # and most chips are all-negative (docs/08 section 2.4).
+  dice_smooth: 1.0
+
+# -----------------------------------------------------------------------------
+# Training (docs/08 sections 5, 7)
+# -----------------------------------------------------------------------------
+train:
+  epochs: 60
+  micro_batch_size: 4
+  grad_accum_steps: 4 # effective batch = 16
+  learning_rate: 1.0e-4
+  min_learning_rate: 1.0e-6
+  weight_decay: 1.0e-2 # excluded from norm and bias parameters
+  warmup_epochs: 5 # attention logits are unstable early (docs/07 4.2)
+  grad_clip_norm: 1.0
+
+  # bfloat16 is MANDATED, not preferred. The soft-Dice reduction sums B*H*W terms
+  # (524 288 at B=8, 256^2); a sum of order 1e5 OVERFLOWS fp16's 5-bit exponent,
+  # and a GradScaler cannot fix a forward-pass overflow (docs/08 section 5.1).
+  # config.py rejects "float16" at construction time.
+  amp_dtype: "bfloat16"
+  channels_last: true # apply to BOTH model and inputs, or neither
+  grad_checkpointing: false # unnecessary at 256^2; the lever at 512^2
+  cudnn_benchmark: true # valid only because chip shapes are FIXED
+
+  seed: 42
+
+# -----------------------------------------------------------------------------
+# Evaluation (docs/06, docs/09)
+# -----------------------------------------------------------------------------
+eval:
+  force_sar_only: false
+  # tau* = 1 / (1 + r). r = 3 => tau* = 0.25. The threshold FOLLOWS from the cost
+  # ratio; it is not chosen independently, and it is meaningless applied to
+  # UNCALIBRATED scores — fit a temperature on validation first (docs/09 4).
+  cost_ratio: 3.0
+  n_bootstrap: 10000
+  bootstrap_alpha: 0.05 # resampled over BASINS, never pixels (docs/09 3)

@@ -1,0 +1,12 @@
+# Ablation row 8 — Late fusion (decision level).
+# Question: WHERE in the network should fusion happen?
+#
+# Two complete segmenters combined at the logit level. Missing optical is trivially
+# handled — use the SAR branch alone — and it directly mirrors the baseline's override
+# rule. What it CANNOT express is "this SAR texture means water BECAUSE the optical
+# here is dark"; only "SAR says water" and "optical says water" (docs/07 section 2.2).
+extends: base.yaml
+name: "row08_fusion_late"
+ablation_row: 8
+model:
+  architecture: "fusion_late"

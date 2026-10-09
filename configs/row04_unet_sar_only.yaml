@@ -1,0 +1,18 @@
+# Ablation row 4 — U-Net, SAR only. No terrain, no optical.
+# Question: does LEARNING beat thresholding on the same inputs?
+#
+# The row 4 - row 2 gap is what machine learning was actually worth. It is often
+# more modest than expected, and reporting that honestly is worth more than a
+# headline number. Row 4 is also the reference against which row 11 is diagnosed
+# (docs/09 section 5.2): if row 11 ~ row 4, the optical branch never mattered.
+#
+# Inputs: the 5 SAR channels (VV/VH post, VV/VH pre, delta_VV). Terrain is OFF.
+extends: base.yaml
+name: "row04_unet_sar_only"
+ablation_row: 4
+model:
+  architecture: "unet_sar"
+  use_terrain: false
+train:
+  micro_batch_size: 8 # single branch => room for a larger micro-batch
+  grad_accum_steps: 2 # effective batch stays 16

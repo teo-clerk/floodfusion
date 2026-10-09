@@ -1,0 +1,17 @@
+# Ablation row 3 — Baseline + MNDWI where cloud-free.
+# Question: what does optical add to a NON-LEARNED method?
+#
+# The gap from row 2 is the optical contribution available without any machine
+# learning at all. Compare it against the row 9 - row 4 gap: if they are similar,
+# the network's fusion is doing no more than a decision-level override.
+extends: base.yaml
+name: "row03_baseline_mndwi"
+ablation_row: 3
+model:
+  architecture: "threshold_baseline"
+baseline:
+  threshold_mode: "tile_adaptive"
+  use_change_term: true
+  use_optical_override: true # optical overrides where valid (docs/06 5.1 step 5)
+  apply_terrain_masks: true
+  apply_permanent_water_mask: true

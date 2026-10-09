@@ -1,0 +1,28 @@
+# Ablation row 13 — Row 9 on a RANDOM CHIP SPLIT instead of basin-blocked.
+# Question: how large is the SPATIAL-LEAKAGE ILLUSION?
+#
+# ############################################################################
+# #  THIS ROW IS DELIBERATELY WRONG. IT IS NEVER A HEADLINE NUMBER.          #
+# ############################################################################
+#
+# Under a random chip split, a test chip almost always has a training chip from the
+# same river reach — same water, same fields, same acquisition. The model does not
+# need to generalise; it needs to RECOGNISE. Test IoU then measures memorisation.
+#
+# Row 13 MUST score HIGHER than row 9. If it does not, your basin blocking is not
+# working: check basin disjointness, the buffer against the variogram range, whether
+# chips were cut before splitting, and the permanent-water shortcut
+# (docs/05 section 6.5, docs/09 section 5.3).
+#
+# The row 13 - row 9 gap is your quantitative statement of how much published EO
+# results can be inflated by an inappropriate split. It is likely the single most
+# valuable number in your report.
+#
+# config.py permits split_strategy: "random_chip" ONLY when ablation_row == 13.
+extends: base.yaml
+name: "row13_fusion_random_split"
+ablation_row: 13
+model:
+  architecture: "fusion_crossattn"
+data:
+  split_strategy: "random_chip" # THE ablated field — leaky BY DESIGN

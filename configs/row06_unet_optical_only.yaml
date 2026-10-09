@@ -1,0 +1,19 @@
+# Ablation row 6 — U-Net, optical only, cloud-free chips only.
+# Question: the OPTICAL CEILING — an upper bound you cannot deploy.
+#
+# This row is deliberately unrealisable operationally: it trains and evaluates only
+# where a usable Sentinel-2 observation exists, which docs/02 section 6 shows is the
+# exception during a flood, not the rule. Read it as "how well could we do if the sky
+# were always clear", and contrast it with row 11, which is what you actually get.
+extends: base.yaml
+name: "row06_unet_optical_only"
+ablation_row: 6
+model:
+  architecture: "unet_optical"
+  use_terrain: false
+  modality_dropout_p: 0.0 # nothing to drop; optical is the only input
+data:
+  # Restricts BOTH training and evaluation to chips with valid optical. Because the
+  # evaluation set differs from every other row, this row is NOT directly comparable
+  # to them — state that when you report it.
+  min_valid_fraction: 0.5

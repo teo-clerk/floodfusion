@@ -1,0 +1,18 @@
+# Ablation row 2 — Baseline: tile-adaptive threshold + change detection + masks.
+# Question: the OPERATIONAL REFERENCE you must beat.
+#
+# This is approximately what operational systems do, and a well-built version is hard
+# to beat by much. That is the point: it is not a straw man. Target IoU >= 0.55.
+# If you score far above 0.75, apply the label-provenance tests of docs/05 section 3.4
+# BEFORE celebrating — your labels may be threshold-derived.
+extends: base.yaml
+name: "row02_baseline_adaptive"
+ablation_row: 2
+model:
+  architecture: "threshold_baseline"
+baseline:
+  threshold_mode: "tile_adaptive"
+  use_change_term: true # AND, not OR — see docs/06 section 5.2
+  use_optical_override: false # SAR only; row 3 adds optical
+  apply_terrain_masks: true
+  apply_permanent_water_mask: true
