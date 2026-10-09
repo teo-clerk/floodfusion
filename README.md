@@ -73,10 +73,13 @@ graph LR
 
 ## What the real data taught us
 
-- **Sentinel-2 and Sentinel-1 are not co-registered.** The 2016–2019 Sentinel-2 L2A passes sit about
-  2 px (~20 m) from the radar geometry, and the Sen1Floods11 labels follow Sentinel-2 to 0.0 px.
-  Uncorrected, this silently handicaps every SAR-only model. Optical and labels are moved onto the SAR
-  geometry per pass, measured on SWIR/SAR structure without using labels.
+- **Sentinel-2 and Sentinel-1 are not co-registered, and the labels follow Sentinel-2.** The 2016–2019
+  Sentinel-2 L2A passes sit 1–3 px (10–30 m) from the radar geometry. Uncorrected, labels drawn on them
+  handicap every SAR-only model and flatter fusion. On cloudy monsoon events a label-free SWIR/SAR estimate
+  has too few clear edges to measure the offset, so each event's labels and optical move by one whole-pixel
+  shift taken from the labels' own water edges against the SAR when that estimate is precise. It is a
+  two-parameter registration per event that uses labels, disclosed in [`DATA_CARD.md`](DATA_CARD.md) and
+  checked independently in the [registration report](reports/sen1floods11_registration.md).
 - **Sentinel-1A and 1B differ by 0.6 px in azimuth.** Same-satellite pairs co-register to 0.0 px.
 - **Benchmark labels are not change labels.** In most Sen1Floods11 events the labelled flood shows no
   backscatter drop against a same-orbit image up to 60 days earlier
