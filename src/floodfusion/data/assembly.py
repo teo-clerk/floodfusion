@@ -25,7 +25,7 @@ import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 import numpy as np
 
@@ -79,6 +79,19 @@ MIN_QA_WINDOWS = 5
 OPTICAL_SHIFT_MIN_PX = 1.0
 
 
+class AcquisitionGeometry(Protocol):
+    """What the assembly needs of a scene's geometry: a GRD annotation or the orbit-model fallback."""
+
+    heading_deg: float
+    geolocation: dict[str, np.ndarray]  # longitude, latitude, incidence tie points
+
+    @property
+    def look_azimuth_deg(self) -> float: ...
+
+    @property
+    def orbit_state(self) -> str: ...
+
+
 @dataclass(frozen=True)
 class GridReference:
     """Reference layers on the grid.
@@ -102,7 +115,7 @@ class GridTask:
     out_dir: Path
     grid: AnalysisGrid
     matched: MatchedScenes
-    annotations: tuple[S1Annotation, ...]
+    annotations: tuple[AcquisitionGeometry, ...]
     reference: GridReference
     basins: Mapping[str, Any]
     dem_items: tuple[Mapping[str, Any], ...]
@@ -169,7 +182,7 @@ def expand_grid(grid: AnalysisGrid, margin_px: int) -> AnalysisGrid:
 
 
 def read_acquisition_geometry(sources: IngestSources, matched: MatchedScenes, *,
-                              fallback: bool = True) -> list[S1Annotation]:
+                              fallback: bool = True) -> list[AcquisitionGeometry]:
     """The post-event frames' GRD product annotations (heading, tie-point incidence).
 
     Planetary Computer's ``sentinel-1-grd`` has gaps (an RTC frame whose source GRD is not
@@ -178,32 +191,36 @@ def read_acquisition_geometry(sources: IngestSources, matched: MatchedScenes, *,
     substitution is logged and recorded (``geometry_source``); without it, it raises.
     """
     frames = matched.s1_post_frames or (matched.s1_post_id,)
-    try:
+    try:  # only a MISSING item or asset falls back; a parse error of a present annotation propagates
         grd_items = items_by_id(sources.client, "sentinel-1-grd", [grd_id_for_rtc(i) for i in frames])
-        annotations = [parse_annotation(sources.fetch_bytes(product_annotation_href(it, "vv"))) for it in grd_items]
-    except (LookupError, KeyError) as exc:
+        hrefs = [product_annotation_href(it, "vv") for it in grd_items]
+    except LookupError as exc:  # items_by_id: not listed; product_annotation_href: no annotation asset
         if not fallback:
             raise
-        from shapely.geometry import shape
-
-        from floodfusion.data.orbit_model import footprint_geometry
-
         LOGGER.warning("%s: no GRD annotation (%s) — geometry from the RTC footprints and the orbit model",
                        matched.event_id, str(exc)[:120])
-        from shapely.geometry import box
-
-        def footprint(item: Mapping[str, Any]) -> Any:
-            if item.get("geometry"):
-                return shape(item["geometry"])
-            LOGGER.warning("%s has no footprint geometry: using its bbox (incidence less exact)", item["id"])
-            return box(*item["bbox"])
-
-        rtc = items_by_id(sources.client, PROFILES["planetary_computer"].s1_collection, frames)
-        return [footprint_geometry(footprint(it), matched.orbit_state) for it in rtc]  # type: ignore[misc]
+        return _orbit_model_geometry(sources, matched, frames)
+    annotations: list[AcquisitionGeometry] = [parse_annotation(sources.fetch_bytes(h)) for h in hrefs]
     states = {a.orbit_state for a in annotations}
     if states != {matched.orbit_state}:
         raise ValueError(f"annotation pass {states} disagrees with the catalogue ({matched.orbit_state})")
     return annotations
+
+
+def _orbit_model_geometry(sources: IngestSources, matched: MatchedScenes,
+                          frames: Sequence[str]) -> list[AcquisitionGeometry]:
+    from shapely.geometry import box, shape
+
+    from floodfusion.data.orbit_model import footprint_geometry
+
+    def footprint(item: Mapping[str, Any]) -> Any:
+        if item.get("geometry"):
+            return shape(item["geometry"])
+        LOGGER.warning("%s has no footprint geometry: using its bbox (incidence less exact)", item["id"])
+        return box(*item["bbox"])
+
+    rtc = items_by_id(sources.client, PROFILES["planetary_computer"].s1_collection, frames)
+    return [footprint_geometry(footprint(it), matched.orbit_state) for it in rtc]
 
 
 # ---------------------------------------------------------------------------
@@ -234,15 +251,19 @@ def _terrain(dem_items: Sequence[Mapping[str, Any]], grid: AnalysisGrid, theta: 
     )
 
     dem = read_dem(dem_items, grid)
-    if not np.isfinite(dem).any():
+    holes = ~np.isfinite(dem)
+    if holes.all():
         raise ValueError("DEM has no finite values over the AOI")
-    dem = np.where(np.isfinite(dem), dem, np.nanmin(dem))
+    if holes.any():
+        # Filled with the lowest elevation: a hole becomes a sink, never a ridge that would cast shadow.
+        LOGGER.warning("DEM: %.2f %% of the grid has no elevation; filled with the minimum", 100 * holes.mean())
+    dem = np.where(holes, np.nanmin(dem), dem)
     px = grid.pixel_size
     slope, aspect = horn_slope_aspect(dem, px, px)
     shadow, layover = cast_shadow_and_layover(dem, theta, phi, px)
     return {
         "dem": dem, "slope": slope, "theta_loc": local_incidence_angle(slope, aspect, theta, phi),
-        "shadow": shadow, "layover": layover, "hand": hand_on_dem_support(dem, px),
+        "shadow": shadow, "layover": layover, "hand": hand_on_dem_support(dem, px), "dem_filled": holes,
     }
 
 
@@ -295,8 +316,12 @@ def _select_optical(
         passes = [[items[i] for i in group] for group in group_by_time(matched.s2_datetimes)]
     else:
         passes = [[item] for item in items]
-    ranked = sorted(passes, key=lambda p: np.nanmean(
-        [float(i["properties"].get("eo:cloud_cover", math.nan)) for i in p]))
+    def scene_cloud(group: Sequence[Mapping[str, Any]]) -> float:  # unknown cover ranks last, deterministically
+        values = [float(i["properties"].get("eo:cloud_cover", math.nan)) for i in group]
+        finite = [v for v in values if math.isfinite(v)]
+        return float(np.mean(finite)) if finite else math.inf
+
+    ranked = sorted(passes, key=lambda p: (scene_cloud(p), p[0]["id"]))
     best: tuple[list[dict[str, Any]], float] = ([], 0.0)
     for group in ranked[:max_candidates]:
         quality = quality_from_scl(read_s2_scl(group, grid))
@@ -429,9 +454,20 @@ def align_optical_to_sar(
 
 def _coregister(task: GridTask, sar: Mapping[str, np.ndarray], optical: _OpticalLayers,
                 ref: GridReference) -> tuple[_OpticalLayers, GridReference, dict[str, Any]]:
-    if not (task.coregister_optical and optical.available):
-        return optical, ref, {"applied_shift_px": [0, 0], "skipped": "no optical" if task.coregister_optical else "off"}
+    if not task.coregister_optical:
+        return optical, ref, {"applied_shift_px": [0, 0], "skipped": "off"}
     follows = task.label_follows_optical
+    if not optical.available:
+        # A label drawn on the optical pass is offset like that pass even where this grid's
+        # optical is too cloudy to use: a pooled (pass-level) shift still moves it, or a
+        # cloudy chip would keep its label 1-2 px off the SAR/DEM it is scored against.
+        if follows and task.optical_shift_px is not None and tuple(task.optical_shift_px) != (0, 0):
+            dy, dx = (int(v) for v in task.optical_shift_px)
+            ref = replace(ref, label=shift_pixels(ref.label, dy, dx, np.nan),
+                          inside_aoi=shift_pixels(ref.inside_aoi, dy, dx, False))
+            return optical, ref, {"applied_shift_px": [dy, dx], "label_shifted": True, "source": "pooled",
+                                  "skipped": "no usable optical on this grid; label moved by the pass shift"}
+        return optical, ref, {"applied_shift_px": [0, 0], "skipped": "no optical"}
     rho, quality, label, inside, info = align_optical_to_sar(
         sar["vv_post_db"], optical.reflectance, optical.quality,
         label=ref.label if follows else None, inside_aoi=ref.inside_aoi if follows else None,
@@ -500,6 +536,7 @@ def _grid_meta(task: GridTask, ref: GridReference, phi: float, theta: np.ndarray
         "shadow_fraction": float(layers["shadow"].mean()), "layover_fraction": float(layers["layover"].mean()),
         "outside_aoi_fraction": float((~ref.inside_aoi).mean()),
         "nodata_fraction": float(layers["nodata"].mean()),
+        "dem_filled_fraction": float(layers["dem_filled"].mean()) if "dem_filled" in layers else 0.0,
         **task.extra_meta, **git_state(),
     }
 
@@ -517,6 +554,8 @@ def assemble_on_grid(task: GridTask, cfg: ExperimentConfig, sources: IngestSourc
 
     grid, ref = task.grid, task.reference
     task.out_dir.mkdir(parents=True, exist_ok=True)
+    for stale in ("event.json", "chips.parquet", "basins.gpkg"):  # a re-run must never mix with an old one
+        (task.out_dir / stale).unlink(missing_ok=True)
     sar, rtc_qa = _read_sar(sources, task.matched, grid)
     phi = circular_mean_deg([a.look_azimuth_deg for a in task.annotations])
     terrain, theta = terrain_on_grid(task.dem_items, grid, task.annotations, phi, margin_px=task.terrain_margin_px)
@@ -556,10 +595,24 @@ def assemble_on_grid(task: GridTask, cfg: ExperimentConfig, sources: IngestSourc
         "coregistration_qa": _coregistration_qa(sar, terrain, optical.reflectance),
         "optical_alignment": alignment,
     }
-    atomic_write_bytes(task.out_dir / "event.json", json.dumps(meta, indent=2, default=str).encode("utf-8"))
+    atomic_write_bytes(task.out_dir / "event.json",
+                       json.dumps(_json_safe(meta), indent=2, default=str, allow_nan=False).encode("utf-8"))
     if not meta["coregistration_qa"]["p1_m1_pass"]:
         LOGGER.warning("%s: P1-M1 co-registration check did not pass: %s", task.event_id, meta["coregistration_qa"])
     return meta
+
+
+def _json_safe(value: Any) -> Any:
+    """NaN/inf become null: ``event.json`` must be valid JSON for any reader, not just Python's."""
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if isinstance(value, Mapping):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, list | tuple):
+        return [_json_safe(v) for v in value]
+    if isinstance(value, np.generic):
+        return _json_safe(value.item())
+    return value
 
 
 def to_split_crs(records: Sequence[ChipRecord], src_epsg: int, dst_epsg: int) -> list[ChipRecord]:

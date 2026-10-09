@@ -212,13 +212,17 @@ class LateFusionSegmenter(nn.Module):
         return logits, gate
 
 
-def _terramind(cfg: ModelConfig) -> nn.Module:
+def _terramind(cfg: ModelConfig, *, pretrained: bool = True) -> nn.Module:
     from floodfusion.models.terramind import TerraMindSegmenter
 
-    return TerraMindSegmenter(cfg)
+    return TerraMindSegmenter(cfg, pretrained=pretrained)
 
 
-_REGISTRY: dict[str, Callable[[ModelConfig], nn.Module]] = {
+#: Architectures whose constructor fetches pre-trained weights (the rest train from scratch).
+_PRETRAINED = {"terramind_tiny", "terramind_small"}
+
+
+_REGISTRY: dict[str, Callable[..., nn.Module]] = {
     "terramind_tiny": _terramind,
     "terramind_small": _terramind,
     "unet_sar": UNetSegmenter,
@@ -229,8 +233,12 @@ _REGISTRY: dict[str, Callable[[ModelConfig], nn.Module]] = {
 }
 
 
-def build_model(cfg: ModelConfig) -> nn.Module:
-    """Instantiate the network for ``cfg.architecture`` (rows 4--13 of the grid)."""
+def build_model(cfg: ModelConfig, *, pretrained: bool = True) -> nn.Module:
+    """Instantiate the network for ``cfg.architecture`` (rows 4--13 of the grid).
+
+    ``pretrained=False`` skips downloading foundation-model weights — for rebuilding a model
+    whose trained state is about to be loaded from a checkpoint.
+    """
     if cfg.architecture == "threshold_baseline":
         raise ValueError(
             "rows 1-3 are the non-learned physics baseline; run floodfusion.baseline_runner"
@@ -239,7 +247,7 @@ def build_model(cfg: ModelConfig) -> nn.Module:
         cls = _REGISTRY[cfg.architecture]
     except KeyError as exc:  # pragma: no cover - ModelConfig already validates
         raise ValueError(f"unknown architecture {cfg.architecture!r}") from exc
-    return cls(cfg)
+    return cls(cfg, pretrained=pretrained) if cfg.architecture in _PRETRAINED else cls(cfg)
 
 
 def count_parameters(model: nn.Module, *, trainable_only: bool = True) -> int:

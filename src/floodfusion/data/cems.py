@@ -35,13 +35,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 __all__ = [
     "API_URL",
     "CemsProduct",
     "download_product",
     "fetch_activation",
+    "layer_path",
     "list_products",
     "nearest_product",
     "observed_flood",
@@ -56,81 +56,44 @@ API_URL = f"https://{_API_HOST}/backend/dashboard-api/public-activations/"
 _MAX_API_BYTES = 8 * 1024 * 1024
 _MAX_PACKAGE_BYTES = 512 * 1024 * 1024
 _MAX_MEMBER_BYTES = 256 * 1024 * 1024
+#: The whole extraction is bounded too: a small package can declare many large members.
+_MAX_EXTRACTED_BYTES = 1024 * 1024 * 1024
+_MAX_MEMBERS = 64
+_PRODUCT_TYPE = re.compile(r"[A-Z]{3}", re.ASCII)
 _HTTP_TIMEOUT_S = 120
-_ACTIVATION = re.compile(r"^EMSR\d{3,4}$")
+_ACTIVATION = re.compile(r"EMSR[0-9]{3,4}", re.ASCII)
 #: Package members kept: the vector layers as GeoJSON, and the source table.
-_KEEP = re.compile(r"^EMSR\d{3,4}_AOI\d{2}_[A-Z]{3}_(PRODUCT|MONIT\d{2})_"
-                   r"(observedEventA|areaOfInterestA|imageFootprintA|hydrographyA|hydrographyL)_v\d+\.json$"
-                   r"|^EMSR\d{3,4}_AOI\d{2}_[A-Z]{3}_(PRODUCT|MONIT\d{2})_source_v\d+\.dbf$")
+_KEEP = re.compile(r"EMSR[0-9]{3,4}_AOI[0-9]{2}_[A-Z]{3}_(PRODUCT|MONIT[0-9]{2})_"
+                   r"(?:(observedEventA|areaOfInterestA|imageFootprintA|hydrographyA|hydrographyL)_v[0-9]+\.json"
+                   r"|source_v[0-9]+\.dbf)", re.ASCII)
 #: Some packages wrap their members in ONE folder named after the package; nothing deeper.
-_PACKAGE_FOLDER = re.compile(r"^EMSR\d{3,4}_AOI\d{2}_[A-Z]{3}_(PRODUCT|MONIT\d{2})_v\d+$")
+_PACKAGE_FOLDER = re.compile(r"EMSR[0-9]{3,4}_AOI[0-9]{2}_[A-Z]{3}_(PRODUCT|MONIT[0-9]{2})_v[0-9]+", re.ASCII)
 
 
 # ---------------------------------------------------------------------------
 # HTTP: two hosts, one redirect at most, every body capped
 # ---------------------------------------------------------------------------
 def _check_url(url: str, hosts: Sequence[str]) -> str:
-    parsed = urlparse(url)
-    if parsed.scheme != "https" or parsed.hostname not in hosts:
-        raise ValueError(f"refusing URL outside {list(hosts)}: {url.split('?', 1)[0][:100]!r}")
-    return url
+    from floodfusion.data.http import check_https_url
+
+    return check_https_url(url, hosts=hosts)
 
 
-def _read_capped(response: Any, cap: int, url: str) -> bytes:
-    chunks, size = [], 0
-    for chunk in response.iter_content(chunk_size=1 << 20):
-        size += len(chunk)
-        if size > cap:
-            raise OSError(f"{url.split('?', 1)[0]}: larger than {cap} bytes")
-        chunks.append(chunk)
-    return b"".join(chunks)
-
-
-#: Transient server answers retried with exponential backoff (the service returns 502s under load).
-_RETRY_STATUS = (429, 500, 502, 503, 504)
+#: Transient failures (429/5xx, resets, timeouts) are retried with a doubling backoff.
 _RETRIES = 5
 _BACKOFF_S = 2.0
 
 
-class _TransientHTTPError(OSError):
-    pass
-
-
 def _http_get(url: str, *, cap: int, params: Mapping[str, str] | None = None,
               sleep: Callable[[float], None] | None = None) -> bytes:
-    """GET with retries on transient errors (429/5xx): ``_RETRIES`` attempts, doubling backoff."""
+    """GET from the API host; a single redirect is followed only into the CEMS S3 bucket."""
     import time
 
-    sleep = sleep or time.sleep
-    for attempt in range(_RETRIES):
-        try:
-            return _http_get_once(url, cap=cap, params=params)
-        except _TransientHTTPError as exc:
-            if attempt == _RETRIES - 1:
-                raise
-            wait = _BACKOFF_S * 2**attempt
-            LOGGER.warning("%s — retrying in %.0f s (%d/%d)", exc, wait, attempt + 1, _RETRIES - 1)
-            sleep(wait)
-    raise AssertionError("unreachable")
+    from floodfusion.data.http import capped_get
 
-
-def _http_get_once(url: str, *, cap: int, params: Mapping[str, str] | None = None) -> bytes:
-    """GET from the API host; a single redirect is followed only into the CEMS S3 bucket."""
-    import requests
-
-    _check_url(url, (_API_HOST,))
-    with requests.get(url, params=params, timeout=(10, _HTTP_TIMEOUT_S), allow_redirects=False, stream=True) as r:
-        if r.status_code in (301, 302, 303, 307, 308):
-            target = _check_url(r.headers.get("Location", ""), (_S3_HOST,))
-            with requests.get(target, timeout=(10, _HTTP_TIMEOUT_S), allow_redirects=False, stream=True) as s3:
-                if s3.status_code != 200:
-                    error = _TransientHTTPError if s3.status_code in _RETRY_STATUS else OSError
-                    raise error(f"HTTP {s3.status_code} from the CEMS bucket for {url}")
-                return _read_capped(s3, cap, url)
-        if r.status_code != 200:
-            error = _TransientHTTPError if r.status_code in _RETRY_STATUS else OSError
-            raise error(f"HTTP {r.status_code} for {url}")
-        return _read_capped(r, cap, url)
+    return capped_get(url, check=lambda u: _check_url(u, (_API_HOST,)), cap=cap, params=params,
+                      timeout_s=_HTTP_TIMEOUT_S, redirect_check=lambda u: _check_url(u, (_S3_HOST,)),
+                      retries=_RETRIES, backoff_s=_BACKOFF_S, sleep=sleep or time.sleep)
 
 
 Getter = Callable[..., bytes]
@@ -166,7 +129,7 @@ def _parse_time(text: str) -> datetime:
 
 def fetch_activation(code: str, *, get: Getter | None = None) -> dict[str, Any]:
     """The public activation record (``EMSR`` + 3-4 digits)."""
-    if not _ACTIVATION.match(code):
+    if not _ACTIVATION.fullmatch(code):
         raise ValueError(f"not a CEMS rapid-mapping activation code: {code!r}")
     get = get or (lambda url, **kw: _http_get(url, cap=_MAX_API_BYTES, **kw))
     payload = json.loads(get(API_URL, params={"code": code}))
@@ -183,6 +146,8 @@ def list_products(activation: Mapping[str, Any], *, product_type: str | None = "
         for p in aoi.get("products", []):
             if product_type is not None and p.get("type") != product_type:
                 continue
+            if not _PRODUCT_TYPE.fullmatch(str(p.get("type", ""))):  # it becomes part of a directory name
+                raise ValueError(f"unexpected product type {str(p.get('type'))[:20]!r} in the activation record")
             images = tuple((str(i.get("sensorName") or i.get("sensor") or ""), str(i.get("acquisitionTime") or ""))
                            for i in (p.get("images") or []))
             out.append(CemsProduct(
@@ -215,18 +180,19 @@ def download_product(product: CemsProduct, dest_root: Path | str, *, get: Getter
         return out_dir
     get = get or (lambda url, **kw: _http_get(url, cap=_MAX_PACKAGE_BYTES, **kw))
     package = get(_check_url(product.download_url, (_API_HOST,)))
-    kept = []
+    kept: list[str] = []
     with zipfile.ZipFile(io.BytesIO(package)) as archive:
         out_dir.mkdir(parents=True, exist_ok=True)
-        for info in archive.infolist():
-            parts = info.filename.split("/")
-            name = parts[-1]
-            flat = len(parts) == 1 or (len(parts) == 2 and _PACKAGE_FOLDER.match(parts[0]) is not None)
-            if info.is_dir() or not flat or not _KEEP.match(name):
-                continue  # other paths, directories and unlisted members are never written
+        members = [i for i in archive.infolist() if _keep(i)]
+        total = sum(i.file_size for i in members)
+        if len(members) > _MAX_MEMBERS or total > _MAX_EXTRACTED_BYTES:
+            raise OSError(f"{product.tag}: {len(members)} members, {total} bytes declared — over the caps "
+                          f"({_MAX_MEMBERS} members, {_MAX_EXTRACTED_BYTES} bytes)")
+        for info in members:
+            name = info.filename.split("/")[-1]
             if info.file_size > _MAX_MEMBER_BYTES:
                 raise OSError(f"{product.tag}: member {name} is {info.file_size} bytes (cap {_MAX_MEMBER_BYTES})")
-            (out_dir / name).write_bytes(archive.read(info))
+            _extract(archive, info, out_dir / name)
             kept.append(name)
     if not any("observedEventA" in k for k in kept) and product.product_type == "DEL":
         LOGGER.warning("%s: package has no observedEventA layer (no flood observed?)", product.tag)
@@ -235,6 +201,31 @@ def download_product(product: CemsProduct, dest_root: Path | str, *, get: Getter
         "images": [list(i) for i in product.images], "attribution": "© European Union, Copernicus EMS",
     }, indent=2), encoding="utf-8")
     return out_dir
+
+
+def _keep(info: zipfile.ZipInfo) -> bool:
+    """A listed layer at the package root, or inside ONE package-named folder; nothing else."""
+    parts = info.filename.split("/")
+    flat = len(parts) == 1 or (len(parts) == 2 and _PACKAGE_FOLDER.fullmatch(parts[0]) is not None)
+    return not info.is_dir() and flat and _KEEP.fullmatch(parts[-1]) is not None
+
+
+def _extract(archive: zipfile.ZipFile, info: zipfile.ZipInfo, dest: Path) -> None:
+    """Stream one member to ``dest``, stopping at its declared size (a lying header cannot inflate it)."""
+    written = 0
+    tmp = dest.with_name(f".{dest.name}.tmp")
+    with archive.open(info) as src, tmp.open("wb") as out:
+        while chunk := src.read(1 << 20):
+            written += len(chunk)
+            if written > info.file_size:
+                raise OSError(f"{dest.name}: member is larger than its declared {info.file_size} bytes")
+            out.write(chunk)
+    tmp.replace(dest)
+
+
+def layer_path(product_dir: Path, layer: str) -> Path | None:
+    """The newest version of one GeoJSON layer of an extracted product, or ``None``."""
+    return _layer(product_dir, layer)
 
 
 def _layer(product_dir: Path, layer: str) -> Path | None:
@@ -275,8 +266,7 @@ def observed_flood(product_dir: Path | str) -> Any:
     if "event_type" in frame.columns:
         frame = frame[frame["event_type"].astype(str).str.contains("Flood", case=False)]
     times = source_times(product_dir)
-    frame["source_time"] = [times.get(int(s)) if s is not None and str(s).isdigit() else None
-                            for s in frame.get("dmg_src_id", [None] * len(frame))]
+    frame["source_time"] = [times.get(_source_id(s)) for s in frame.get("dmg_src_id", [None] * len(frame))]
     return frame
 
 
@@ -290,3 +280,12 @@ def aoi_geometry(product_dir: Path | str) -> Any:
     frame = gpd.read_file(path)
     frame = frame.set_crs(4326) if frame.crs is None else frame.to_crs(4326)
     return frame.geometry.union_all()
+
+
+def _source_id(value: Any) -> int | None:
+    """``dmg_src_id`` as an int: GeoJSON may carry 2, 2.0 or "2"; a null stays ``None``."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return int(number) if number == number and number.is_integer() else None

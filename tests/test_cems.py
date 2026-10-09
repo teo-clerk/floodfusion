@@ -193,3 +193,34 @@ class TestHttp:
         monkeypatch.setattr(requests, "get", lambda url, **kw: _Response(502))
         with pytest.raises(OSError, match="502"):
             cems._http_get(api, cap=100, sleep=lambda s: None)
+
+
+class TestReviewHardening:
+    """Security-review findings, pinned."""
+
+    def test_many_large_members_exceed_the_aggregate_cap(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.setattr(cems, "_MAX_EXTRACTED_BYTES", 1000)
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+            for layer in ("observedEventA", "areaOfInterestA", "imageFootprintA"):
+                z.writestr(f"{PKG}_{layer}_v1.json", b" " * 600)   # compresses to a few bytes each
+        product = cems.list_products(_activation())[0]
+        with pytest.raises(OSError, match="over the caps"):
+            cems.download_product(product, tmp_path, get=lambda *a, **k: buf.getvalue())
+
+    def test_product_types_are_validated_before_they_name_a_directory(self) -> None:
+        act = _activation()
+        act["aois"][0]["products"][0]["type"] = "DEL/../../../../tmp/x"
+        with pytest.raises(ValueError, match="product type"):
+            cems.list_products(act, product_type=None)
+
+    def test_member_names_must_match_fully_and_in_ascii(self) -> None:
+        good = zipfile.ZipInfo(f"{PKG}_observedEventA_v1.json")
+        assert cems._keep(good)
+        for bad in (f"{PKG}_observedEventA_v1.json\n", f"{PKG}_observedEventA_v١.json", f"x{PKG}_observedEventA_v1.json"):
+            assert not cems._keep(zipfile.ZipInfo(bad))
+
+    @pytest.mark.parametrize("value, expected", [(2, 2), (2.0, 2), ("3", 3), (None, None), (float("nan"), None),
+                                                 ("x", None), (2.5, None)])
+    def test_source_ids_survive_float_columns(self, value, expected) -> None:
+        assert cems._source_id(value) == expected

@@ -374,3 +374,33 @@ def test_missing_grd_annotation_falls_back_to_the_orbit_model(archive) -> None:
     assert np.abs(modelled - measured).max() < 0.8
     with pytest.raises(LookupError):
         read_acquisition_geometry(IngestSources(client=no_grd), matched, fallback=False)
+
+
+def test_a_corrupt_label_fails_its_chip_and_the_rest_of_the_event_runs(archive, cfg, tmp_path) -> None:
+    """Review finding: an event-level step outside the error handling aborted the whole dataset."""
+    from floodfusion.data.sen1floods11 import ingest_sen1floods11
+
+    raw = _s1f11_raw(tmp_path)
+    labels = raw / "data" / "flood_events" / "HandLabeled" / "LabelHand"
+    w, h = 112, 84
+    second = (10.205, 44.410, 10.215, 44.4175)
+    label = np.zeros((h, w), np.int16)
+    label[:, : w // 2] = 1
+    _write(labels / "Testland_2_LabelHand.tif", label, second, "EPSG:4326")
+    (labels / "Testland_3_LabelHand.tif").write_bytes(b"<VRTDataset>not a GeoTIFF</VRTDataset>")
+    report = ingest_sen1floods11(raw, tmp_path / "out", cfg, sources=IngestSources(client=archive[1]),
+                                 margin_px=32, workers=3)
+    outcomes = report["events"]["Testland"]
+    assert outcomes["Testland_3"].startswith("failed: unreadable label")
+    assert outcomes["Testland_1"].startswith("ok") and outcomes["Testland_2"].startswith(("ok", "dropped"))
+    assert (tmp_path / "out" / "ingest_report.json").is_file() and report["summary"]["failed"] == 1
+
+
+def test_a_rerun_never_keeps_stale_artefacts(archive, cfg, tmp_path) -> None:
+    root, catalogue = archive
+    out = tmp_path / "ingest"
+    ingest_event(_event(root), out, cfg, sources=IngestSources(client=catalogue))
+    event_dir = out / "events" / "T_po"
+    (event_dir / "chips.parquet").write_bytes(b"stale")
+    ingest_event(_event(root), out, cfg, sources=IngestSources(client=catalogue))
+    assert load_manifest(event_dir / "chips.parquet")          # rewritten, readable

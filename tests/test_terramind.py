@@ -38,3 +38,25 @@ def test_mixed_optical_availability_routes_each_sample(model) -> None:
     assert mixed.shape == (3, 1, 64, 64) and gate is None
     torch.testing.assert_close(mixed[1:2], alone)                        # never fed zeros as optical
     torch.testing.assert_close(mixed[0:1], both)
+
+
+@pytest.mark.slow
+def test_clouded_pixels_reach_terramind_as_its_mean_not_as_cloud(model) -> None:
+    sar = torch.randn(1, 5, 64, 64)
+    clear, cloud = torch.rand(1, 4, 64, 64), torch.ones(1, 4, 64, 64)       # bright cloud tops
+    quality = torch.zeros(1, 1, 64, 64)                                    # every pixel clouded
+    with torch.inference_mode():
+        a, _ = model(sar, None, clear, quality, torch.tensor([True]))
+        b, _ = model(sar, None, cloud, quality, torch.tensor([True]))
+    torch.testing.assert_close(a, b)                                      # the cloud values never reach it
+
+
+def test_rebuilding_for_a_checkpoint_does_not_download_weights(monkeypatch) -> None:
+    import floodfusion.models.terramind as tm
+    from floodfusion.models.zoo import build_model
+
+    seen = []
+    monkeypatch.setattr(tm.TerraMindSegmenter, "__init__",
+                        lambda self, cfg, *, pretrained=True: seen.append(pretrained) or torch.nn.Module.__init__(self))
+    build_model(load_config(CONFIG).model, pretrained=False)
+    assert seen == [False]

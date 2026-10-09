@@ -238,7 +238,9 @@ def reproject_to_grid(
         raise ValueError(f"kind must be one of {sorted(_RESAMPLING_BY_KIND)}, got {kind!r}")
     resampling = getattr(Resampling, _RESAMPLING_BY_KIND[kind])
     opened = isinstance(source, str | Path)
-    src = rasterio.open(source) if opened else source
+    # Every source this pipeline reads is a GeoTIFF/COG: pinning the driver stops a file named
+    # ".tif" that really holds VRT XML from making GDAL open other files or URLs.
+    src = rasterio.open(source, driver="GTiff") if opened else source
     try:
         vrt_kwargs: dict[str, Any] = dict(
             crs=CRS.from_epsg(grid.epsg), transform=grid.affine,

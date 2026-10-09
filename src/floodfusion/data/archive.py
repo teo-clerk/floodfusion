@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from floodfusion.data.stac import open_catalogue, redact
+from floodfusion.data.stac import open_catalogue
 
 __all__ = [
     "GDAL_ENV",
@@ -35,7 +35,13 @@ GDAL_ENV = {"GDAL_HTTP_TIMEOUT": 60, "GDAL_HTTP_MAX_RETRY": 3, "GDAL_HTTP_RETRY_
 
 def _default_fetch(href: str) -> bytes:
     """Bytes of a local file or an allow-listed, signed HTTPS href (no redirects, size-capped)."""
-    from floodfusion.data.sources import check_href, signed
+    from floodfusion.data.http import capped_get, check_https_url
+    from floodfusion.data.sources import (
+        ALLOWED_REMOTE_HOSTS,
+        ALLOWED_REMOTE_SUFFIXES,
+        check_href,
+        signed,
+    )
 
     href = check_href(href)
     if not href.startswith("https://"):
@@ -43,19 +49,8 @@ def _default_fetch(href: str) -> bytes:
         if not path.is_file() or path.stat().st_size > MAX_FETCH_BYTES:
             raise ValueError(f"{path}: not a regular file below {MAX_FETCH_BYTES} bytes")
         return path.read_bytes()
-    import requests
-
-    url = signed(href)
-    with requests.get(url, timeout=(10, _HTTP_TIMEOUT_S), allow_redirects=False, stream=True) as response:
-        if response.status_code != 200:
-            raise OSError(f"HTTP {response.status_code} for {redact(url)}")
-        chunks, size = [], 0
-        for chunk in response.iter_content(chunk_size=1 << 20):
-            size += len(chunk)
-            if size > MAX_FETCH_BYTES:
-                raise OSError(f"{redact(url)}: larger than {MAX_FETCH_BYTES} bytes")
-            chunks.append(chunk)
-    return b"".join(chunks)
+    return capped_get(signed(href), cap=MAX_FETCH_BYTES, timeout_s=_HTTP_TIMEOUT_S, retries=3,
+                      check=lambda u: check_https_url(u, hosts=ALLOWED_REMOTE_HOSTS, suffixes=ALLOWED_REMOTE_SUFFIXES))
 
 
 @dataclass(frozen=True)

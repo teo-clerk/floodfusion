@@ -20,7 +20,16 @@ Inputs are mapped from this project's batch onto TerraMind's modalities:
 
 A sample without usable optical is passed as ``S1RTC`` alone (TerraMind accepts any subset
 of its modalities), so missing optical never reaches it as zeros; modality dropout and
-the SAR-only evaluation (row 11's question) therefore apply unchanged.
+the SAR-only evaluation (row 11's question) therefore apply unchanged. Within a chip that
+has optical, **clouded pixels** (quality below the clear threshold) are set to TerraMind's
+pre-training mean (0 after standardisation): it has no per-pixel gate, unlike row 9, and is
+not handed cloud tops as if they were ground.
+
+Caveats stated wherever its numbers appear: its encoder was pre-trained on global
+Sentinel-1/2 data (so "never saw the event" holds for the decoder only); the band subset and
+necks follow IBM's recipe, developed on Sen1Floods11's official splits; the training schedule
+is row 9's, tuned for neither model; its SAR input is our z-score, not its pre-training
+normalisation, adapted by four affine parameters.
 """
 
 from __future__ import annotations
@@ -31,6 +40,7 @@ import torch
 from torch import nn
 
 from floodfusion.config import ModelConfig
+from floodfusion.data.chipping import CLEAR_QUALITY
 
 __all__ = ["TERRAMIND_VARIANTS", "TerraMindSegmenter"]
 
@@ -81,6 +91,8 @@ class TerraMindSegmenter(nn.Module):
         if optical is None or optical_available is None or not bool(optical_available.any()):
             return self._run({"S1RTC": s1}), None
         s2 = (optical[:, :3].clamp(0.0, 1.0) * _REFLECTANCE_TO_DN - self.s2_mean) / self.s2_std
+        if optical_quality is not None:
+            s2 = torch.where(optical_quality >= CLEAR_QUALITY, s2, torch.zeros_like(s2))
         available = optical_available.bool()
         if bool(available.all()):
             return self._run({"S2L2A": s2, "S1RTC": s1}), None

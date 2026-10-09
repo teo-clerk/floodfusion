@@ -205,9 +205,9 @@ def profile_for(catalogue_url: str) -> CatalogueProfile:
 
 def redact(text: str) -> str:
     """Strip query strings (SAS tokens) from every URL in ``text`` — for logs and errors."""
-    import re
+    from floodfusion.data.http import redact as _redact
 
-    return re.sub(r"(https?://[^\s?'\"]+)\?[^\s'\"]*", r"\1?<redacted>", str(text))
+    return _redact(text)
 
 
 class _Searchable(Protocol):

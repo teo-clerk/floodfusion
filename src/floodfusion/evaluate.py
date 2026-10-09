@@ -133,7 +133,7 @@ def _load(run_dir: Path, data_root: Path | None, device: Any, force_sar_only: bo
     state = torch.load(Path(run_dir) / "best.pt", map_location=device, weights_only=True)
     if state["config_sha256"] != record["config_sha256"]:
         raise ValueError(f"{run_dir}: best.pt belongs to a different configuration")
-    model = build_model(cfg.model).to(device)
+    model = build_model(cfg.model, pretrained=False).to(device)  # the checkpoint holds every weight
     model.load_state_dict(state["model"])
     if cfg.train.channels_last:
         model = model.to(memory_format=torch.channels_last)

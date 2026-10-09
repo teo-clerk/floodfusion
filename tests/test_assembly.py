@@ -131,3 +131,25 @@ class TestOpticalAlignment:
         rho2, _, _, _, info = align_optical_to_sar(sar, rho, quality, fixed_shift_px=(0, 2))
         assert info["applied_shift_px"] == [0, 2] and info["source"] == "pooled"
         assert np.isnan(rho2[1][:, -2:]).all()
+
+
+def test_a_cloudy_chip_still_moves_its_label_by_the_pass_shift() -> None:
+    """Review finding: without usable optical the label was left 1-2 px off the SAR geometry."""
+    from floodfusion.data.assembly import GridReference, _coregister, _OpticalLayers
+
+    label = np.zeros((40, 40))
+    label[:, 10:20] = 1.0
+    ref = GridReference(label=label, inside_aoi=np.ones((40, 40), bool), permanent=np.zeros((40, 40), bool),
+                        landcover=np.zeros((40, 40), np.uint8))
+    no_optical = _OpticalLayers((), 0.05, None, None, None)
+
+    class Task:
+        coregister_optical, label_follows_optical, optical_shift_px = True, True, (0, 2)
+
+    _, moved, info = _coregister(Task(), {"vv_post_db": np.zeros((40, 40))}, no_optical, ref)
+    assert info["applied_shift_px"] == [0, 2] and info["label_shifted"]
+    assert np.nansum(moved.label[:, 8:18]) == 400 and not moved.inside_aoi[:, -2:].any()
+
+    Task.label_follows_optical = False                  # a vector label in true geometry stays put
+    _, kept, info = _coregister(Task(), {"vv_post_db": np.zeros((40, 40))}, no_optical, ref)
+    assert kept is ref and info["applied_shift_px"] == [0, 0]

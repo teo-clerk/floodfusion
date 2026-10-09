@@ -53,7 +53,6 @@ from dataclasses import asdict, dataclass, replace
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 import numpy as np
 
@@ -75,6 +74,7 @@ from floodfusion.data.assembly import (
     sar_optical_window_shifts,
 )
 from floodfusion.data.chipping import AnalysisGrid, build_analysis_grid
+from floodfusion.data.http import redacted_traceback
 from floodfusion.data.records import atomic_write_bytes
 from floodfusion.data.stac import (
     PROFILES,
@@ -121,6 +121,9 @@ SPLIT_FILES = {
 #: Chip file prefixes that differ from the metadata ``location``.
 _PREFIX_BY_LOCATION = {"Cambodia": "Mekong"}
 GROUP_PREFIX = "S1F11_"
+#: One metric CRS for every chip centroid: the events span five continents, and the split only
+#: needs distances between chips of the same event (events are thousands of km apart).
+SPLIT_EPSG = 3857
 #: An int16 value the labels (-1, 0, 1) never take; marks off-chip pixels during the warp.
 _LABEL_SENTINEL = -32768
 #: 256 px = 2.56 km of terrain context around each 5 km chip (shadow, layover, HAND).
@@ -135,26 +138,16 @@ _SHIFT_SAMPLE_CHIPS = 24
 # Download (labels, metadata, splits) — allow-listed, size-capped, md5-verified
 # ---------------------------------------------------------------------------
 def _check_url(url: str) -> str:
-    parsed = urlparse(url)
-    if parsed.scheme != "https" or parsed.hostname != _HOST or not parsed.path.startswith(_ALLOWED_PATH_PREFIXES):
-        raise ValueError(f"refusing URL outside the Sen1Floods11 bucket: {url[:80]!r}")
-    return url
+    from floodfusion.data.http import check_https_url
+
+    return check_https_url(url, hosts=(_HOST,), path_prefixes=_ALLOWED_PATH_PREFIXES)
 
 
 def _http_get(url: str, *, params: Mapping[str, str] | None = None) -> bytes:
-    import requests
+    from floodfusion.data.http import capped_get
 
-    with requests.get(_check_url(url), params=params, timeout=(10, _HTTP_TIMEOUT_S),
-                      allow_redirects=False, stream=True) as response:
-        if response.status_code != 200:
-            raise OSError(f"HTTP {response.status_code} for {url}")
-        chunks, size = [], 0
-        for chunk in response.iter_content(chunk_size=1 << 16):
-            size += len(chunk)
-            if size > _MAX_OBJECT_BYTES:
-                raise OSError(f"{url}: larger than {_MAX_OBJECT_BYTES} bytes")
-            chunks.append(chunk)
-    return b"".join(chunks)
+    return capped_get(url, check=_check_url, cap=_MAX_OBJECT_BYTES, params=params, timeout_s=_HTTP_TIMEOUT_S,
+                      retries=3)
 
 
 Getter = Callable[..., bytes]
@@ -295,8 +288,12 @@ def _footprint(path: Path) -> tuple[float, float, float, float]:
     import rasterio
     from rasterio.warp import transform_bounds
 
-    with rasterio.open(path) as src:
-        return tuple(transform_bounds(src.crs, "EPSG:4326", *src.bounds))  # type: ignore[return-value]
+    # GTiff only: a downloaded "*.tif" holding VRT XML would otherwise make GDAL read other files.
+    with rasterio.open(path, driver="GTiff") as src:
+        if src.crs is None:
+            raise ValueError(f"{path.name}: label has no CRS")
+        w, s_, e, n = transform_bounds(src.crs, "EPSG:4326", *src.bounds)
+        return (w, s_, e, n)
 
 
 # ---------------------------------------------------------------------------
@@ -317,6 +314,7 @@ def chip_reference(label_path: Path, grid: AnalysisGrid, jrc_items: Sequence[Map
         occurrence = read_jrc_occurrence(jrc_items, grid)
         permanent = permanent_water_from_occurrence(np.nan_to_num(occurrence, nan=0.0))
     else:
+        LOGGER.warning("%s: no JRC GSW tile — no permanent water removed from the label", label_path.name)
         permanent = np.zeros((grid.height, grid.width), dtype=bool)
     label = np.where(raw == 1, 1.0, np.where(raw == 0, 0.0, np.nan))
     label = np.where(permanent & (label == 1), 0.0, label)
@@ -430,9 +428,10 @@ def _event_optical_shift(chips: Sequence[HandChip], footprints: Mapping[str, Seq
     from floodfusion.data.sources import read_s1_rtc, read_s2_reflectance
     from floodfusion.masks import quality_from_scl
 
-    step = max(1, len(chips) // _SHIFT_SAMPLE_CHIPS)
+    # Evenly spread over the event (ids sort roughly by place): not the first N chips.
+    picks = np.unique(np.linspace(0, len(chips) - 1, min(len(chips), _SHIFT_SAMPLE_CHIPS)).round().astype(int))
     shifts = []
-    for chip in list(chips)[::step][:_SHIFT_SAMPLE_CHIPS]:
+    for chip in [chips[int(i)] for i in picks]:
         footprint = footprints[chip.chip_id]
         try:
             matched = _restrict(archive.matched, archive.by_id, footprint)
@@ -458,6 +457,17 @@ def _ingest_chip(chip: HandChip, event: S1F11Event, archive: _EventArchive, foot
                  event_polygon: Any, out_root: Path, cfg: ExperimentConfig, sources: IngestSources,
                  margin_px: int, split_epsg: int, optical_shift: Sequence[int]) -> dict[str, Any]:
     import rasterio
+
+    # Every GDAL read of this chip — reference layers included — runs with bounded HTTP
+    # timeouts: rasterio.Env is per thread, and this runs in a worker thread.
+    with rasterio.Env(**GDAL_ENV):
+        return _assemble_chip(chip, event, archive, footprint, event_polygon, out_root, cfg, sources, margin_px,
+                              split_epsg, optical_shift)
+
+
+def _assemble_chip(chip: HandChip, event: S1F11Event, archive: _EventArchive, footprint: Sequence[float],
+                   event_polygon: Any, out_root: Path, cfg: ExperimentConfig, sources: IngestSources,
+                   margin_px: int, split_epsg: int, optical_shift: Sequence[int]) -> dict[str, Any]:
     from rasterio.warp import transform_bounds
 
     grid = build_analysis_grid(tuple(footprint), cfg.grid.pixel_size_m)
@@ -476,8 +486,7 @@ def _ingest_chip(chip: HandChip, event: S1F11Event, archive: _EventArchive, foot
         generator="floodfusion.data.sen1floods11 (labels: Sen1Floods11 v1.1; inputs: Planetary Computer)",
     )
     chip_sources = IngestSources(client=archive.catalogue, fetch_bytes=sources.fetch_bytes)
-    with rasterio.Env(**GDAL_ENV):
-        return assemble_on_grid(task, cfg, chip_sources, split_epsg=split_epsg)
+    return assemble_on_grid(task, cfg, chip_sources, split_epsg=split_epsg)
 
 
 def _ingest_one_event(event: S1F11Event, chips: Sequence[HandChip], out_root: Path, cfg: ExperimentConfig,
@@ -488,19 +497,29 @@ def _ingest_one_event(event: S1F11Event, chips: Sequence[HandChip], out_root: Pa
     status = {c.chip_id: "done-before" for c in chips if c not in todo}
     if not todo:
         return status
-    footprints = {c.chip_id: _footprint(c.label_path) for c in chips}
     margin_m = margin_px * cfg.grid.pixel_size_m
+    footprints: dict[str, tuple[float, float, float, float]] = {}
+    for chip in chips:  # an unreadable label fails its chip, not the event
+        try:
+            footprints[chip.chip_id] = _footprint(chip.label_path)
+        except Exception as exc:  # noqa: BLE001
+            status[chip.chip_id] = f"failed: unreadable label: {type(exc).__name__}: {str(exc)[:200]}"
+            LOGGER.error("%s: unreadable label %s", chip.chip_id, chip.label_path)
+    chips = [c for c in chips if c.chip_id in footprints]
+    todo = [c for c in todo if c.chip_id in footprints]
+    if not todo:
+        return status
     try:
         archive = _event_archive(event, _union_bbox(footprints.values()), sources, margin_m)
+        polygon = _event_polygon(footprints.values())
+        shift = _event_optical_shift(chips, footprints, archive, cfg)
     except NoMatchingPairError as exc:
         LOGGER.error("%s dropped: %s", event.group, exc)
         return {**status, **{c.chip_id: f"dropped: {exc}" for c in todo}}
-    except Exception as exc:  # noqa: BLE001 - one event's archive failure must not abort the dataset
+    except Exception as exc:  # noqa: BLE001 - one event's failure must not abort the dataset
         message = f"failed: {type(exc).__name__}: {redact(str(exc))[:300]}"
-        LOGGER.error("%s %s", event.group, message)
+        LOGGER.error("%s %s\n%s", event.group, message, redacted_traceback(exc))
         return {**status, **{c.chip_id: message for c in todo}}
-    polygon = _event_polygon(footprints.values())
-    shift = _event_optical_shift(chips, footprints, archive, cfg)
     status["optical_shift"] = json.dumps(shift)
 
     def run(chip: HandChip) -> tuple[str, str]:
@@ -513,12 +532,18 @@ def _ingest_one_event(event: S1F11Event, chips: Sequence[HandChip], out_root: Pa
         except NoMatchingPairError as exc:
             return chip.chip_id, f"dropped: {exc}"
         except Exception as exc:  # noqa: BLE001 - one chip's failure must not abort the event
+            LOGGER.error("%s failed\n%s", chip.chip_id, redacted_traceback(exc))
             return chip.chip_id, f"failed: {type(exc).__name__}: {redact(str(exc))}"
 
-    with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
+    pool = ThreadPoolExecutor(max_workers=max(1, workers))
+    try:
         for chip_id, outcome in pool.map(run, todo):
             status[chip_id] = outcome
             LOGGER.info("%s %s", chip_id, outcome)
+    except BaseException:
+        pool.shutdown(wait=False, cancel_futures=True)  # Ctrl-C: do not finish the queued chips first
+        raise
+    pool.shutdown()
     return status
 
 
@@ -530,7 +555,7 @@ def ingest_sen1floods11(
     events: Sequence[str] | None = None,
     sources: IngestSources | None = None,
     margin_px: int = DEFAULT_MARGIN_PX,
-    split_epsg: int = 3857,
+    split_epsg: int = SPLIT_EPSG,
     workers: int = 4,
 ) -> dict[str, Any]:
     """Re-ingest every hand-labelled chip (or those of ``events``); write ``ingest_report.json``.
@@ -587,7 +612,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     report = ingest_sen1floods11(args.raw, args.out, cfg, events=args.event, margin_px=args.margin_px,
                                  workers=args.workers)
     LOGGER.info("summary: %s", report["summary"])
-    digest = build_dataset(args.out, cfg, split_epsg=3857)
+    digest = build_dataset(args.out, cfg, split_epsg=SPLIT_EPSG)
     LOGGER.info("manifest %s", digest)
     return 1 if report["summary"]["failed"] else 0
 

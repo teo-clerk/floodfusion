@@ -65,23 +65,20 @@ ALLOWED_REMOTE_HOSTS = ("planetarycomputer.microsoft.com",)
 def check_href(href: str) -> str:
     """Refuse asset hrefs a STAC item should never carry; return the href unchanged.
 
-    Remote hrefs must be ``https`` to Planetary Computer storage (an ``http`` annotation could
-    be swapped in transit and silently rotate every shadow mask). GDAL virtual paths
-    (``/vsi*``) and inline VRT XML are refused: they let an item make GDAL open arbitrary
-    URLs or local files. Local paths are allowed — offline fixtures and local mirrors.
+    Remote hrefs must be plain ``https`` to Planetary Computer storage (an ``http``
+    annotation could be swapped in transit and silently rotate every shadow mask), checked
+    with the parser that makes the request (:func:`floodfusion.data.http.check_https_url`).
+    Local hrefs must be plain paths: GDAL virtual paths (``/vsi*`` in any case), driver
+    prefixes (``GTIFF_DIR:``) and inline XML are refused — they let an item make GDAL open
+    arbitrary URLs or files (:func:`floodfusion.data.http.check_local_path`).
     """
-    from urllib.parse import urlparse
+    from floodfusion.data.http import check_https_url, check_local_path
 
     text = str(href).strip()
-    local = text.removeprefix("file://")  # check the path GDAL will actually open
-    if local.startswith("/vsi") or local.lstrip().startswith("<"):
-        raise ValueError(f"refusing GDAL virtual path or inline XML as an asset href: {text[:60]!r}")
-    parsed = urlparse(text)
-    if parsed.scheme in ("", "file"):
-        return text
-    host = (parsed.hostname or "").lower()
-    if parsed.scheme != "https" or not (host in ALLOWED_REMOTE_HOSTS or host.endswith(ALLOWED_REMOTE_SUFFIXES)):
-        raise ValueError(f"refusing asset href outside Planetary Computer over https: {parsed.scheme}://{host}")
+    if "://" in text and not text.startswith("file://"):
+        check_https_url(text, hosts=ALLOWED_REMOTE_HOSTS, suffixes=ALLOWED_REMOTE_SUFFIXES)  # http refused too
+    else:
+        check_local_path(text)
     return text
 
 
