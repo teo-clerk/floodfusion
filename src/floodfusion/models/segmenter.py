@@ -121,15 +121,15 @@ class UNetDecoder(nn.Module):
     the SAR encoder's ``(s1, s2)`` at ``(B, C_1, H/2, W/2)`` and ``(B, C_2, H/4, W/4)``.
     Returns ``(B, decoder_channels[-1], H, W)``.
 
-    TODO(student)
-    -------------
-    1. For each stage: upsample, concatenate the matching skip, then a ``ConvBlock``.
-    2. Prefer ``Upsample(scale_factor=2, mode="bilinear") + Conv2d`` over
-       ``ConvTranspose2d``: transposed convolution produces checkerboard artefacts at
-       these scales, which in a flood mask look like periodic false detections.
-    3. Assert at every stage that the upsampled tensor and its skip agree spatially
-       before concatenating. An off-by-one from an odd input size fails here with a
-       clear message rather than deep inside a later layer.
+    Implementation notes
+    --------------------
+    1. Each stage upsamples, concatenates the matching skip, then applies a ``ConvBlock``.
+    2. ``Upsample(scale_factor=2, mode="bilinear") + Conv2d`` rather than
+       ``ConvTranspose2d``: transposed convolution produces checkerboard artefacts at these
+       scales, which in a flood mask look like periodic false detections.
+    3. Every stage asserts that the upsampled tensor and its skip agree spatially before
+       concatenating, so an off-by-one from an odd input size fails here with a clear
+       message rather than deep inside a later layer.
     """
 
     def __init__(
@@ -257,22 +257,21 @@ class FloodSegmenter(nn.Module):
     6. No ``NaN``/``Inf`` in forward or backward under ``autocast(bfloat16)``.
     7. The head outputs logits — values outside ``[0, 1]`` occur.
 
-    TODO(student)
-    -------------
-    1. Build the SAR encoder over ``N_SAR_CHANNELS + N_TERRAIN_CHANNELS`` inputs and the
-       optical encoder over ``N_OPTICAL_CHANNELS``.
-    2. Build the fusion block, the missing-modality embedding, the decoder and a 1x1
-       head.
-    3. In ``forward``: concatenate SAR and terrain; run the SAR encoder; then either run
-       the optical encoder or substitute the embedding, **per sample**, using
-       ``torch.where`` on a broadcast ``optical_available`` rather than a Python loop.
-    4. Short-circuit when ``optical_available`` is all-False: skipping the optical
-       encoder entirely saves ~40 % of encoder activations at inference and is what
-       makes ablation row 11 cheap to evaluate. Verify it does not change the result.
+    Implementation notes
+    --------------------
+    1. The SAR encoder takes ``N_SAR_CHANNELS + N_TERRAIN_CHANNELS`` inputs and the optical
+       encoder ``N_OPTICAL_CHANNELS``.
+    2. Then the fusion block, the missing-modality embedding, the decoder and a 1x1 head.
+    3. ``forward`` concatenates SAR and terrain and runs the SAR encoder, then either the
+       optical encoder or the embedding, **per sample**, with ``torch.where`` on a broadcast
+       ``optical_available`` rather than a Python loop.
+    4. When ``optical_available`` is all-False the optical encoder is skipped entirely,
+       which saves ~40 % of encoder activations at inference and makes ablation row 11
+       cheap to evaluate.
     5. Fuse, decode, project to logits.
-    6. Return ``(logits, gate)``.
-    7. Expose ``enable_gradient_checkpointing()`` toggling checkpointing on encoder
-       stage 1 and the final decoder stage only (``docs/08`` section 5.4).
+    6. Returns ``(logits, gate)``.
+    7. ``enable_gradient_checkpointing()`` toggles activation checkpointing on the
+       memory-dominant stages of both encoders and the decoder (``docs/08`` section 5.4).
     """
 
     def __init__(self, cfg: ModelConfig) -> None:

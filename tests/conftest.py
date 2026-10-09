@@ -1,35 +1,18 @@
-"""Shared fixtures for the Project 01 test suite.
+"""Shared fixtures for the floodfusion test suite.
 
 How to read this suite
 ----------------------
-**The tests are the specification.** They are given to you complete and runnable. Read
-the test for a function *before* you implement it: the test states exactly what "done"
-means, in terms of shapes, dtypes, devices, value ranges and invariants.
-
-Every test that exercises an unimplemented skeleton carries
-``@pytest.mark.xfail(raises=NotImplementedError, strict=False)``. Consequently:
-
-- On a fresh clone, ``make test`` reports a large number of **xfailed** tests and zero
-  failures. That is the correct starting state.
-- As you implement, tests flip to **xpassed** (they now succeed) or to **failed** (your
-  implementation is wrong). Both are informative; a failure is a bug in your code, an
-  xpass is a milestone.
-- **Read the summary line, not the colour.** A green run at the start of a milestone and
-  a green run at the end mean different things.
-
-When you have finished a module, delete its ``xfail`` markers so that regressions are
-caught as failures rather than silently absorbed.
+**The tests are the specification.** Each states exactly what "done" means for its
+function, in terms of shapes, dtypes, devices, value ranges and invariants.
 
 Optional dependencies
 ---------------------
-``torch`` is **not** imported by this file. The Project 01 suite must survive
+``torch`` is **not** imported by this file. The suite must survive
 ``pytest --collect-only`` with zero import errors on a machine that has no PyTorch, so
 every heavy dependency is guarded at the point of use: inside the fixture that builds
-tensors, or at the top of the one test module that exercises a ``torch``-importing
-skeleton. The configuration, splits, STAC-query, preprocessing, terrain, baseline and
-VRAM-arithmetic tests therefore **run** on a bare machine rather than vanishing —
-``00_FOUNDATIONS/tests/conftest.py`` takes the same position, and the two are
-deliberately kept in step.
+tensors, or at the top of a test module that imports ``torch``. The configuration, splits,
+STAC-query, preprocessing, terrain, baseline and VRAM-arithmetic tests therefore **run**
+on a bare machine rather than vanishing.
 
 Markers used here (declared in ``pyproject.toml``; ``--strict-markers`` is on):
 ``slow``, ``gpu``, ``network``, ``data``.
@@ -86,42 +69,6 @@ CUDA_AVAILABLE = _cuda_available()
 requires_cuda = pytest.mark.skipif(
     not CUDA_AVAILABLE, reason="no CUDA device available"
 )
-
-#: Applied to every test exercising an unimplemented skeleton. ``strict=False`` so a
-#: correct implementation reports XPASS rather than turning the suite red.
-expect_unimplemented = pytest.mark.xfail(
-    raises=NotImplementedError,
-    reason="skeleton not yet implemented by the student",
-    strict=False,
-)
-
-
-def pytest_collection_modifyitems(items) -> None:  # noqa: ANN001
-    """Auto-apply :data:`expect_unimplemented` to modules that opt in.
-
-    A test module sets ``EXPECT_UNIMPLEMENTED = True`` at module level to declare that
-    it exercises skeletons which currently raise ``NotImplementedError``. Every test in
-    it is then marked ``xfail(raises=NotImplementedError, strict=False)``.
-
-    This is a collection hook rather than an importable decorator because
-    ``--import-mode=importlib`` (set in ``pyproject.toml``) does not put ``conftest`` on
-    ``sys.path``, so ``from conftest import ...`` fails at collection time.
-
-    A module may also declare ``ALWAYS_PASS = {"test_name", ...}`` to exempt individual
-    tests — typically pure-mathematics checks that exercise no skeleton and must pass
-    from the very first run. Exempting them keeps XPASS meaningful: an XPASS should
-    signal "you just implemented something", not "this never depended on your code".
-
-    **Delete the module-level flag once you have implemented that module**, so that
-    regressions surface as failures instead of being silently absorbed.
-    """
-    for item in items:
-        module = getattr(item, "module", None)
-        if module is None or not getattr(module, "EXPECT_UNIMPLEMENTED", False):
-            continue
-        if item.originalname in getattr(module, "ALWAYS_PASS", frozenset()):
-            continue
-        item.add_marker(expect_unimplemented)
 
 
 # --------------------------------------------------------------------------
@@ -235,7 +182,7 @@ def data_root() -> Path:
     """``$ESA_DATA_ROOT``; skips the test when unset or absent."""
     raw = os.environ.get("ESA_DATA_ROOT")
     if not raw:
-        pytest.skip("ESA_DATA_ROOT is not set; see ENVIRONMENT_SETUP.md section 8")
+        pytest.skip("ESA_DATA_ROOT is not set (the root of the real-data event directories)")
     path = Path(raw)
     if not path.exists():
         pytest.skip(f"ESA_DATA_ROOT={path} does not exist")

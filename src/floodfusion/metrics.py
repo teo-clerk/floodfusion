@@ -40,7 +40,7 @@ import numpy as np
 # ``from __future__ import annotations``, so those are lazy strings at runtime. Importing it
 # eagerly would make every pure-arithmetic test in this module — confusion-matrix pooling, the
 # IoU/F1 identity, micro-F1 against accuracy — unrunnable on a machine without a 2 GB deep-learning
-# stack, which is precisely the set of tests a student should be able to run on day one.
+# stack, which is precisely the set of tests that should run anywhere.
 # ``utils/shapes.py`` uses the same deferral for the same reason.
 if TYPE_CHECKING:  # pragma: no cover - annotations only
     import torch

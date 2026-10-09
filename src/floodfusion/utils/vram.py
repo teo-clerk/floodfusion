@@ -40,7 +40,6 @@ M_{\mathrm{analytic}}`, then predict every other configuration of the section 4.
 References
 ----------
 ``docs/08_training_recipe_and_vram.md`` section 4.
-``00_FOUNDATIONS/09_rtx4060_vram_playbook.md`` — the general method this specialises.
 """
 
 from __future__ import annotations

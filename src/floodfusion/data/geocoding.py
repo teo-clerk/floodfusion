@@ -2,8 +2,8 @@ r"""Range--Doppler terrain correction, backward-geocoded, with area-based RTC (R
 
 ``docs/04`` section 5. Production ingest uses a pre-processed RTC collection (Route B,
 ``docs/04`` section 9); this module implements the chain that collection already ran, so
-``P1-M1``'s comprehension question — *point at a steep slope facing the sensor and explain
-what happened to those pixels* — is answered by code, not by an API call.
+the question *what happened to the pixels of a steep slope facing the sensor?* is answered
+by code, not by an API call.
 
 The geometry
 ------------

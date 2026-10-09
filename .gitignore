@@ -28,16 +28,29 @@ dist/
 *.ckpt
 *.safetensors
 *.npz
+# Rasters and tables are data, never source (Sen1Floods11 declares no licence).
+*.tif
+*.tiff
+*.parquet
+*.gpkg
 
 # --- Secrets never belong here -------------------------------------------------
 .env
 .env.*
+!.env.example
 *.pem
 *.key
+*.p12
+*.pfx
+*.jks
+credentials*.json
+service-account*.json
+.secrets/
 
 # Large figures produced by evaluation are regenerated; the Markdown reports
 # under reports/ are committed as the reproducibility record (P1-M4, P1-M5).
 /reports/figures/
+/reports/products/
 
 # --- Editors / OS ------------------------------------------------------------
 .idea/

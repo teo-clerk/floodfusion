@@ -2,11 +2,10 @@ r"""Training entry point for Project 01.
 
 Milestone ``P1-M4``. Run as::
 
-    python -m floodfusion.train --config 01_FLOOD_SAR_OPTICAL_FUSION/configs/row09_fusion_crossattn.yaml \
+    python -m floodfusion.train --config configs/row09_fusion_crossattn.yaml \
         --data-root data/synthetic --overlay configs/overlays/synthetic_demo.yaml --seed 42
 
-(from inside the project directory the config path is ``configs/row09_fusion_crossattn.yaml``;
-``make train-p1`` runs exactly that).
+(``make train-p1`` runs exactly that).
 
 What a run does, in order (``docs/08`` section 7):
 

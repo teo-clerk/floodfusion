@@ -746,7 +746,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     manifest_sha = load_manifest_meta(manifest_path)["manifest_sha256"]
     basins = gpd.read_file(args.data_root / "basins.gpkg")
 
-    # 1. Autocorrelation range (gamma0 VV and the label, separately — docs/05 exercise 1).
+    # 1. Autocorrelation range (gamma0 VV and the label, separately — docs/05).
     samples = _sample_pixels(records, cfg.grid, cfg.norm, args.pixels_per_event, args.seed)
     ranges: dict[str, list[float]] = {"vv": [], "label": []}
     for vv, label, xs, ys in samples:

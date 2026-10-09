@@ -154,7 +154,7 @@ class TestTerrainCorrection:
         """Output-first: every output cell filled exactly once (``docs/04`` section 5.3).
 
         Test replacement (agreed with the project owner): the original asserted that the
-        skeleton raised ``NotImplementedError``. ``terrain_correct`` is now implemented
+        placeholder raised ``NotImplementedError``. ``terrain_correct`` is now implemented
         (Range-Doppler zero-Doppler solve, backward geocoding, area-based RTC — see
         ``tests/test_geocoding.py`` for the full suite), so this checks the property the
         docstring states: on a simulated orbit, every output cell inside the swath is

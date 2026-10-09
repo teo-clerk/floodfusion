@@ -55,7 +55,7 @@ class TestCalibration:
         assert result.temperature == pytest.approx(1 / 1.7, rel=0.06)
 
     def test_calibration_leaves_ranking_and_ap_unchanged(self) -> None:
-        """docs/09 4.4 / exercise 3: a monotone map cannot change AP."""
+        """docs/09 4.4: a monotone map cannot change AP."""
         rng = np.random.default_rng(5)
         z = rng.normal(-2, 2, 50_000)
         y = _labels_from(z, 1.0, 0.0).astype(bool)

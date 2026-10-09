@@ -9,7 +9,7 @@
 # =============================================================================
 extends: ../base.yaml
 name: "cmp_terramind_small"
-ablation_row: 0   # outside MILESTONES section 6; keyed by name in the reports
+ablation_row: 0   # outside the 13-row grid; keyed by name in the reports
 
 model:
   architecture: "terramind_small"

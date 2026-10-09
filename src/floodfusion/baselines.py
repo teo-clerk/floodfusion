@@ -5,7 +5,7 @@ actually buy?** A fusion network scoring 0.71 IoU is impressive until a well-tun
 threshold scores 0.68, at which point the contribution is 0.03 IoU for 25 GPU-hours and
 19 M parameters.
 
-Row 2 of ``MILESTONES.md`` section 6 is therefore approximately what operational systems
+Ablation row 2 is therefore approximately what operational systems
 do — tile-adaptive thresholding plus change detection plus the terrain and
 permanent-water masks. It is genuinely hard to beat, and that is the point. Target:
 IoU :math:`\ge 0.55`. If you land far above 0.75, apply the label-provenance tests of
@@ -46,9 +46,9 @@ def otsu_threshold(values: np.ndarray, n_bins: int = 256) -> float:
 
     Notes
     -----
-    **Implement in** :math:`O(\mathrm{bins})` **using cumulative sums**, not the
-    :math:`O(\mathrm{bins}^2)` double loop. ``docs/06`` exercise 4 asks you to verify
-    the fast version against a brute-force one.
+    **Implemented in** :math:`O(\mathrm{bins})` **with cumulative sums**, not the
+    :math:`O(\mathrm{bins}^2)` double loop; ``tests/test_physics_extra.py`` checks it
+    against a brute-force version.
 
     **Expect it to fail on a full scene, and report that as a result.** Its three
     assumptions all break here (``docs/01`` section 11.2):
@@ -63,11 +63,11 @@ def otsu_threshold(values: np.ndarray, n_bins: int = 256) -> float:
     The observed consequence is a threshold several dB too high and a badly over-detected
     map. That is **ablation row 1** — a number to record, not a bug to hide.
 
-    TODO(student)
-    -------------
+    Implementation notes
+    --------------------
     1. Histogram, then cumulative sums of counts and of ``count * value``.
-    2. Evaluate :math:`\sigma_B^2` at every bin edge in one vectorised pass.
-    3. Return the maximising threshold in the units of ``values`` (dB), not a bin index.
+    2. :math:`\sigma_B^2` is evaluated at every bin edge in one vectorised pass.
+    3. The maximising threshold is returned in the units of ``values`` (dB), not as a bin index.
     """
     v = np.asarray(values, dtype=np.float64).ravel()
     v = v[np.isfinite(v)]
@@ -97,9 +97,9 @@ def ashman_d(mu1: float, mu2: float, sigma1: float, sigma2: float) -> float:
     :math:`D > 2` conventionally indicates two distinguishable populations. Used by
     :func:`tile_adaptive_threshold` to decide whether a tile is genuinely bimodal.
 
-    TODO(student)
-    -------------
-    Implement, and guard against a zero denominator from a degenerate fit.
+    Implementation notes
+    --------------------
+    A degenerate fit (zero denominator) gives 0 for identical means and ``inf`` otherwise.
     """
     denom = math.sqrt(sigma1**2 + sigma2**2)
     if denom == 0.0:
@@ -263,15 +263,15 @@ def tile_adaptive_threshold(
     Lee and record the window size — it changes the effective :math:`L` and therefore the
     result.
 
-    TODO(student)
-    -------------
-    1. Partition into tiles; skip tiles below ``min_valid_fraction``.
-    2. Fit a 2-component Gaussian mixture per tile.
-    3. Apply conditions (a)--(c). ``docs/06`` exercise 5 asks you to report the IoU
-       change from disabling (b) — that is the measurement that justifies this rule.
-    4. Otsu (or the GMM crossing point) inside each accepted tile.
-    5. Interpolate over tile centres; extrapolate conservatively at the edges.
-    6. Report ``accepted_fraction`` and plot the surface.
+    Implementation notes
+    --------------------
+    1. Partition into tiles; tiles below ``min_valid_fraction`` are skipped.
+    2. A 2-component Gaussian mixture is fitted per tile.
+    3. Conditions (a)--(c) decide whether the tile is accepted as bimodal.
+    4. Otsu inside each accepted tile.
+    5. Thresholds are interpolated over the tile centres by inverse-distance weighting
+       (:func:`_idw_surface`).
+    6. ``accepted_fraction`` is returned with the surface.
     """
     db = np.asarray(gamma0_db, dtype=np.float64)
     ok = np.asarray(valid, dtype=bool) & np.isfinite(db)
@@ -437,14 +437,13 @@ def baseline_flood_map(
     test set a validation set. Record the tuned values in the config: a baseline you
     cannot regenerate is not a baseline.
 
-    TODO(student)
-    -------------
-    1. Implement the rule exactly as written, in that order.
-    2. Handle ``mndwi is None`` (no optical for this chip) by falling through to
-       ``water_sar`` — this is the graceful-degradation path that ablation row 11 tests
-       in the learned model, and the baseline should have it too.
-    3. Produce the per-mask attribution table of ``docs/06`` section 6 by re-running with
-       each exclusion disabled in turn.
+    Implementation notes
+    --------------------
+    1. The rule is applied exactly as written, in that order.
+    2. ``mndwi is None`` (no optical for this chip) falls through to ``water_sar`` — the
+       graceful-degradation path that ablation row 11 tests in the learned model.
+    3. The per-mask attribution table of ``docs/06`` section 6 re-runs the rule with each
+       exclusion disabled in turn (:mod:`floodfusion.baseline_runner`).
     """
     if delta_min_db <= 0.0:
         raise ValueError("delta_min_db is a magnitude and must be positive")

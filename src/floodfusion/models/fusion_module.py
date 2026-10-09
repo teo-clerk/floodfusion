@@ -2,10 +2,7 @@ r"""Cross-attention fusion with a learned availability gate.
 
 This is the architectural centrepiece of Project 01 and the subject of milestone
 ``P1-M3``. The design is **derived** in ``docs/07_fusion_architectures.md`` section 5.4;
-what follows restates the result and the shape contracts, not the argument. If you
-cannot reproduce the derivation, return to that section before implementing — ``P1-M3``'s
-comprehension question asks for it, and so does the design-review exercise in
-``docs/10`` section 5, round 2.
+what follows restates the result and the shape contracts, not the argument.
 
 The fusion equation
 -------------------
@@ -87,15 +84,15 @@ class MissingModalityEmbedding(nn.Module):
     --------------
     Parameter shape ``(1, channels, 1, 1)``; broadcast to ``(B, channels, H, W)``.
 
-    TODO(student)
-    -------------
-    1. Register ``self.embedding`` as an ``nn.Parameter`` of shape ``(1, C, 1, 1)``.
-    2. Initialise it small (e.g. ``normal_(0, 0.02)``), not zero: an exactly zero
-       initialisation makes it indistinguishable from the fill value you are avoiding.
-    3. In ``forward``, expand — do not ``repeat``. ``expand`` is a view and allocates
-       nothing; ``repeat`` materialises a full ``(B, C, H, W)`` tensor for no reason.
-    4. Confirm it receives gradient whenever it is used. ``tests/test_fusion_module.py``
-       contract 5 asserts this.
+    Implementation notes
+    --------------------
+    1. ``self.embedding`` is an ``nn.Parameter`` of shape ``(1, C, 1, 1)``.
+    2. It is initialised small (``normal_(0, 0.02)``), not zero: an exactly zero
+       initialisation would make it indistinguishable from the fill value it replaces.
+    3. ``forward`` expands — never ``repeat``\ s. ``expand`` is a view and allocates
+       nothing; ``repeat`` would materialise a full ``(B, C, H, W)`` tensor for no reason.
+    4. It receives gradient whenever it is used (``tests/test_fusion_module.py``,
+       contract 5).
     """
 
     def __init__(self, channels: int) -> None:
@@ -156,17 +153,16 @@ class AvailabilityGate(nn.Module):
     ``(B, C_s, H, W)``, ``(B, C_o, H, W)``, ``(B, 1, H, W)`` in; ``(B, 1, H, W)`` out,
     with every value in ``[0, 1]``.
 
-    TODO(student)
-    -------------
-    1. Concatenate the three inputs along the channel axis.
-    2. Apply a small MLP — two 1x1 convolutions with an activation between — to one
+    Implementation notes
+    --------------------
+    1. The three inputs are concatenated along the channel axis.
+    2. A small MLP — two 1x1 convolutions with an activation between — maps them to one
        output channel.
-    3. Initialise the final bias to ``bias_init`` and its weight small, so the gate is
+    3. The final bias starts at ``bias_init`` and its weight small, so the gate is
        genuinely near ``sigmoid(bias_init)`` at step 0.
-    4. Return ``sigmoid`` of the result.
-    5. Expose the batch mean of ``g`` for logging: it is the single most informative
-       diagnostic in this architecture (``docs/07`` section 8.3, and debugging challenge
-       C4 in ``docs/10`` section 3).
+    4. The result is ``sigmoid`` of that channel.
+    5. The batch mean of ``g`` is logged: it is the single most informative diagnostic in
+       this architecture (``docs/07`` section 8.3).
     """
 
     def __init__(
@@ -296,24 +292,22 @@ class CrossAttentionFusion(nn.Module):
     still routes gradient into the optical encoder, quietly training it on fabricated
     inputs.
 
-    TODO(student)
-    -------------
-    1. Build linear projections :math:`W_Q` (from ``optical_channels``), :math:`W_K`,
+    Implementation notes
+    --------------------
+    1. Linear projections :math:`W_Q` (from ``optical_channels``), :math:`W_K`,
        :math:`W_V` (from ``sar_channels``), each to ``heads * head_dim``, and an output
-       projection back to ``sar_channels``. 1x1 convolutions are the natural spelling
-       for feature maps.
-    2. Flatten spatial dims to tokens: ``(B, C, H, W) -> (B, h, N, d)`` with
-       :math:`N = HW`. Use ``einops.rearrange`` or an explicit ``reshape`` +
-       ``permute``, then ``.contiguous()`` — SDPA's fast path needs contiguity.
-    3. Call ``F.scaled_dot_product_attention(q, k, v)``. Do **not** pass an additive
-       mask. Do **not** re-scale: SDPA already applies :math:`1/\sqrt{d}` by default —
-       applying it yourself as well scales by :math:`1/d` and is a real, silent bug.
-    4. Reshape back to ``(B, C, H, W)`` and apply the output projection.
-    5. Compute the gate and form ``fused = sar_features + gate * attn_out``.
-    6. Assert every shape with ``utils.shapes.assert_shape``, binding ``B``, ``H``,
+       projection back to ``sar_channels``, all as 1x1 convolutions.
+    2. Spatial dims are flattened to tokens, ``(B, C, H, W) -> (B, h, N, d)`` with
+       :math:`N = HW`, and made ``.contiguous()`` — SDPA's fast path needs contiguity.
+    3. ``F.scaled_dot_product_attention(q, k, v)`` gets no additive mask and no extra
+       scaling: SDPA already applies :math:`1/\sqrt{d}`, and applying it again would scale by
+       :math:`1/d` — a real, silent bug.
+    4. The output is reshaped back to ``(B, C, H, W)`` and projected.
+    5. ``fused = sar_features + gate * attn_out``.
+    6. Every shape is asserted with ``utils.shapes.assert_shape``, binding ``B``, ``H``,
        ``W`` once across all three inputs.
-    7. Return ``(fused, gate)`` — the gate is returned so the training loop can log its
-       mean without a forward hook.
+    7. ``(fused, gate)`` is returned, so the training loop can log the gate mean without a
+       forward hook.
     """
 
     def __init__(
@@ -406,13 +400,13 @@ def reference_attention(
     **Never call this in the model.** At the fusion stage it allocates the
     :math:`(N_q, N_k)` matrix the whole design avoids.
 
-    TODO(student)
-    -------------
-    1. Compute the scaled scores, softmax over the last axis, and the weighted sum.
-    2. Assert every intermediate shape.
-    3. In the test, compare against ``F.scaled_dot_product_attention`` and confirm
-       agreement to ``float64`` tolerance. If they disagree by a constant factor, you
-       have double-scaled (TODO 3 in :class:`CrossAttentionFusion`).
+    Implementation notes
+    --------------------
+    1. Scaled scores, softmax over the key axis, then the weighted sum.
+    2. Every intermediate shape is asserted.
+    3. The tests compare it with ``F.scaled_dot_product_attention`` to ``float64``
+       tolerance; a constant-factor disagreement would mean double scaling (note 3 of
+       :class:`CrossAttentionFusion`).
     """
     dims = named_dims()
     assert_shape(query, ("B", "h", "Nq", "d"), dims, name="query")

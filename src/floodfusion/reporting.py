@@ -394,7 +394,7 @@ def build_ablation_table(
                      f"projected full grid {protocol['projected_full_grid_minutes']:.0f} min vs budget "
                      f"{protocol['budget_minutes']:.0f} min)" if protocol else "seed protocol not recorded")
     header = [
-        "# Ablation table — MILESTONES.md section 6",
+        "# Ablation table — synthetic benchmark, 13 rows",
         "",
         *(["> **SYNTHETIC BENCHMARK.** Every number below is measured on the physics-based synthetic "
            "benchmark (`floodfusion.data.synthetic`), not on real Sentinel-1/2 data. It validates the "

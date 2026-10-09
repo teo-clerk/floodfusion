@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "floodfusion"
-version = "0.1.0"
+version = "1.0.0"
 description = "Multimodal Sentinel-1 / Sentinel-2 / DEM fusion for near-real-time flood mapping (CEMS Rapid Mapping)"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
@@ -118,9 +118,8 @@ ignore = [
     "B905",    # zip() strictness is decided per call site
     "SIM108",
     "RUF046",  # explicit int(...) around floor/ceil/round is kept for readability
-    "RUF100",  # the codebase keeps pydocstyle-ready `noqa: D102` markers from the skeleton
+    "RUF100",  # the codebase keeps pydocstyle-ready `noqa: D102` markers
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"src/floodfusion/utils/shapes.py" = ["UP035"]  # provided complete with the curriculum; left as delivered
 "tests/*" = ["E402", "B018", "NPY002", "E702", "SIM117", "SIM300", "I001", "F401", "F841"]  # given spec files keep their own style

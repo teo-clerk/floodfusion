@@ -119,14 +119,13 @@ def horn_slope_aspect(
        Reproject to UTM, **then** compute. ``tests/test_terrain.py`` asserts the CRS is
        projected and that a negligible fraction of pixels exceed 60 degrees.
 
-    TODO(student)
-    -------------
-    1. Implement the two finite differences with array slicing, not a Python loop.
-    2. Handle borders explicitly — replicate-pad, then trim — and document the choice.
-    3. Convert to degrees and wrap aspect into ``[0, 360)``.
-    4. Feed aspect downstream as :math:`(\sin A, \cos A)`, never as degrees: 359 and 1
-       are adjacent directions but numerically maximally distant
-       (``docs/03`` section 9).
+    Implementation notes
+    --------------------
+    1. Both finite differences use array slicing, not a Python loop.
+    2. Borders are replicate-padded, computed, then trimmed (see the comment in the body).
+    3. Aspect is in degrees, wrapped into ``[0, 360)``.
+    4. A consumer should use aspect as :math:`(\sin A, \cos A)`, never as degrees: 359 and 1
+       are adjacent directions but numerically maximally distant (``docs/03`` section 9).
     """
     z = np.asarray(elevation, dtype=np.float64)
     if z.ndim != 2:
@@ -193,12 +192,12 @@ def local_incidence_angle(
     mirror-image layover and shadow patterns, and why the pre-event reference must share
     the pass direction (``docs/04`` section 7).
 
-    TODO(student)
-    -------------
-    1. Implement the formula, keeping everything in radians internally.
-    2. Assert the three checks above in ``tests/test_terrain.py``.
-    3. Support ``incidence_deg`` as a full array — it varies across the swath from 29 to
-       46 degrees, and using a scalar mid-swath value discards a real effect
+    Implementation notes
+    --------------------
+    1. Everything is computed in radians internally.
+    2. ``tests/test_terrain.py`` asserts the three checks above.
+    3. ``incidence_deg`` may be a full array — it varies across the swath from 29 to
+       46 degrees, and a scalar mid-swath value discards a real effect
        (``docs/01`` sections 4.2, 6.1).
     """
     alpha = np.radians(np.asarray(slope_deg, dtype=np.float64))
@@ -255,18 +254,17 @@ def cast_shadow_and_layover(
 
     This is the standard horizon sweep and is :math:`O(N)` per profile — cheap.
 
-    ``P1-M2.4`` requires you to report the IoU improvement from the shadow mask alone,
-    and ``docs/03`` exercise 4 asks what fraction of true shadow the local test misses.
-    Expect it to be large in mountainous terrain.
+    The per-mask attribution (``P1-M2.4``) reports the IoU change from the shadow mask
+    alone. The fraction of true shadow the local test misses is large in mountainous
+    terrain (``docs/03``).
 
-    TODO(student)
-    -------------
-    1. Implement the local tests from :func:`local_incidence_angle`.
-    2. Implement the cast sweep. Rotating the array to align an axis with :math:`\phi`
-       is the simplest correct approach; interpolating along rays avoids the double
-       resampling but is fiddlier.
-    3. Combine local and cast with a logical OR.
-    4. Compare the two masks' pixel counts and report the difference.
+    Implementation notes
+    --------------------
+    1. The local tests are those of :func:`local_incidence_angle`.
+    2. The cast sweep runs along range rays: each pixel joins the ray of its azimuth
+       coordinate, so :math:`\phi` is not snapped to an array axis and the elevation is not
+       resampled twice.
+    3. Local and cast masks are combined with a logical OR.
     """
     z = np.asarray(elevation, dtype=np.float64)
     if z.ndim != 2:
@@ -399,18 +397,19 @@ def hand(
       fictional.
 
     ``accumulation_threshold`` is a **real parameter**, not a constant: it sets drainage
-    density and therefore every HAND value. Report a sensitivity check at two thresholds
-    (``docs/03`` exercise 6).
+    density and therefore every HAND value; results should be checked at two thresholds
+    (``docs/03``).
 
-    TODO(student)
-    -------------
-    1. Implement or wrap the five steps. ``richdem`` or ``pysheds`` are legitimate
-       dependencies here — hydrological conditioning is not the learning target.
-    2. Feed the result downstream as :math:`\log(1 + \mathrm{HAND})`: the informative
-       range is 0--30 m and a log compresses the long hillslope tail.
-    3. Use it as a **soft prior** — an input channel — with a hard exclusion only at
-       extreme values (say > 50 m). A hard HAND mask makes dam breaks, urban pluvial
-       flooding and coastal surge undetectable by construction.
+    Implementation notes
+    --------------------
+    1. The five steps are implemented here (Priority-Flood with an epsilon fill, then D8),
+       with no hydrology dependency.
+    2. The network sees :math:`\log(1 + \mathrm{HAND})`: the informative range is 0--30 m and
+       a log compresses the long hillslope tail.
+    3. In the learned model HAND is a **soft prior** — an input channel. Only the physics
+       baseline applies a hard cut (``hand_max_m``), and its attribution table measures the
+       cost: a hard HAND mask makes dam breaks, urban pluvial flooding and coastal surge
+       undetectable by construction.
     """
     z = np.asarray(elevation, dtype=np.float64)
     if z.ndim != 2:
@@ -593,14 +592,15 @@ def build_validity_mask(
     them in the loss teaches the model to fit noise; including them in the metric makes
     the metric depend on terrain rather than skill.
 
-    TODO(student)
-    -------------
-    1. OR the flags together per :class:`~floodfusion.config.ValidityFlag`.
-    2. Report the per-flag pixel counts — ``P1-M2.4``'s per-mask ablation needs them,
-       and they are the fastest way to notice that a mask is not being applied at all.
-    3. Note that slope and HAND exclusions overlap substantially, so their individual
-       IoU contributions will **not** sum to their joint contribution. Report the joint
-       effect too, and do not claim additivity.
+    Implementation notes
+    --------------------
+    1. The flags are OR-ed together per :class:`~floodfusion.config.ValidityFlag`.
+    2. :func:`validity_flag_counts` gives the per-flag pixel counts — the per-mask ablation
+       (``P1-M2.4``) needs them, and they are the fastest way to notice that a mask is not
+       being applied at all.
+    3. Slope and HAND exclusions overlap substantially, so their individual IoU
+       contributions do **not** sum to their joint contribution; attribution must report
+       the joint effect too and not claim additivity.
     """
     layers = {
         ValidityFlag.LAYOVER: layover,

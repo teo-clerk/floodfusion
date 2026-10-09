@@ -4,8 +4,7 @@
 # =============================================================================
 #  This file holds the DEFAULTS. Each `rowNN_*.yaml` declares `extends: base.yaml`
 #  and overrides only the fields that define its row, so a diff between two row
-#  files shows exactly what the ablation varies — which is the pedagogical point.
-#  (Convention: 00_FOUNDATIONS/11_reproducibility_and_research_hygiene.md section 5.)
+#  files shows exactly what the ablation varies.
 #
 #  "Frozen" means the RESOLVED configuration is snapshotted into the run directory
 #  at launch, alongside the git SHA. The delta files are source; the snapshot is
@@ -18,7 +17,7 @@
 # =============================================================================
 
 name: "p01_base"
-# 0 == "not an ablation row". Rows 1-13 map onto MILESTONES.md section 6.
+# 0 == "not an ablation row". Rows 1-13 are the ablation grid (README, reports/ablation_table.md).
 ablation_row: 0
 output_dir: "runs"
 

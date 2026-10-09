@@ -20,7 +20,7 @@ For each row config (``row01_otsu_global``, ``row02_baseline_adaptive``,
 4. Score per test basin over valid pixels of the evaluation-grid chips — the identical
    metric code path as the learned rows.
 5. Row 2 only: the per-mask attribution table (``P1-M2.4``: slope, HAND, layover/shadow,
-   permanent water, each disabled in turn) and AND versus OR (``docs/06`` exercise 6).
+   permanent water, each disabled in turn) and AND versus OR (``docs/06``).
 
 Outputs ``<runs_root>/<row name>/baseline/{run.json, eval_test.json}`` in the schema
 :mod:`floodfusion.reporting` reads for every row.

@@ -16,7 +16,6 @@ being asked about.
 References
 ----------
 ``docs/08_training_recipe_and_vram.md`` section 2 — the full derivations.
-``docs/10`` exercise A4 — derive these by hand.
 """
 
 from __future__ import annotations
@@ -74,12 +73,11 @@ def masked_mean(values: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
     summing :math:`5 \\times 10^{5}` terms in ``bfloat16`` accumulates real error
     (``docs/08`` section 5.2).
 
-    TODO(student)
-    -------------
-    1. Broadcast the mask and cast it to the values' dtype.
-    2. Sum in ``float32``.
-    3. Return ``0`` (as a tensor on the right device, preserving the graph) when the
-       mask is empty.
+    Implementation notes
+    --------------------
+    1. The mask is broadcast and cast to the values' dtype.
+    2. The sum is taken in ``float32``.
+    3. An empty mask gives ``0`` as a tensor on the right device, preserving the graph.
     """
     mask = mask.to(device=values.device)
     if mask.dtype != torch.bool:
@@ -118,8 +116,7 @@ class FocalLoss(nn.Module):
     suppressed by **100x**, and the gradient budget flows to flood boundaries,
     wind-roughened water and shadow.
 
-    **Gradient**, for :math:`y = 1` (derive the :math:`y=0` case yourself —
-    ``docs/10`` exercise A4b):
+    **Gradient**, for :math:`y = 1` (the :math:`y = 0` case is symmetric):
 
     .. math::
 
@@ -147,17 +144,16 @@ class FocalLoss(nn.Module):
     ``forward(logits, target, valid)`` with all of ``(B, 1, H, W)``; ``valid`` is
     ``bool``. Returns a scalar.
 
-    TODO(student)
-    -------------
-    1. Compute the per-pixel loss **from logits**, using
-       ``F.binary_cross_entropy_with_logits(..., reduction="none")`` for the
-       :math:`\log p_t` term rather than ``log(sigmoid(z))``, which overflows for
-       :math:`|z| \gtrsim 40`.
-    2. Form :math:`p_t` and :math:`\alpha_t` with ``torch.where``, not with Python
-       branching — the input is a batch, not a scalar.
-    3. Multiply by the modulating factor and reduce with :func:`masked_mean`.
-    4. Verify the analytic gradient against ``torch.autograd.gradcheck`` in
-       ``float64``. This is a required check in ``P1-M4.2``.
+    Implementation notes
+    --------------------
+    1. The per-pixel loss is computed **from logits**: the :math:`\log p_t` term comes from
+       ``F.binary_cross_entropy_with_logits(..., reduction="none")`` rather than
+       ``log(sigmoid(z))``, which overflows for :math:`|z| \gtrsim 40`.
+    2. :math:`p_t` and :math:`\alpha_t` use ``torch.where``, not Python branching — the
+       input is a batch, not a scalar.
+    3. The modulating factor is applied and the result reduced with :func:`masked_mean`.
+    4. The analytic gradient is checked against ``torch.autograd.gradcheck`` in
+       ``float64`` (``tests/test_losses.py``, ``P1-M4.2``).
     """
 
     def __init__(self, gamma: float = 2.0, alpha: float = 0.75) -> None:
@@ -255,14 +251,14 @@ class SoftDiceLoss(nn.Module):
     --------------
     ``forward(logits, target, valid)`` with all of ``(B, 1, H, W)``. Returns a scalar.
 
-    TODO(student)
-    -------------
-    1. Apply ``sigmoid`` to the logits **here** — Dice needs probabilities, unlike
+    Implementation notes
+    --------------------
+    1. ``sigmoid`` is applied to the logits **here** — Dice needs probabilities, unlike
        focal, which is formulated on logits for stability.
-    2. Zero out invalid pixels **before** summing into :math:`A` and :math:`B`.
-    3. Accumulate in ``float32`` (``docs/08`` section 5.2).
-    4. Place ``smooth`` in both numerator and denominator. Then write the test that
-       fails if you place it in the denominator only.
+    2. Invalid pixels are zeroed **before** summing into :math:`A` and :math:`B`.
+    3. Accumulation is in ``float32`` (``docs/08`` section 5.2).
+    4. ``smooth`` sits in both numerator and denominator; ``tests/test_losses.py`` fails if
+       it is placed in the denominator only.
     """
 
     def __init__(self, smooth: float = 1.0) -> None:
@@ -341,14 +337,13 @@ class CompoundFocalDiceLoss(nn.Module):
        the most common masking bug.
     4. Gradients are finite under ``autocast(bfloat16)``.
 
-    TODO(student)
-    -------------
-    1. Assert the three inputs share shape ``(B, 1, H, W)`` with
-       ``utils.shapes.assert_shape``, and that ``valid`` is ``bool``.
-    2. Compose the two terms with their configured weights.
-    3. Consider the warm-up of ``docs/08`` section 3: :math:`\beta = 0` for the first
-       few epochs, ramped in. Dice's gradient near random initialisation is nearly
-       uninformative. If you use it, expose it as a scheduled parameter and record it.
+    Implementation notes
+    --------------------
+    1. The three inputs must share shape ``(B, 1, H, W)`` (``utils.shapes.assert_shape``),
+       and ``valid`` must be ``bool``.
+    2. The two terms are composed with their configured weights.
+    3. Dice is weighted from the first step: the warm-up of ``docs/08`` section 3
+       (:math:`\beta = 0` for the first epochs) is not used.
     """
 
     def __init__(self, cfg: LossConfig) -> None:

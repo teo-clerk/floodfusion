@@ -124,7 +124,7 @@ class TestMixtureAndThresholds:
         assert otsu_threshold(np.full(10, -12.0)) == -12.0
 
     def test_otsu_matches_brute_force(self) -> None:
-        """docs/06 exercise 4: the O(bins) version agrees with O(bins^2)."""
+        """docs/06: the O(bins) version agrees with O(bins^2)."""
         rng = np.random.default_rng(7)
         values = np.concatenate([rng.normal(-18, 2, 500), rng.normal(-9, 2, 1500)])
         counts, edges = np.histogram(values, bins=64)

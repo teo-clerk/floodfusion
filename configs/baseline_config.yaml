@@ -2,7 +2,7 @@
 #  DEPRECATED — superseded by `base.yaml` + `rowNN_*.yaml`.
 # =============================================================================
 #  This file was produced by an earlier authoring pass and carried three defects
-#  that contradicted the curriculum it was supposed to configure:
+#  that contradicted the design it was supposed to configure:
 #
 #    1. `mixed_precision: "fp16"`   — fp16's 5-bit exponent OVERFLOWS the soft-Dice
 #                                     reduction, which sums B*H*W ~ 5e5 terms. A
@@ -13,7 +13,7 @@
 #                                     construction time.
 #
 #    2. `spatial_split_strategy: "leave_event_out"`
-#                                   — the curriculum specifies leave-one-BASIN-out.
+#                                   — the design specifies leave-one-BASIN-out.
 #                                     A basin is the unit of independence: its own
 #                                     drainage network, land cover, terrain and flood
 #                                     dynamics. docs/05 section 6.3.
@@ -30,7 +30,7 @@
 #  USE INSTEAD:
 #    configs/base.yaml                     defaults inherited by every row
 #    configs/row09_fusion_crossattn.yaml   the reference model (ablation row 9)
-#    configs/rowNN_*.yaml                  the 13-row grid of MILESTONES.md section 6
+#    configs/rowNN_*.yaml                  the 13-row ablation grid
 # =============================================================================
 
 extends: base.yaml

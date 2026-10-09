@@ -3,8 +3,6 @@ r"""Metrics under a ~2 % positive rate, and basin-level uncertainty.
 The specification for :mod:`floodfusion.metrics`. See ``docs/06`` section 2 and
 ``docs/09`` section 3.
 
-:class:`ConfusionMatrix` is given complete, so its tests pass on a fresh clone; the
-accumulation, curve and bootstrap functions are skeletons.
 """
 
 from __future__ import annotations

@@ -1,26 +1,33 @@
-"""Project 01 — multimodal SAR–optical fusion for near-real-time flood mapping.
+"""floodfusion — SAR–optical fusion for near-real-time flood mapping.
 
-This package is the implementation target of Project 01. It is delivered as a set of
-**skeletons**: every module carries complete type annotations, a docstring stating the
-mathematics it must compute, explicit tensor shape contracts, notes on the traps, a
-numbered ``TODO(student)`` list, and a ``NotImplementedError`` naming the document
-section that contains the derivation.
-
-You write the implementations. The tests in ``tests/`` are the specification and are
-given to you complete and runnable; read the test before implementing the function.
+Sentinel-1 flood segmentation with optional Sentinel-2: a physics baseline, a gated
+cross-attention network that is SAR-only by construction when optical is missing,
+calibrated decision thresholds, event-level evaluation and a GFM-style product. Every
+module carries complete type annotations, a docstring with the mathematics it computes,
+explicit tensor shape contracts and notes on the traps. ``docs/NN §x`` citations point to
+the design specification the code implements (not part of this repository); the tests in
+``tests/`` are the executable specification.
 
 Layout
 ------
-``config.py``       Frozen dataclass configuration. **Defines the channel order.**
-``data/``           STAC access, S1 pre-processing, DEM derivatives, chipping, ``Dataset``.
-``models/``         Encoders, cross-attention fusion, decoder, segmenter, losses.
-``utils/``          Shape contracts and VRAM instrumentation.
-``baselines.py``    Otsu, tile-adaptive thresholding, the physics decision rule.
-``masks.py``        Slope, HAND, layover/shadow, permanent-water exclusion.
-``metrics.py``      Confusion matrices, IoU/F1, PR curves, basin bootstrap.
-``splits.py``       Basin-blocked partitioning with buffering.
-``train.py``        Training entry point.
-``evaluate.py``     Evaluation and ablation-table generation.
+``config.py``           Frozen dataclass configuration. **Defines the channel order.**
+``data/``               STAC/archive access, S1 annotation and geocoding, terrain, chipping,
+                        Sen1Floods11 and CEMS clients, remote-input guards, ``Dataset``.
+``models/``             Encoders, cross-attention fusion, decoder, segmenter, losses, zoo.
+``utils/``              Shape contracts, VRAM and latency instrumentation, provenance.
+``baselines.py``        Otsu, tile-adaptive thresholding, the physics decision rule.
+``baseline_runner.py``  The baseline rows and their per-mask attribution.
+``masks.py``            Slope, HAND, layover/shadow, validity flags.
+``metrics.py``          Confusion matrices, IoU/F1, PR curves, bootstrap, permutation tests.
+``calibration.py``      Prior correction, temperature/Platt scaling, conformal thresholds.
+``splits.py``           Basin-blocked partitioning with buffering, normalisation stats.
+``train.py``            Training entry point.  ``optim.py``: optimiser and schedule.
+``evaluate.py``         Evaluation of a run.  ``runs.py``: run directories and records.
+``ablation.py``         The synthetic ablation grid.  ``reporting.py``: its table.
+``crossval.py``         Leave-one-event-out and the published split.  ``cv_report.py``: table.
+``stress.py``           Single-factor stress curves.  ``case_study.py``: EMSR664 vs CEMS.
+``predict.py``          Inference on an event.  ``products.py``: COG layers + STAC Item.
+``figures.py``          Shared figure helpers.  ``preflight.py``: environment checks.
 
 Conventions that hold throughout
 --------------------------------
@@ -47,7 +54,7 @@ Run tests with ``make test``, not with a bare ``pytest`` from an arbitrary direc
 
 from __future__ import annotations
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"
 
 __all__ = [
     "__version__",

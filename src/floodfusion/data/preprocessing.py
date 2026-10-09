@@ -138,13 +138,12 @@ def calibrate(
     ``docs/03`` section 5, not the ellipsoid angle -- that distinction is exactly the
     difference between geocoding and radiometric terrain correction.
 
-    TODO(student)
-    -------------
-    1. Interpolate the LUT to full resolution.
-    2. Apply the formula. Assert the output is non-negative.
-    3. Compare a 256x256 window against a toolbox result and report the maximum absolute
-       dB difference (``docs/04`` exercise 1). Discrepancies are usually LUT
-       interpolation, then the missing square.
+    Implementation notes
+    --------------------
+    1. The LUT is interpolated to full resolution.
+    2. The formula is applied; a negative output raises, since it cannot be physical.
+    3. When this disagrees with a toolbox result, the usual causes are LUT interpolation,
+       then a missing square.
     """
     key = quantity.replace("_", "").lower()
     if key not in _CALIBRATION_QUANTITIES:
@@ -188,11 +187,11 @@ def remove_thermal_noise(
     sub-swaths from the TOPSAR antenna pattern -- which otherwise appears as vertical
     banding that a CNN will happily learn as a feature.
 
-    TODO(student)
-    -------------
-    1. Interpolate the noise LUT to full resolution.
-    2. Subtract in linear power.
-    3. Return the corrected array **and** the count of non-positive pixels. Log it.
+    Implementation notes
+    --------------------
+    1. The noise LUT is interpolated to full resolution.
+    2. Subtraction happens in linear power.
+    3. The count of pixels pushed to non-positive values is logged.
     """
     power = np.asarray(power, dtype=np.float64)
     noise = interpolate_lut(noise_lut, power.shape, lut_lines=lut_lines, lut_pixels=lut_pixels)
@@ -240,10 +239,9 @@ def linear_to_db(power: np.ndarray) -> np.ndarray:
     is **not constant**, because it depends on the effective number of looks, which
     varies with your filter and window size. So it is a spatially varying bias.
 
-    TODO(student)
-    -------------
-    Implement, handling non-positive input explicitly (return the nodata sentinel, not
-    ``-inf``), and add the test asserting mean-of-window equals the linear-domain mean.
+    Implementation notes
+    --------------------
+    Non-positive input becomes the nodata sentinel, not ``-inf``.
     """
     power = np.asarray(power, dtype=np.float64)
     out = np.full(power.shape, DB_NODATA, dtype=np.float64)
@@ -300,13 +298,12 @@ def refined_lee(intensity: np.ndarray, looks: float, window: int = 7) -> np.ndar
     :math:`\gamma^0` and let it learn its own spatial aggregation -- then *test* the
     assumption as an extra ablation row (``docs/04`` section 6.4).
 
-    TODO(student)
-    -------------
-    1. Operate on **linear intensity**, never dB.
-    2. Implement plain Lee first and plot :math:`W` across a synthetic edge.
-    3. Add the refinement; show the edge-band artefact disappears.
-    4. Report ENL in a homogeneous patch before and after -- that is the measurement that
-       tells you the effective :math:`L` your change-detection threshold should use.
+    Implementation notes
+    --------------------
+    1. Operates on **linear intensity**, never dB.
+    2. The refinement (edge-aligned half-windows) removes the edge-band artefact of plain Lee.
+    3. ENL measured in a homogeneous patch before and after filtering is the effective
+       :math:`L` a change-detection threshold should use.
     """
     from scipy import ndimage
 
@@ -421,7 +418,7 @@ def terrain_correct(*args: object, **kwargs: object) -> np.ndarray:
     **And the result is still untrustworthy in layover.** Where
     :math:`\theta_{\mathrm{loc}} \le 0`, returns from multiple distinct ground patches are
     summed in a single range bin; no division by an area recovers information destroyed in
-    the receiver. That is ``P1-M1``'s comprehension question.
+    the receiver.
 
     Production ingest uses the pre-processed Planetary Computer ``sentinel-1-rtc``
     collection (Route B, ``docs/04`` section 9), which already ran these steps.
