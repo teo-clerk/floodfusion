@@ -175,3 +175,40 @@ class TestOpticalAvailability:
         out = summarise_optical_availability((m,))
         assert out["p_clear"] == pytest.approx(0.25)
         assert out["n_for_90pct"] == math.ceil(math.log(0.1) / math.log(0.75))
+
+
+class TestNamedAcquisition:
+    """A label drawn on one named acquisition (Sen1Floods11) pins the orbit and the S2 date."""
+
+    def _catalogue(self) -> InMemoryCatalogue:
+        return InMemoryCatalogue.from_dicts([
+            _s1("post_168", "2023-11-05T05:20:00Z", 168, "descending"),
+            _s1("post_117", "2023-11-07T17:07:13Z"),
+            _s1("pre_168", "2023-10-24T05:20:00Z", 168, "descending"),
+            _s1("pre_117", "2023-10-31T17:07:13Z"),
+            _item("S2_flood_window", "sentinel-2-l2a", "2023-11-06T10:21:39Z", **{"eo:cloud_cover": 5.0}),
+            _item("S2_named_date", "sentinel-2-l2a", "2023-11-09T10:21:39Z", **{"eo:cloud_cover": 60.0}),
+        ])
+
+    def test_requested_orbit_overrides_the_earliest_pass(self) -> None:
+        m = search_matched_pairs(_query(relative_orbit=117, orbit_state="ascending"), PC, client=self._catalogue())
+        assert (m.s1_post_id, m.s1_pre_id, m.relative_orbit) == ("post_117", "pre_117", 117)
+
+    def test_no_pass_on_the_requested_orbit_raises(self) -> None:
+        with pytest.raises(LookupError, match="relative orbit 15"):
+            search_matched_pairs(_query(relative_orbit=15), PC, client=self._catalogue())
+
+    def test_orbit_state_alone_filters_the_pass(self) -> None:
+        m = search_matched_pairs(_query(orbit_state="ASCENDING"), PC, client=self._catalogue())
+        assert m.s1_post_id == "post_117"
+
+    def test_optical_window_is_independent_and_day_inclusive(self) -> None:
+        cat = self._catalogue()
+        assert search_matched_pairs(_query(), PC, client=cat).s2_ids == ("S2_flood_window",)
+        named = _query(optical_start=datetime(2023, 11, 9), optical_end=datetime(2023, 11, 9))
+        assert search_matched_pairs(named, PC, client=cat).s2_ids == ("S2_named_date",)
+
+    def test_reversed_optical_window_is_refused(self) -> None:
+        with pytest.raises(ValueError, match="optical_end"):
+            search_matched_pairs(_query(optical_start=datetime(2023, 11, 9), optical_end=datetime(2023, 11, 8)),
+                                 PC, client=self._catalogue())

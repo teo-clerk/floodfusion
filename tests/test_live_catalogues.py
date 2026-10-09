@@ -32,9 +32,10 @@ def test_matched_pair_on_the_same_orbit(matched) -> None:
 
 
 def test_product_annotation_is_found_and_parsed(matched) -> None:
-    from floodfusion.data.ingest import IngestSources, _read_geometry
+    from floodfusion.data.archive import IngestSources
+    from floodfusion.data.assembly import read_acquisition_geometry
 
-    annotations = _read_geometry(IngestSources.open(PC), matched)
+    annotations = read_acquisition_geometry(IngestSources.open(PC), matched)
     assert annotations[0].heading_deg == pytest.approx(-166.0, abs=1.0)
     assert annotations[0].look_azimuth_deg == pytest.approx(104.0, abs=1.0)  # descending ~103 deg
 

@@ -35,17 +35,18 @@ Chip centroids and basin polygons are stored in one dataset-level metric CRS
 in different UTM zones while the buffer test of ``docs/05`` 6.4 needs one metric space;
 each event stack keeps its own UTM grid.
 
+Steps 3-6 and 9 are shared with the Sen1Floods11 route and live in
+:mod:`floodfusion.data.assembly`; archive access is :mod:`floodfusion.data.archive`.
+
 Memory scales at roughly 200 B per grid pixel: a 30 x 30 km AOI (9 Mpx) needs ~2 GB.
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 import logging
-import math
-from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field, fields, replace
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field, fields
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -53,24 +54,27 @@ from typing import Any
 import numpy as np
 
 from floodfusion.config import ExperimentConfig, load_config
-from floodfusion.data.chipping import (
-    CLEAR_QUALITY,
-    MIN_OPTICAL_CLEAR_FRACTION,
-    AnalysisGrid,
-    build_analysis_grid,
-    extract_chips,
-    write_event_stack,
+from floodfusion.data.archive import (
+    GDAL_ENV,
+    PC_STAC_URL,
+    IngestSources,
+    grd_id_for_rtc,
+    items_by_id,
+    items_in_bbox,
+    product_annotation_href,
 )
-from floodfusion.data.encoding import encode_stack
-from floodfusion.data.records import ChipRecord, atomic_write_bytes, load_manifest, write_manifest
-from floodfusion.data.s1_annotation import S1Annotation, parse_annotation
+from floodfusion.data.assembly import (
+    GridReference,
+    GridTask,
+    assemble_on_grid,
+    incidence_on_grid,
+    read_acquisition_geometry,
+)
+from floodfusion.data.chipping import AnalysisGrid, build_analysis_grid
+from floodfusion.data.records import ChipRecord, load_manifest, write_manifest
 from floodfusion.data.stac import (
-    PROFILES,
     EventQuery,
-    MatchedScenes,
     NoMatchingPairError,
-    group_by_time,
-    open_catalogue,
     profile_for,
     redact,
     save_matched_scenes,
@@ -93,17 +97,9 @@ __all__ = [
 
 LOGGER = logging.getLogger(__name__)
 
-PC_STAC_URL = "https://planetarycomputer.microsoft.com/api/stac/v1"
 DEFAULT_SPLIT_EPSG = 3035
-#: Incidence varies by ~0.0006 deg per 10 m pixel: a 16-px lattice + bilinear is exact enough.
-_INCIDENCE_LATTICE_PX = 16
-_HTTP_TIMEOUT_S = 120
-_MAX_FETCH_BYTES = 64 * 1024 * 1024
 #: ~200 B per grid pixel in memory: 5e7 px is ~10 GB — a mistyped bbox, not an AOI.
 MAX_GRID_PIXELS = 50_000_000
-#: GDAL's own HTTP reads (COGs on blob storage) need bounds too.
-_GDAL_ENV = {"GDAL_HTTP_TIMEOUT": 60, "GDAL_HTTP_MAX_RETRY": 3, "GDAL_HTTP_RETRY_DELAY": 2,
-             "GDAL_DISABLE_READDIR_ON_OPEN": "EMPTY_DIR"}
 
 
 # ---------------------------------------------------------------------------
@@ -180,132 +176,6 @@ def load_event_config(path: Path | str) -> EventConfig:
     return EventConfig(**values)
 
 
-# ---------------------------------------------------------------------------
-# Archive access (injectable for offline tests)
-# ---------------------------------------------------------------------------
-def _default_fetch(href: str) -> bytes:
-    """Bytes of a local file or an allow-listed, signed HTTPS href (no redirects, size-capped)."""
-    from floodfusion.data.sources import check_href, signed
-
-    href = check_href(href)
-    if not href.startswith("https://"):
-        path = Path(href.removeprefix("file://"))
-        if not path.is_file() or path.stat().st_size > _MAX_FETCH_BYTES:
-            raise ValueError(f"{path}: not a regular file below {_MAX_FETCH_BYTES} bytes")
-        return path.read_bytes()
-    import requests
-
-    url = signed(href)
-    with requests.get(url, timeout=(10, _HTTP_TIMEOUT_S), allow_redirects=False, stream=True) as response:
-        if response.status_code != 200:
-            raise OSError(f"HTTP {response.status_code} for {redact(url)}")
-        chunks, size = [], 0
-        for chunk in response.iter_content(chunk_size=1 << 20):
-            size += len(chunk)
-            if size > _MAX_FETCH_BYTES:
-                raise OSError(f"{redact(url)}: larger than {_MAX_FETCH_BYTES} bytes")
-            chunks.append(chunk)
-    return b"".join(chunks)
-
-
-@dataclass(frozen=True)
-class IngestSources:
-    """The catalogue client and the byte fetcher; both replaceable offline."""
-
-    client: Any
-    fetch_bytes: Callable[[str], bytes] = _default_fetch
-
-    @classmethod
-    def open(cls, catalogue_url: str = PC_STAC_URL) -> IngestSources:
-        return cls(client=open_catalogue(catalogue_url))
-
-
-def _as_dict(item: Any) -> dict[str, Any]:
-    return dict(item) if isinstance(item, Mapping) else item.to_dict(include_self_link=False, transform_hrefs=False)
-
-
-def _items_by_id(client: Any, collection: str, ids: Sequence[str]) -> list[dict[str, Any]]:
-    if not ids:
-        return []
-    result = client.search(collections=[collection], ids=list(ids), max_items=len(ids) + 5)
-    found = {d["id"]: d for d in (_as_dict(i) for i in (result.items() if hasattr(result, "items") else result))}
-    missing = [i for i in ids if i not in found]
-    if missing:
-        raise LookupError(f"items not found in {collection}: {missing}")
-    return [found[i] for i in ids]
-
-
-def _items_in_bbox(client: Any, collection: str, bbox: Sequence[float]) -> list[dict[str, Any]]:
-    result = client.search(collections=[collection], bbox=list(bbox), max_items=200)
-    return [_as_dict(i) for i in (result.items() if hasattr(result, "items") else result)]
-
-
-def grd_id_for_rtc(rtc_id: str) -> str:
-    """Planetary Computer names an RTC item after its source GRD product plus ``_rtc``."""
-    return rtc_id[:-4] if rtc_id.endswith("_rtc") else rtc_id
-
-
-def product_annotation_href(grd_item: Mapping[str, Any], polarisation: str = "vv") -> str:
-    """Href of the GRD **product** annotation (``annotation/<...>.xml``).
-
-    Planetary Computer's ``schema-product-<pol>`` asset points at the **RFI** annotation
-    (``annotation/rfi/rfi-iw-<pol>.xml``), not the product annotation; the product
-    annotation sits one directory up as ``annotation/iw-<pol>.xml`` (verified on
-    S1A_IW_GRDH_1SDV_20231107T170700_..._062A12).
-    """
-    assets = grd_item.get("assets", {})
-    pol = polarisation.lower()
-    for key in (f"annotation-{pol}", f"product-annotation-{pol}"):
-        if key in assets:
-            return str(assets[key]["href"])
-    key = f"schema-product-{pol}"
-    if key not in assets:
-        raise KeyError(f"GRD item {grd_item.get('id')} has no {key} asset")
-    href = str(assets[key]["href"])
-    base, sep, query = href.partition("?")
-    if "/annotation/rfi/rfi-" in base:
-        base = base.replace("/annotation/rfi/rfi-", "/annotation/")
-    return base + sep + query
-
-
-# ---------------------------------------------------------------------------
-# Geometry and rasterisation helpers
-# ---------------------------------------------------------------------------
-def _grid_lonlat(grid: AnalysisGrid, rows: np.ndarray, cols: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    from pyproj import Transformer
-
-    a, _, c, _, e, f = grid.transform
-    x = c + (cols + 0.5) * a
-    y = f + (rows + 0.5) * e
-    return Transformer.from_crs(grid.epsg, 4326, always_xy=True).transform(x, y)
-
-
-def incidence_on_grid(annotations: Sequence[S1Annotation], grid: AnalysisGrid) -> np.ndarray:
-    """Per-pixel ellipsoid incidence angle on the grid, from every frame's tie points."""
-    from scipy.interpolate import griddata
-
-    from floodfusion.data.preprocessing import interpolate_lut
-
-    lon_pts = np.concatenate([a.geolocation["longitude"] for a in annotations])
-    lat_pts = np.concatenate([a.geolocation["latitude"] for a in annotations])
-    inc_pts = np.concatenate([a.geolocation["incidence"] for a in annotations])
-    lines = np.unique(np.r_[np.arange(0, grid.height, _INCIDENCE_LATTICE_PX), grid.height - 1])
-    pixels = np.unique(np.r_[np.arange(0, grid.width, _INCIDENCE_LATTICE_PX), grid.width - 1])
-    rr, cc = np.meshgrid(lines, pixels, indexing="ij")
-    lon, lat = _grid_lonlat(grid, rr.astype(np.float64), cc.astype(np.float64))
-    pts = np.column_stack([lon_pts, lat_pts])
-    coarse = griddata(pts, inc_pts, (lon, lat), method="linear")
-    hole = ~np.isfinite(coarse)
-    if hole.any():
-        coarse[hole] = griddata(pts, inc_pts, (lon[hole], lat[hole]), method="nearest")
-    return interpolate_lut(coarse, (grid.height, grid.width), lut_lines=lines, lut_pixels=pixels)
-
-
-def _circular_mean_deg(values: Sequence[float]) -> float:
-    rad = np.radians(np.asarray(values, dtype=np.float64))
-    return float(np.degrees(np.arctan2(np.sin(rad).mean(), np.cos(rad).mean())) % 360.0)
-
-
 def _read_vector(path: Path, layer: str | None, epsg: int, where: Mapping[str, tuple[Any, ...]] | None = None) -> Any:
     import geopandas as gpd
 
@@ -366,138 +236,7 @@ def _event_basins(event: EventConfig, grid: AnalysisGrid) -> dict[str, Any]:
             for v, geom in zip(frame[event.basin_id_field], frame.geometry)}
 
 
-# ---------------------------------------------------------------------------
-# The ingest
-# ---------------------------------------------------------------------------
-def _read_sar(sources: IngestSources, matched: MatchedScenes, grid: AnalysisGrid) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
-    from floodfusion.data.sources import read_s1_rtc
-
-    collection = PROFILES["planetary_computer"].s1_collection
-    post = _items_by_id(sources.client, collection, matched.s1_post_frames or (matched.s1_post_id,))
-    pre = _items_by_id(sources.client, collection, matched.s1_pre_frames or (matched.s1_pre_id,))
-    layers: dict[str, np.ndarray] = {}
-    qa: dict[str, Any] = {}
-    for when, items in (("post", post), ("pre", pre)):
-        for pol in ("VV", "VH"):
-            name = f"{pol.lower()}_{when}_db"
-            layers[name], qa[name] = read_s1_rtc(items, grid, pol)
-    return layers, qa
-
-
-def _read_geometry(sources: IngestSources, matched: MatchedScenes) -> list[S1Annotation]:
-    grd_ids = [grd_id_for_rtc(i) for i in (matched.s1_post_frames or (matched.s1_post_id,))]
-    grd_items = _items_by_id(sources.client, "sentinel-1-grd", grd_ids)
-    annotations = [parse_annotation(sources.fetch_bytes(product_annotation_href(it, "vv"))) for it in grd_items]
-    states = {a.orbit_state for a in annotations}
-    if states != {matched.orbit_state}:
-        raise ValueError(f"annotation pass {states} disagrees with the catalogue ({matched.orbit_state})")
-    return annotations
-
-
-def _select_optical(
-    sources: IngestSources, matched: MatchedScenes, grid: AnalysisGrid, inside_aoi: np.ndarray, max_candidates: int,
-) -> tuple[list[dict[str, Any]], float]:
-    """The overpass with the largest **AOI** clear fraction (from SCL), or ``([], 0)``."""
-    from floodfusion.data.sources import read_s2_scl
-    from floodfusion.masks import quality_from_scl
-
-    if not matched.s2_ids:
-        return [], 0.0
-    items = _items_by_id(sources.client, "sentinel-2-l2a", matched.s2_ids)
-    if len(matched.s2_datetimes) == len(items):
-        passes = [[items[i] for i in group] for group in group_by_time(matched.s2_datetimes)]
-    else:
-        passes = [[item] for item in items]
-    ranked = sorted(passes, key=lambda p: np.nanmean(
-        [float(i["properties"].get("eo:cloud_cover", math.nan)) for i in p]))
-    best: tuple[list[dict[str, Any]], float] = ([], 0.0)
-    for group in ranked[:max_candidates]:
-        quality = quality_from_scl(read_s2_scl(group, grid))
-        clear = float((quality[inside_aoi] >= CLEAR_QUALITY).mean()) if inside_aoi.any() else 0.0
-        LOGGER.info("S2 pass %s: AOI clear fraction %.1f %%", group[0]["id"], 100 * clear)
-        if clear > best[1]:
-            best = (group, clear)
-    return best
-
-
-def _terrain(dem_items: Sequence[dict[str, Any]], grid: AnalysisGrid, theta: np.ndarray, phi: float) -> dict[str, np.ndarray]:
-    from floodfusion.data.sources import read_dem
-    from floodfusion.masks import (
-        cast_shadow_and_layover,
-        hand_on_dem_support,
-        horn_slope_aspect,
-        local_incidence_angle,
-    )
-
-    dem = read_dem(dem_items, grid)
-    if not np.isfinite(dem).any():
-        raise ValueError("DEM has no finite values over the AOI")
-    dem = np.where(np.isfinite(dem), dem, np.nanmin(dem))
-    px = grid.pixel_size
-    slope, aspect = horn_slope_aspect(dem, px, px)
-    shadow, layover = cast_shadow_and_layover(dem, theta, phi, px)
-    return {
-        "dem": dem, "slope": slope, "theta_loc": local_incidence_angle(slope, aspect, theta, phi),
-        "shadow": shadow, "layover": layover, "hand": hand_on_dem_support(dem, px),
-    }
-
-
-def _qa_coregistration(sar: Mapping[str, np.ndarray], terrain: Mapping[str, np.ndarray],
-                       reflectance: np.ndarray | None) -> dict[str, Any]:
-    """``P1-M1``: median displacements (pixels) between layers that must be co-registered."""
-    from floodfusion.data.coregistration import (
-        median_displacement,
-        structure_image,
-        validate_geocoding,
-    )
-
-    def summary(result: Mapping[str, Any]) -> dict[str, float]:
-        return {k: float(v) if isinstance(v, int | float) else v for k, v in result.items() if k != "shifts"}
-
-    post = np.nan_to_num(sar["vv_post_db"], nan=float(np.nanmedian(sar["vv_post_db"])))
-    pre = np.nan_to_num(sar["vv_pre_db"], nan=float(np.nanmedian(sar["vv_pre_db"])))
-    qa = {
-        "pre_vs_post": summary(median_displacement(structure_image(pre, log=False), structure_image(post, log=False))),
-        "terrain_simulation_vs_post": summary(validate_geocoding(
-            post, terrain["theta_loc"], shadow=terrain["shadow"], layover=terrain["layover"])),
-    }
-    if reflectance is not None:
-        nir = np.nan_to_num(reflectance[1], nan=float(np.nanmedian(reflectance[1])))
-        qa["sar_vs_optical_nir"] = summary(median_displacement(
-            structure_image(post, log=False), structure_image(nir, log=True)))
-    measured = [v["median_abs_displacement"] for v in qa.values() if v["n_windows"] > 0]
-    qa["p1_m1_pass"] = bool(measured) and all(m < 1.0 for m in measured)
-    return qa
-
-
-@dataclass(frozen=True)
-class _OpticalLayers:
-    items: tuple[dict[str, Any], ...]
-    clear_fraction: float
-    reflectance: np.ndarray | None
-    quality: np.ndarray | None
-    offsets: dict[str, Any] | None
-
-    @property
-    def available(self) -> bool:
-        return self.reflectance is not None
-
-
-def _optical_layers(sources: IngestSources, event: EventConfig, matched: MatchedScenes,
-                    grid: AnalysisGrid, inside_aoi: np.ndarray) -> _OpticalLayers:
-    from floodfusion.data.sources import read_s2_reflectance
-    from floodfusion.masks import quality_from_scl
-
-    items, clear = _select_optical(sources, matched, grid, inside_aoi, event.max_s2_candidates)
-    if not items or clear < MIN_OPTICAL_CLEAR_FRACTION:
-        LOGGER.info("%s: no usable Sentinel-2 overpass (best AOI clear fraction %.1f %%): SAR-only event",
-                    event.event_id, 100 * clear)
-        return _OpticalLayers(tuple(items), clear, None, None, None)
-    rho, scl, offsets = read_s2_reflectance(items, grid)
-    return _OpticalLayers(tuple(items), clear, rho, quality_from_scl(scl), offsets)
-
-
-def _reference_layers(sources: IngestSources, event: EventConfig, grid: AnalysisGrid) -> dict[str, np.ndarray]:
+def _reference_layers(sources: IngestSources, event: EventConfig, grid: AnalysisGrid) -> GridReference:
     """AOI, permanent water (JRC >= 80 % OR the CEMS reference water), land cover, label."""
     from floodfusion.data.sources import read_jrc_occurrence, read_worldcover
     from floodfusion.masks import permanent_water_from_occurrence
@@ -507,43 +246,16 @@ def _reference_layers(sources: IngestSources, event: EventConfig, grid: Analysis
         inside_aoi = np.ones((grid.height, grid.width), dtype=bool)
     else:
         inside_aoi = rasterise_vector(event.aoi_path, grid, layer=event.aoi_layer)
-    occurrence = read_jrc_occurrence(_items_in_bbox(sources.client, "jrc-gsw", event.bbox), grid)
+    occurrence = read_jrc_occurrence(items_in_bbox(sources.client, "jrc-gsw", event.bbox), grid)
     permanent = permanent_water_from_occurrence(np.nan_to_num(occurrence, nan=0.0))
     if event.reference_water_path is not None:
         permanent = permanent | rasterise_vector(event.reference_water_path, grid, layer=event.reference_water_layer)
-    worldcover = _items_in_bbox(sources.client, "esa-worldcover", event.bbox)
+    worldcover = items_in_bbox(sources.client, "esa-worldcover", event.bbox)
     latest = max((str(i["properties"].get("start_datetime", "")) for i in worldcover), default="")
     landcover = read_worldcover([i for i in worldcover if str(i["properties"].get("start_datetime", "")) == latest], grid)
     # Flood = observed water AND NOT permanent water (docs/05 section 3.3).
     label = rasterise_vector(event.label_path, grid, layer=event.label_layer, where=event.label_where) & ~permanent
-    return {"inside_aoi": inside_aoi, "permanent": permanent, "landcover": landcover, "label": label}
-
-
-def _event_meta(event: EventConfig, matched: MatchedScenes, grid: AnalysisGrid, annotations: Sequence[S1Annotation],
-                phi: float, theta: np.ndarray, optical: _OpticalLayers, layers: Mapping[str, np.ndarray],
-                validity: np.ndarray) -> dict[str, Any]:
-    from floodfusion.utils.env import git_state
-
-    valid = validity == 0
-    return {
-        "event_id": event.event_id, "epsg": grid.epsg, "transform": list(grid.transform),
-        "width": grid.width, "height": grid.height, "grid_notes": list(grid.notes),
-        "relative_orbit": matched.relative_orbit, "orbit_state": matched.orbit_state,
-        "look_azimuth_deg": phi, "heading_deg": [a.heading_deg for a in annotations],
-        "incidence_deg": [float(np.nanmin(theta)), float(np.nanmax(theta))],
-        "s1_post_frames": list(matched.s1_post_frames), "s1_pre_frames": list(matched.s1_pre_frames),
-        "s1_post_datetime": matched.s1_post_datetime, "s1_pre_datetime": matched.s1_pre_datetime,
-        "has_optical": optical.available,
-        "s2_items": [i["id"] for i in optical.items] if optical.available else [],
-        "s2_aoi_clear_fraction": optical.clear_fraction, "s2_offsets": optical.offsets,
-        "dem_ids": list(matched.dem_ids),
-        "flood_fraction_of_valid": float((layers["label"] & valid).sum() / max(int(valid.sum()), 1)),
-        "permanent_water_fraction": float(layers["permanent"].mean()),
-        "shadow_fraction": float(layers["shadow"].mean()), "layover_fraction": float(layers["layover"].mean()),
-        "outside_aoi_fraction": float((~layers["inside_aoi"]).mean()),
-        "nodata_fraction": float(layers["nodata"].mean()),
-        "event_config": {k: str(v) for k, v in vars(event).items()}, **git_state(),
-    }
+    return GridReference(label=label.astype(np.float64), inside_aoi=inside_aoi, permanent=permanent, landcover=landcover)
 
 
 def ingest_event(
@@ -560,7 +272,7 @@ def ingest_event(
     """
     import rasterio
 
-    with rasterio.Env(**_GDAL_ENV):
+    with rasterio.Env(**GDAL_ENV):
         return _ingest_event(event, out_root, cfg, sources=sources, split_epsg=split_epsg)
 
 
@@ -572,8 +284,6 @@ def _ingest_event(
     sources: IngestSources | None,
     split_epsg: int,
 ) -> dict[str, Any]:
-    from floodfusion.masks import build_validity_mask
-
     profile = profile_for(event.catalogue_url)
     if profile.name != "planetary_computer":
         raise ValueError("pixel ingest reads gamma0 from Planetary Computer sentinel-1-rtc (Route B); "
@@ -590,73 +300,18 @@ def _ingest_event(
                          "(~200 B/pixel in memory) — split the AOI or check the bbox")
     LOGGER.info("%s: orbit %d %s, grid EPSG:%d %dx%d", event.event_id, matched.relative_orbit,
                 matched.orbit_state, grid.epsg, grid.width, grid.height)
-    sar, rtc_qa = _read_sar(sources, matched, grid)
-    annotations = _read_geometry(sources, matched)
-    phi = _circular_mean_deg([a.look_azimuth_deg for a in annotations])
-    theta = incidence_on_grid(annotations, grid)
     if not matched.dem_ids:
         raise ValueError(f"{event.event_id}: no {profile.dem_collection} tiles found for the AOI "
                          "(see the DEM search warning above)")
-    terrain = _terrain(_items_by_id(sources.client, profile.dem_collection, matched.dem_ids), grid, theta, phi)
-    reference = _reference_layers(sources, event, grid)
-    optical = _optical_layers(sources, event, matched, grid, reference["inside_aoi"])
-
-    nodata = ~np.logical_and.reduce([np.isfinite(sar[k]) for k in ("vv_post_db", "vh_post_db", "vv_pre_db", "vh_pre_db")])
-    validity = build_validity_mask(terrain["layover"], terrain["shadow"], reference["permanent"], nodata, None,
-                                   slope_max_deg=None, outside_aoi=~reference["inside_aoi"])
-    stack = encode_stack(
-        vv_post_db=sar["vv_post_db"], vh_post_db=sar["vh_post_db"], vv_pre_db=sar["vv_pre_db"],
-        vh_pre_db=sar["vh_pre_db"], reflectance=optical.reflectance, slope_deg=terrain["slope"],
-        hand_m=terrain["hand"], local_incidence_deg=terrain["theta_loc"],
-        label=np.where(reference["inside_aoi"], reference["label"].astype(np.float64), np.nan),
-        validity=validity, optical_quality=optical.quality, landcover=reference["landcover"],
-        grid_cfg=cfg.grid, norm=cfg.norm,
+    task = GridTask(
+        event_id=event.event_id, out_dir=event_dir, grid=grid, matched=matched,
+        annotations=tuple(read_acquisition_geometry(sources, matched)),
+        reference=_reference_layers(sources, event, grid), basins=_event_basins(event, grid),
+        dem_items=tuple(items_by_id(sources.client, profile.dem_collection, matched.dem_ids)),
+        extra_meta={"event_config": {k: str(v) for k, v in vars(event).items()}},
+        max_s2_candidates=event.max_s2_candidates,
     )
-    stack_path = write_event_stack(event_dir / "stack.tif", stack, grid, nodata=cfg.grid.nodata_int16, tags={
-        "event_id": event.event_id, "s1_post": matched.s1_post_id, "s1_pre": matched.s1_pre_id,
-        "s2": ",".join(i["id"] for i in optical.items) if optical.available else "",
-        "look_azimuth_deg": f"{phi:.3f}",
-        "generator": "floodfusion.data.ingest (Route B: Planetary Computer sentinel-1-rtc)",
-    })
-    basins = _event_basins(event, grid)
-    records, counts = extract_chips(
-        stack_path, event_id=event.event_id, basins=basins, data_cfg=cfg.data, grid_cfg=cfg.grid,
-        relative_orbit=matched.relative_orbit, orbit_state=matched.orbit_state, has_optical=optical.available,
-    )
-    records = _to_split_crs(records, grid.epsg, split_epsg)
-    _write_event_basins(event_dir / "basins.gpkg", basins, grid.epsg, split_epsg, event.event_id)
-    write_manifest(records, event_dir / "chips.parquet",
-                   provenance={"event_id": event.event_id, "split_epsg": split_epsg})
-    meta = {
-        **_event_meta(event, matched, grid, annotations, phi, theta, optical,
-                      {**reference, **terrain, "nodata": nodata}, validity),
-        "chip_counts": counts, "n_chips": len(records), "basins": sorted(basins), "rtc_qa": rtc_qa,
-        "coregistration_qa": _qa_coregistration(sar, terrain, optical.reflectance),
-    }
-    atomic_write_bytes(event_dir / "event.json", json.dumps(meta, indent=2, default=str).encode("utf-8"))
-    if not meta["coregistration_qa"]["p1_m1_pass"]:
-        LOGGER.warning("%s: P1-M1 co-registration check did not pass: %s", event.event_id, meta["coregistration_qa"])
-    return meta
-
-
-def _to_split_crs(records: Sequence[ChipRecord], src_epsg: int, dst_epsg: int) -> list[ChipRecord]:
-    from pyproj import Transformer
-
-    if src_epsg == dst_epsg or not records:
-        return list(records)
-    tr = Transformer.from_crs(src_epsg, dst_epsg, always_xy=True)
-    xs, ys = tr.transform([r.centroid_x for r in records], [r.centroid_y for r in records])
-    return [replace(r, centroid_x=float(x), centroid_y=float(y)) for r, x, y in zip(records, xs, ys)]
-
-
-def _write_event_basins(path: Path, basins: Mapping[str, Any], src_epsg: int, dst_epsg: int, event_id: str) -> None:
-    import geopandas as gpd
-
-    frame = gpd.GeoDataFrame({"basin_id": list(basins), "event_id": [event_id] * len(basins)},
-                             geometry=list(basins.values()), crs=f"EPSG:{src_epsg}").to_crs(epsg=dst_epsg)
-    tmp = path.with_name(f".tmp.{path.name}")
-    frame.to_file(tmp, driver="GPKG", layer="basins")
-    tmp.replace(path)
+    return assemble_on_grid(task, cfg, sources, split_epsg=split_epsg)
 
 
 def build_dataset(out_root: Path | str, cfg: ExperimentConfig, *, split_epsg: int = DEFAULT_SPLIT_EPSG) -> str:

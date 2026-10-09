@@ -113,6 +113,13 @@ class EventQuery:
         How far back to look for the reference acquisition. Longer windows find more
         candidates but risk seasonal vegetation change confounding the difference
         (``docs/01`` section 10.3).
+    relative_orbit, orbit_state
+        Optional: require the **post-event** acquisition to lie on this relative orbit and
+        pass. For a reference dataset whose labels were drawn on one named acquisition
+        (e.g. Sen1Floods11), any other pass on the same day images a different instant.
+    optical_start, optical_end
+        Optional Sentinel-2 window (inclusive at day resolution); defaults to the flood
+        window. A label drawn on a named optical scene needs that scene's date.
     """
 
     event_id: str
@@ -120,6 +127,10 @@ class EventQuery:
     flood_start: datetime
     flood_end: datetime
     pre_event_window_days: int = 60
+    relative_orbit: int | None = None
+    orbit_state: str | None = None
+    optical_start: datetime | None = None
+    optical_end: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -253,6 +264,24 @@ def _day_window(query: EventQuery) -> tuple[datetime, datetime]:
     return start, end
 
 
+def _optical_window(query: EventQuery, start: datetime, end: datetime) -> tuple[datetime, datetime]:
+    """The Sentinel-2 search window: the flood window unless the query names its own."""
+    if query.optical_start is None and query.optical_end is None:
+        return start, end
+    lo = datetime.combine((query.optical_start or query.flood_start).date(), time.min, tzinfo=UTC)
+    hi = datetime.combine((query.optical_end or query.flood_end).date(), time.max, tzinfo=UTC)
+    if hi < lo:
+        raise ValueError(f"{query.event_id}: optical_end precedes optical_start")
+    return lo, hi
+
+
+def _on_requested_orbit(item: Mapping[str, Any], query: EventQuery) -> bool:
+    props = item["properties"]
+    if query.relative_orbit is not None and int(props.get("sat:relative_orbit", -1)) != query.relative_orbit:
+        return False
+    return query.orbit_state is None or str(props.get("sat:orbit_state", "")).lower() == query.orbit_state.lower()
+
+
 def _interval(start: datetime, end: datetime) -> str:
     fmt = "%Y-%m-%dT%H:%M:%SZ"
     return f"{start.astimezone(UTC).strftime(fmt)}/{end.astimezone(UTC).strftime(fmt)}"
@@ -379,10 +408,11 @@ def search_matched_pairs(
     start, end = _day_window(query)
 
     post_items = [i for i in _search(client, profile.s1_collection, query.bbox, _interval(start, end))
-                  if _is_usable_s1(i, profile)]
+                  if _is_usable_s1(i, profile) and _on_requested_orbit(i, query)]
     if not post_items:
+        orbit = "" if query.relative_orbit is None else f" on relative orbit {query.relative_orbit}"
         raise NoMatchingPairError(
-            f"{query.event_id}: no Sentinel-1 IW VV+VH scene between {start.date()} and "
+            f"{query.event_id}: no Sentinel-1 IW VV+VH scene{orbit} between {start.date()} and "
             f"{end.date()} in {profile.s1_collection}"
         )
     post_group = _group_acquisitions(post_items)[0]
@@ -406,8 +436,9 @@ def search_matched_pairs(
     pre_group = _group_acquisitions(candidates)[-1]
     pre = _primary_frame(pre_group, query.bbox)
 
+    s2_start, s2_end = _optical_window(query, start, end)
     s2_items = sorted(
-        _dedupe_s2(_search(client, profile.s2_collection, query.bbox, _interval(start, end))),
+        _dedupe_s2(_search(client, profile.s2_collection, query.bbox, _interval(s2_start, s2_end))),
         key=lambda i: (_datetime_of(i), i["id"]),
     )
     dem_ids: tuple[str, ...] = ()

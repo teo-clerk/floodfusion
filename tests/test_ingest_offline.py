@@ -269,3 +269,78 @@ class TestIngestedEvent:
         assert basins.crs.to_epsg() == 3035 and set(basins["basin_id"]) == {"HB2100001", "HB2100002"}
         assert {r.chip_id for r in load_manifest(manifest)} == {
             r.chip_id for r in load_manifest(out / "events" / "T_po" / "chips.parquet")}
+
+
+# ---------------------------------------------------------------------------
+# The Sen1Floods11 route: same archive, labels from a hand-labelled chip
+# ---------------------------------------------------------------------------
+S1F11_CHIP = (10.215, 44.405, 10.235, 44.420)   # straddles the archive's flood edge at ~10.225 E
+
+
+def _s1f11_raw(root: Path, orbit: int = 117) -> Path:
+    raw = root / f"raw_{orbit}"
+    labels = raw / "data" / "flood_events" / "HandLabeled" / "LabelHand"
+    labels.mkdir(parents=True)
+    (raw / "Sen1Floods11_Metadata.geojson").write_text(json.dumps({"type": "FeatureCollection", "features": [
+        {"type": "Feature", "geometry": None, "properties": {
+            "location": "Testland", "s1_date": "2023/11/07", "s2_date": "2023/11/06",
+            "rel_orbit_num": float(orbit), "orbit": "ASCENDING"}}]}))
+    w, h = 223, 167                          # ~8.98e-5 deg pixels, like the dataset
+    lon = np.linspace(S1F11_CHIP[0], S1F11_CHIP[2], w, endpoint=False)
+    label = np.where(lon[None, :] < 10.225, 1, 0).repeat(h, axis=0).astype(np.int16)
+    label[:12, :] = -1                       # an unlabelled strip
+    _write(labels / "Testland_1_LabelHand.tif", label, S1F11_CHIP, "EPSG:4326")
+    return raw
+
+
+@pytest.fixture(scope="module")
+def s1f11_ingested(archive, cfg, tmp_path_factory):
+    from floodfusion.data.sen1floods11 import ingest_sen1floods11
+
+    _, catalogue = archive
+    work = tmp_path_factory.mktemp("s1f11")
+    raw, out = _s1f11_raw(work), work / "out"
+    report = ingest_sen1floods11(raw, out, cfg, sources=IngestSources(client=catalogue), margin_px=32, workers=2)
+    return raw, out, report
+
+
+class TestSen1Floods11Route:
+    def test_report_and_resume(self, s1f11_ingested, archive, cfg) -> None:
+        from floodfusion.data.sen1floods11 import ingest_sen1floods11
+
+        raw, out, report = s1f11_ingested
+        assert report["summary"]["ok"] == 1 and report["events"]["Testland"]["Testland_1"].startswith("ok")
+        again = ingest_sen1floods11(raw, out, cfg, sources=IngestSources(client=archive[1]), margin_px=32)
+        assert again["summary"] == {"ok": 0, "done-before": 1, "dropped": 0, "failed": 0}
+
+    def test_labels_inputs_and_group(self, s1f11_ingested, cfg) -> None:
+        _, out, _ = s1f11_ingested
+        event_dir = out / "events" / "S1F11_Testland_1"
+        meta = json.loads((event_dir / "event.json").read_text())
+        assert meta["sen1floods11"]["chip_id"] == "Testland_1" and meta["terrain_margin_px"] == 32
+        assert meta["has_optical"] and meta["relative_orbit"] == 117
+        stack, grid, _ = read_event_stack(event_dir / "stack.tif")
+        validity, label = stack[ChipBand.VALIDITY], stack[ChipBand.LABEL]
+        outside = (validity & ValidityFlag.OUTSIDE_AOI) > 0
+        assert outside.any() and not outside.all()            # the 4326 chip rotated into UTM
+        scored = (validity == 0) & (label >= 0)
+        west, east = slice(0, grid.width // 3), slice(2 * grid.width // 3, None)
+        assert (label[:, west][scored[:, west]] == 1).mean() > 0.95
+        assert (label[:, east][scored[:, east]] == 0).mean() > 0.95
+        # The post image is dark where the label says water (inputs re-fetched, not copied).
+        vv_post = stack[ChipBand.VV_POST] / 100.0
+        assert np.median(vv_post[:, west][scored[:, west]]) < -17 < np.median(vv_post[:, east][scored[:, east]])
+        records = load_manifest(event_dir / "chips.parquet")
+        assert records and {r.basin_id for r in records} == {"S1F11_Testland"}
+
+    def test_dataset_manifest_in_web_mercator(self, s1f11_ingested, cfg) -> None:
+        _, out, _ = s1f11_ingested
+        assert len(build_dataset(out, cfg, split_epsg=3857)) == 64
+        assert (out / "basins.gpkg").is_file()
+
+    def test_no_pass_on_the_named_orbit_drops_the_event(self, archive, cfg, tmp_path) -> None:
+        from floodfusion.data.sen1floods11 import ingest_sen1floods11
+
+        report = ingest_sen1floods11(_s1f11_raw(tmp_path, orbit=15), tmp_path / "out", cfg,
+                                     sources=IngestSources(client=archive[1]), margin_px=32)
+        assert report["summary"]["dropped"] == 1 and "relative orbit 15" in report["events"]["Testland"]["Testland_1"]

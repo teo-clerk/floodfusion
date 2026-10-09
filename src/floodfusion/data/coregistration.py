@@ -140,7 +140,8 @@ def median_displacement(
             shifts.append((dy, dx))
     if not shifts:
         return {"n_windows": 0, "skipped": skipped, "median_abs_displacement": float("nan"),
-                "median_dy": float("nan"), "median_dx": float("nan"), "shifts": np.empty((0, 2))}
+                "median_dy": float("nan"), "median_dx": float("nan"), "median_shift_px": float("nan"),
+                "shifts": np.empty((0, 2))}
     s = np.asarray(shifts)
     return {
         "n_windows": len(shifts),
@@ -148,6 +149,10 @@ def median_displacement(
         "median_dy": float(np.median(s[:, 0])),
         "median_dx": float(np.median(s[:, 1])),
         "median_abs_displacement": float(np.median(np.hypot(s[:, 0], s[:, 1]))),
+        # The systematic misregistration: length of the median shift VECTOR. The median of the
+        # per-window magnitudes above also carries each window's random error, which for a
+        # cross-modal (SAR vs optical) pair is several pixels even when the images agree.
+        "median_shift_px": float(np.hypot(np.median(s[:, 0]), np.median(s[:, 1]))),
         "shifts": s,
     }
 
