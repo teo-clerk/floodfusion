@@ -137,7 +137,7 @@ def load_training_data(cfg: ExperimentConfig, data_root: Path | str) -> Training
     if split.strategy != cfg.data.split_strategy:
         raise ValueError(f"{split_path} has strategy {split.strategy!r}, config wants {cfg.data.split_strategy!r}")
     norm_path = chip_dir / cfg.data.norm_stats_file
-    norm = load_norm_stats(norm_path, cfg.norm)
+    norm = load_norm_stats(norm_path, cfg.norm, expected_manifest_sha256=meta["manifest_sha256"])
     cfg = replace(cfg, norm=norm)
     parts = [tuple(records[c] for c in split.chips(name)) for name in ("train", "val", "test")]
     if cfg.model.architecture == "unet_optical":

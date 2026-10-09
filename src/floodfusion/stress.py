@@ -1,8 +1,8 @@
 r"""Where it breaks: one physical factor at a time, on landscapes no model has seen.
 
 Real data mixes every confounder at once; the synthetic generator can move one and hold
-the rest. Each sweep renders fresh scenes — a **new landscape seed**, never one of the
-benchmark's training events — from the same frozen generator, varying only:
+the rest. Each sweep renders fresh scenes — **five new landscape seeds**, none used by a
+training event — from the same frozen generator, varying only:
 
 ``wind_speed_ms``     Bragg roughening of open water (docs/01 section 6): water stops being dark
 ``cloud_fraction``    optical availability (the fusion model's whole premise)
@@ -11,7 +11,8 @@ benchmark's training events — from the same frozen generator, varying only:
                       was caught on (the row 1 vs row 2 diagnosis)
 
 and scores the physics baseline (row 2), the SAR-only U-Net (row 4), the fusion model
-(row 9) and the fusion model run SAR-only (row 11) at their calibrated operating points.
+(row 9) and the fusion model run SAR-only (row 11) at their calibrated operating points;
+each point is the mean over the five landscapes, with their range as the band.
 It also draws the **gate** of the fusion model on a partly clouded scene: the one picture
 that shows R2 and R3 at work — the gate opens over clear optical pixels and closes under
 cloud.
@@ -37,8 +38,8 @@ __all__ = ["FACTORS", "base_spec", "main", "variant"]
 
 LOGGER = logging.getLogger(__name__)
 
-#: A lowland scene like the benchmark's E1 — but a landscape seed no training event used.
-_STRESS_SEED = 9101
+#: Lowland scenes like the benchmark's E1 — on landscape seeds no training event used.
+LANDSCAPE_SEEDS = (9101, 9202, 9303, 9404, 9505)
 FACTORS: dict[str, tuple[Any, ...]] = {
     "wind_speed_ms": (0.5, 2.0, 4.0, 6.0, 8.0, 10.0),
     "cloud_fraction": (0.0, 0.2, 0.4, 0.6, 0.8, 1.0),
@@ -47,35 +48,36 @@ FACTORS: dict[str, tuple[Any, ...]] = {
 }
 
 
-def base_spec() -> Any:
+def base_spec(seed: int = LANDSCAPE_SEEDS[0]) -> Any:
     from floodfusion.data.synthetic.landscape import EventSpec
 
-    return EventSpec("STRESS", seed=_STRESS_SEED, n_basins=2, basin_width_px=768, height_px=1024,
+    return EventSpec("STRESS", seed=seed, n_basins=2, basin_width_px=768, height_px=1024,
                      terrain="lowland", forest_cover=0.15, town=True, runway=True, wind_speed_ms=1.0,
                      orbit_state="descending", relative_orbit=117, optical="cloudy", cloud_fraction=0.0,
                      flood_depth_m=(1.2, 1.6), harvest_fraction=0.08)
 
 
 
-def variant(factor: str, value: Any) -> Any:
+def variant(factor: str, value: Any, seed: int = LANDSCAPE_SEEDS[0]) -> Any:
     """The base scene with ONE factor changed; everything else, the seed included, is fixed."""
-    base = base_spec()
+    base = base_spec(seed)
     tag = f"{factor}={value if not isinstance(value, tuple) else '-'.join(f'{v:g}' for v in value)}"
     if factor == "incidence":
-        return replace(base, event_id=f"STRESS_{tag}", incidence_near_deg=value[0], incidence_far_deg=value[1])
+        return replace(base, event_id=f"STRESS_{tag}_s{seed}", incidence_near_deg=value[0], incidence_far_deg=value[1])
     if factor not in FACTORS:
         raise ValueError(f"unknown factor {factor!r}; known: {sorted(FACTORS)}")
-    return replace(base, event_id=f"STRESS_{tag}", **{factor: value})
+    return replace(base, event_id=f"STRESS_{tag}_s{seed}", **{factor: value})
 
 
 # ---------------------------------------------------------------------------
 # Models at their operating points
 # ---------------------------------------------------------------------------
 def _learned(run_dir: Path, device: Any, sar_only: bool) -> dict[str, Any]:
-    from floodfusion.evaluate import _load
+    from floodfusion.evaluate import load_run
+    from floodfusion.predict import _resolve_run
 
-    evaluation = json.loads((run_dir / "eval_test.json").read_text(encoding="utf-8"))
-    cfg, _, model, _, _ = _load(Path(evaluation.get("run_dir", run_dir)) if sar_only else run_dir, None, device, sar_only)
+    weights, evaluation = _resolve_run(run_dir)   # row 11 points at row 9's weights via run.json
+    cfg, _, model, _, _ = load_run(weights, None, device, sar_only)
     cal = evaluation["calibration"]
     return {"cfg": cfg, "model": model, "temperature": cal["temperature"], "offset": cal["offset"], "sar_only": sar_only}
 
@@ -165,16 +167,21 @@ def gate_figure(m: Mapping[str, Any], records: Sequence[Any], device: Any, out: 
     return out
 
 
-def _plot_curves(results: Mapping[str, Mapping[str, Mapping[str, float]]], out: Path) -> Path:
+def _plot_curves(results: Mapping[str, Mapping[str, Mapping[str, Mapping[str, float]]]], out: Path) -> Path:
+    """One panel per factor: the mean over landscapes as a line, their range as a band."""
     from floodfusion.figures import _pyplot
 
     plt = _pyplot()
     fig, axes = plt.subplots(1, len(results), figsize=(4.2 * len(results), 3.6), sharey=True)
     for ax, (factor, by_value) in zip(np.atleast_1d(axes), results.items()):
         labels = list(by_value)
+        x = np.arange(len(labels))
         for model in next(iter(by_value.values())):
-            ax.plot(range(len(labels)), [by_value[v][model] for v in labels], marker="o", label=model)
-        ax.set_xticks(range(len(labels)), labels, rotation=30, fontsize=8)
+            mean = [by_value[v][model]["mean"] for v in labels]
+            ax.plot(x, mean, marker="o", label=model)
+            ax.fill_between(x, [by_value[v][model]["min"] for v in labels], [by_value[v][model]["max"] for v in labels],
+                            alpha=0.15)
+        ax.set_xticks(x, labels, rotation=30, fontsize=8)
         ax.set_title(factor.replace("_", " "), fontsize=10)
         ax.grid(alpha=0.3)
     np.atleast_1d(axes)[0].set_ylabel("IoU at τ*")
@@ -186,10 +193,24 @@ def _plot_curves(results: Mapping[str, Mapping[str, Mapping[str, float]]], out: 
     return out
 
 
-def run(args: argparse.Namespace) -> dict[str, Any]:
+def _score_variant(spec: Any, args: argparse.Namespace, cfg: Any, learned: Mapping[str, Any], device: Any) -> tuple[dict[str, float], list[Any]]:
     from floodfusion.ablation import ROW_CONFIGS
     from floodfusion.data.records import load_manifest
     from floodfusion.data.synthetic.benchmark import build_benchmark
+
+    root = args.work / spec.event_id
+    manifest = root / Path(cfg.data.chip_root).name / cfg.data.manifest_name
+    if not manifest.is_file():
+        build_benchmark(root, specs=[spec], data_cfg=cfg.data, grid_cfg=cfg.grid, norm=cfg.norm)
+    records = [r for r in load_manifest(manifest) if r.eval_grid]
+    scores = {"row 2 baseline": _score_baseline(args.runs_root / ROW_CONFIGS[2] / "baseline", args.configs_dir,
+                                                args.overlay, records).iou}
+    scores.update({name: _score_learned(m, records, device).iou for name, m in learned.items()})
+    return scores, records
+
+
+def run(args: argparse.Namespace) -> dict[str, Any]:
+    from floodfusion.ablation import ROW_CONFIGS
     from floodfusion.runs import write_json
     from floodfusion.train import resolve_device
 
@@ -201,41 +222,40 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "row 11 fusion, SAR-only": _learned(args.runs_root / ROW_CONFIGS[11] / seed, device, True),
     }
     cfg = learned["row 9 fusion"]["cfg"]
-    results: dict[str, dict[str, dict[str, float]]] = {}
+    results: dict[str, dict[str, dict[str, dict[str, float]]]] = {}
     gate_records = None
     for factor, values in FACTORS.items():
         results[factor] = {}
         for value in values:
-            spec = variant(factor, value)
-            root = args.work / spec.event_id
-            manifest = root / Path(cfg.data.chip_root).name / cfg.data.manifest_name
-            if not manifest.is_file():
-                build_benchmark(root, specs=[spec], data_cfg=cfg.data, grid_cfg=cfg.grid, norm=cfg.norm)
-            records = [r for r in load_manifest(manifest) if r.eval_grid]
-            label = spec.event_id.split("=", 1)[1]
-            scores = {"row 2 baseline": _score_baseline(args.runs_root / ROW_CONFIGS[2] / "baseline", args.configs_dir,
-                                                        args.overlay, records).iou}
-            scores.update({name: _score_learned(m, records, device).iou for name, m in learned.items()})
-            results[factor][label] = scores
-            LOGGER.info("%s: %s", spec.event_id, {k: round(v, 3) for k, v in scores.items()})
-            if factor == "cloud_fraction" and value == 0.4:
-                gate_records = records
+            per_seed = []
+            for landscape in LANDSCAPE_SEEDS:
+                scores, records = _score_variant(variant(factor, value, landscape), args, cfg, learned, device)
+                per_seed.append(scores)
+                if factor == "cloud_fraction" and value == 0.4 and landscape == LANDSCAPE_SEEDS[0]:
+                    gate_records = records
+            label = variant(factor, value).event_id.split("=", 1)[1].rsplit("_s", 1)[0]
+            results[factor][label] = {m: {"mean": float(np.mean([s[m] for s in per_seed])),
+                                          "min": float(np.min([s[m] for s in per_seed])),
+                                          "max": float(np.max([s[m] for s in per_seed]))} for m in per_seed[0]}
+            LOGGER.info("%s=%s: %s", factor, label, {m: round(v["mean"], 3) for m, v in results[factor][label].items()})
     _plot_curves(results, args.assets / "stress_curves.png")
     if gate_records:
         gate_figure(learned["row 9 fusion"], gate_records, device, args.assets / "gate_map.png")
-    lines = ["# Stress test — one physical factor at a time (synthetic, unseen landscape)", "",
-             f"Fresh landscape seed {_STRESS_SEED} (no training event used it); every other parameter fixed. IoU at "
-             "each model's calibrated operating point τ*; the baseline at its validation-chosen offset.", ""]
+    lines = ["# Stress test — one physical factor at a time (synthetic, unseen landscapes)", "",
+             f"Landscape seeds {', '.join(map(str, LANDSCAPE_SEEDS))} (no training event used them); every other "
+             "parameter fixed. IoU at each model's calibrated operating point τ*; the baseline at its validation-chosen "
+             "offset. Each cell: mean over the five landscapes [min, max]. One trained model per row (seed 42).", ""]
     for factor, by_value in results.items():
         models = list(next(iter(by_value.values())))
         lines += [f"## {factor.replace('_', ' ')}", "", "| value | " + " | ".join(models) + " |",
                   "| --- |" + " --- |" * len(models)]
-        lines += [f"| {v} | " + " | ".join(f"{s[m]:.3f}" for m in models) + " |" for v, s in by_value.items()]
+        lines += [f"| {v} | " + " | ".join(f"{s[m]['mean']:.3f} [{s[m]['min']:.2f}, {s[m]['max']:.2f}]" for m in models)
+                  + " |" for v, s in by_value.items()]
         lines.append("")
     lines += ["![stress curves](../assets/stress_curves.png)", "", "![gate](../assets/gate_map.png)", ""]
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text("\n".join(lines), encoding="utf-8")
-    write_json(args.out.with_suffix(".json"), {"seed": _STRESS_SEED, "results": results})
+    write_json(args.out.with_suffix(".json"), {"landscape_seeds": list(LANDSCAPE_SEEDS), "results": results})
     return results
 
 

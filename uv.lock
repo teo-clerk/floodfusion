@@ -691,7 +691,7 @@ fm = [
 
 [package.metadata]
 requires-dist = [
-    { name = "geopandas", specifier = ">=0.14" },
+    { name = "geopandas", specifier = ">=1.0" },
     { name = "ipykernel", marker = "extra == 'dev'", specifier = ">=6.29" },
     { name = "matplotlib", specifier = ">=3.8" },
     { name = "nbclient", marker = "extra == 'dev'", specifier = ">=0.10" },

@@ -35,7 +35,6 @@ import json
 import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -55,7 +54,6 @@ STAC_EXTENSIONS = (
     "https://stac-extensions.github.io/sar/v1.0.0/schema.json",
     "https://stac-extensions.github.io/processing/v1.2.0/schema.json",
 )
-_NO_INFO = ("NODATA", "LAYOVER", "SHADOW", "OUTSIDE_AOI")
 _EXCLUDED = ("NODATA", "LAYOVER", "SHADOW", "DENSE_URBAN", "DENSE_FOREST")
 _ADVISORY = {"LOW_CONFIDENCE": 0, "STEEP_SLOPE": 1, "OPTICAL_USED": 2}
 NO_DATA_U8 = 255
@@ -153,7 +151,10 @@ def stac_item(item_id: str, profile: Mapping[str, Any], assets: Mapping[str, Pat
     from rasterio.crs import CRS
 
     geometry, bbox = _footprint(profile)
-    when = str(meta.get("s1_post_datetime") or datetime.now(UTC).isoformat())
+    when = meta.get("s1_post_datetime")
+    if not when:  # the acquisition time IS the product's time; the processing time would be a lie
+        raise ValueError("no s1_post_datetime in the stack's event.json: cannot date the product")
+    when = str(when)
     epsg = CRS.from_user_input(profile["crs"]).to_epsg()
     inputs = ([("sentinel-1-rtc", i) for i in meta.get("s1_post_frames", [])]
               + [("sentinel-1-rtc", i) for i in meta.get("s1_pre_frames", [])]
@@ -174,6 +175,7 @@ def stac_item(item_id: str, profile: Mapping[str, Any], assets: Mapping[str, Pat
             "floodfusion:model_sha256": provenance.get("model_sha256"),
             "floodfusion:calibration": provenance.get("calibration"),
             "floodfusion:sar_only": bool(provenance.get("sar_only", False)),
+            "floodfusion:synthetic": bool(meta.get("synthetic", False)),
     }
     # Extension fields are typed by their schemas: an unknown value is omitted, never null.
     properties = {k: v for k, v in properties.items() if v is not None}

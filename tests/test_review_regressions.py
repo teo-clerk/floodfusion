@@ -175,3 +175,40 @@ def test_seeds_of_one_row_must_share_a_configuration(table_root) -> None:
          config_sha="different")
     with pytest.raises(ValueError, match="different configurations"):
         build_ablation_table(table_root, n_boot=100)
+
+
+# ---------------------------------------------------------------------------
+# Statistics (ML-methodology review): an exact test with multiplicity control
+# ---------------------------------------------------------------------------
+def test_sign_flip_test_is_exact_and_cannot_reach_significance_with_three_basins() -> None:
+    from floodfusion.metrics import sign_flip_p_value
+
+    assert sign_flip_p_value([0.1, 0.2, 0.3]) == pytest.approx(0.25)           # 2 of 8 patterns as extreme
+    assert sign_flip_p_value([0.05] * 10) == pytest.approx(2 / 1024)
+    assert sign_flip_p_value([0.1, -0.1, 0.1, -0.1]) == pytest.approx(1.0)
+
+
+def test_holm_adjustment_is_monotone_and_bounded() -> None:
+    from floodfusion.metrics import holm_adjust
+
+    adj = holm_adjust({"a": 0.01, "b": 0.04, "c": 0.03, "d": float("nan")})
+    assert adj["a"] == pytest.approx(0.03) and adj["c"] == pytest.approx(0.06) and adj["b"] == pytest.approx(0.06)
+    assert np.isnan(adj["d"])
+
+
+@pytest.mark.slow
+def test_percentile_basin_bootstrap_undercovers_with_few_basins() -> None:
+    """The reason for MIN_BASINS_FOR_VERDICT: simulated coverage of a nominal 95 % interval."""
+    rng = np.random.default_rng(0)
+
+    def coverage(k: int, sims: int = 400, n_boot: int = 2000) -> float:
+        hits = 0
+        for _ in range(sims):
+            x = rng.normal(0.0, 1.0, k)
+            boots = x[rng.integers(0, k, (n_boot, k))].mean(axis=1)
+            lo, hi = np.quantile(boots, [0.025, 0.975])
+            hits += lo <= 0.0 <= hi
+        return hits / sims
+
+    assert coverage(4) < 0.85                      # ~0.80: far below the nominal 0.95
+    assert coverage(10) > coverage(4)              # it improves with K, still below nominal

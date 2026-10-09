@@ -26,6 +26,14 @@ dist/
 /chips/
 *.pt
 *.ckpt
+*.safetensors
+*.npz
+
+# --- Secrets never belong here -------------------------------------------------
+.env
+.env.*
+*.pem
+*.key
 
 # Large figures produced by evaluation are regenerated; the Markdown reports
 # under reports/ are committed as the reproducibility record (P1-M4, P1-M5).

@@ -95,6 +95,11 @@ def _sigmoid(x: float) -> float:
     return 1.0 / (1.0 + math.exp(-x))
 
 
+def load_run(run_dir: Path, data_root: Path | None, device: Any, force_sar_only: bool) -> tuple[Any, ...]:
+    """Config, data, model, record and best epoch of a finished run (public entry to :func:`_load`)."""
+    return _load(run_dir, data_root, device, force_sar_only)
+
+
 def _cm_dict(cm: ConfusionMatrix) -> dict[str, int]:
     return {"tp": cm.tp, "fp": cm.fp, "fn": cm.fn, "tn": cm.tn}
 
@@ -285,7 +290,7 @@ def evaluate_run(
     scored = validate(model, _loader(target, cfg), device=device, cfg=cfg, thresholds=thresholds,
                       force_sar_only=sar_only, crop_px=EVAL_CONTEXT_PX, logit_sink=test_reservoir,
                       temperature=calibration.temperature, offset=calibration.offset,
-                      per_chip_thresholds=(special["tau_star"], conformal["tau"]))
+                      per_chip_thresholds=(special["tau_star"], conformal["tau"], *_CHIP_GRID))
     metrics = _test_metrics(scored, special, cfg, seed)
     subset = _cloud_free_subset(model, target, cfg, device, sar_only, calibration, special["tau_star"], seed)
     z_t, y_t = test_reservoir.arrays()
@@ -305,6 +310,8 @@ def evaluate_run(
         "cloud_free_subset": subset, "synthetic_data": data.is_synthetic, "evaluation_git": _eval_git(record),
         # [tp, fp, fn, tn] per chip at tau*: lets a report re-score any chip subset (docs/09 5.3).
         "per_chip_tau_star": {c: v[0] for c, v in scored["per_chip"].items()},
+        # The same on a coarse threshold grid: subsets re-scored threshold-free (AP) or at their best threshold.
+        "per_chip_grid": {"thresholds": list(_CHIP_GRID), "cms": {c: v[2:] for c, v in scored["per_chip"].items()}},
         "conformal": {**conformal, **_conformal_test(scored["per_chip"], target, conformal["alpha"])},
         "per_chip_basin": {r.chip_id: r.basin_id for r in target},
     }
@@ -324,6 +331,8 @@ def evaluate_run(
 
 #: Raw-logit grid on which validation chips' misses are counted for conformal risk control.
 _CONFORMAL_Z = np.linspace(-12.0, 12.0, 241)
+#: Calibrated-scale grid on which every test chip's confusion is also stored.
+_CHIP_GRID = tuple(round(i / 20, 2) for i in range(1, 20))
 
 
 def _conformal(per_chip_val: Mapping[str, Sequence[Sequence[int]]], alpha: float, temperature: float,
@@ -343,6 +352,7 @@ def _conformal_test(per_chip: Mapping[str, Sequence[Sequence[int]]], records: Se
                     alpha: float) -> dict[str, Any]:
     """Did the guarantee hold on test? Mean per-chip FNR at tau_conformal, overall and per basin."""
     from floodfusion.calibration import CONFORMAL_MIN_POSITIVES
+    from floodfusion.metrics import ConfusionMatrix, sum_confusions
 
     basin_of = {r.chip_id: r.basin_id for r in records}
     by_basin: dict[str, list[float]] = {}
@@ -351,9 +361,12 @@ def _conformal_test(per_chip: Mapping[str, Sequence[Sequence[int]]], records: Se
         if tp + fn >= CONFORMAL_MIN_POSITIVES:
             by_basin.setdefault(basin_of[chip], []).append(fn / (tp + fn))
     every = [v for vs in by_basin.values() for v in vs]
+    # The price of the recall guarantee: precision and IoU at the conformal threshold (all chips).
+    pooled = sum_confusions([ConfusionMatrix(*cms[1]) for cms in per_chip.values()])
     return {"test_mean_chip_fnr": float(np.mean(every)) if every else float("nan"), "test_n_chips": len(every),
             "test_mean_chip_fnr_by_basin": {b: float(np.mean(v)) for b, v in sorted(by_basin.items())},
-            "test_holds": bool(every) and float(np.mean(every)) <= alpha}
+            "test_holds": bool(every) and float(np.mean(every)) <= alpha,
+            "test_precision": pooled.precision, "test_iou": pooled.iou}
 
 
 def _eval_git(record: Mapping[str, Any]) -> dict[str, Any]:

@@ -1,20 +1,23 @@
 r"""Cross-validation over flood events: leave-one-event-out, and the leaderboard's own split.
 
-A single fixed split of a real dataset offers few test basins; Sen1Floods11 offers eleven
-**events** on five continents. Two protocols are run with the same rows and seeds:
+A single fixed split of a real dataset offers few test basins; Sen1Floods11 offers flood
+**events** on five continents (eleven published; ten have the same-orbit Sentinel-1 pair
+this model needs — Paraguay's acquisition is not in the archive). Two protocols are run with
+the same rows and seeds:
 
 ``loeo``
     One fold per event: the event's evaluation-grid chips are the test set, the next event
     (sorted order, cyclic — fixed before any run) is the validation set, every chip of the
-    other nine events trains. Each event is tested exactly once, by a model that never saw
-    it, so the per-event confusion matrices of all folds pool into one table with K = 11
-    test events — enough for the interval verdicts the synthetic table had to withhold
-    (:data:`floodfusion.reporting.MIN_BASINS_FOR_VERDICT`).
+    other events trains. Each event is tested exactly once, by a model that never saw it, so
+    the per-event confusion matrices of all folds pool into one table with K = number of
+    events (10) — enough for the per-event permutation tests the synthetic table had to
+    withhold (:data:`floodfusion.reporting.MIN_BASINS_FOR_VERDICT`).
 ``official``
     The dataset's own hand-labelled split: train, validation and test are drawn from the
-    **same ten events**; Bolivia (``official_bolivia``) is the only held-out event. Scores
-    on it are within-event scores — the leakage row (13) of the ablation, on a public
-    leaderboard. :mod:`floodfusion.cv_report` measures the gap on the *same test chips*.
+    **same events**; Bolivia is the only held-out event. One model is trained and scored
+    per event on both — the within-event test chips (the leakage row of the ablation, on a
+    public leaderboard) and Bolivia. :mod:`floodfusion.cv_report` measures the protocol gap
+    on the *same test chips*.
 
 Normalisation statistics are recomputed on each fold's training chips only. Folds share
 everything else: configuration, seeds, the decision threshold rule, the calibration.
@@ -90,12 +93,14 @@ def leave_one_group_out(records: Sequence[ChipRecord], *, manifest_sha256: str =
 
 def official_splits(records: Sequence[ChipRecord], chip_split: Mapping[str, str], *,
                     source_of: Any, manifest_sha256: str = "") -> dict[str, SplitAssignment]:
-    """The dataset's own split, mapped from source chips to our windows.
+    """The dataset's own split, mapped from source chips to our windows: ONE model.
 
     ``chip_split`` maps a source chip id to ``train | val | test | bolivia``;
-    ``source_of(record)`` gives a record's source chip id. Returns ``official`` (test = the
-    within-event test chips) and ``official_bolivia`` (test = the held-out event), sharing
-    train and validation. Strategy ``published``: groups overlap across splits by design.
+    ``source_of(record)`` gives a record's source chip id. The test set is the within-event
+    test chips **and** Bolivia, the held-out event: both are scored per event from the same
+    model (Bolivia is its own group), so one training run serves both questions. Strategy
+    ``published``: groups overlap across splits by design. Listed chips that produced no
+    window (dropped at ingest) are counted and reported — the scores are then on a subset.
     """
     parts: dict[str, list[ChipRecord]] = {"train": [], "val": [], "test": [], "bolivia": []}
     unknown = 0
@@ -107,6 +112,13 @@ def official_splits(records: Sequence[ChipRecord], chip_split: Mapping[str, str]
         parts[split].append(r)
     if unknown:
         LOGGER.warning("official split: %d windows belong to chips outside the published split lists", unknown)
+    present = {source_of(r) for r in records}
+    for split in parts:
+        listed = [c for c, s in chip_split.items() if s == split]
+        missing = [c for c in listed if c not in present]
+        if missing:
+            LOGGER.warning("official split: %d of %d listed %s chips produced no window (e.g. %s) — scored on a subset",
+                           len(missing), len(listed), split, ", ".join(missing[:3]))
 
     def ids(rs: Sequence[ChipRecord], eval_only: bool) -> tuple[str, ...]:
         return tuple(sorted(r.chip_id for r in rs if r.eval_grid or not eval_only))
@@ -114,14 +126,11 @@ def official_splits(records: Sequence[ChipRecord], chip_split: Mapping[str, str]
     def groups(rs: Sequence[ChipRecord]) -> tuple[str, ...]:
         return tuple(sorted({r.basin_id for r in rs}))
 
-    train, val = ids(parts["train"], False), ids(parts["val"], True)
-    return {
-        name: SplitAssignment(train_chips=train, val_chips=val, test_chips=ids(parts[test], True),
-                              train_basins=groups(parts["train"]), val_basins=groups(parts["val"]),
-                              test_basins=groups(parts[test]), buffer_m=0.0, strategy=STRATEGY_PUBLISHED,
-                              manifest_sha256=manifest_sha256)
-        for name, test in (("official", "test"), ("official_bolivia", "bolivia"))
-    }
+    test = parts["test"] + parts["bolivia"]
+    return {"official": SplitAssignment(
+        train_chips=ids(parts["train"], False), val_chips=ids(parts["val"], True), test_chips=ids(test, True),
+        train_basins=groups(parts["train"]), val_basins=groups(parts["val"]), test_basins=groups(test),
+        buffer_m=0.0, strategy=STRATEGY_PUBLISHED, manifest_sha256=manifest_sha256)}
 
 
 def write_folds(chip_dir: Path, cfg: Any, splits: Mapping[str, Mapping[str, SplitAssignment]], *,
@@ -155,7 +164,11 @@ def write_folds(chip_dir: Path, cfg: Any, splits: Mapping[str, Mapping[str, Spli
                         "between groups; official folds are within-event by the dataset's design",
             })
             folds.append(fold)
-    atomic_write_bytes(out_dir / "folds.json", json.dumps([vars(f) for f in folds], indent=2).encode("utf-8"))
+    # Merge: re-freezing one protocol (e.g. without --raw) must not drop the others' folds.
+    path = out_dir / "folds.json"
+    kept = [f for f in json.loads(path.read_text(encoding="utf-8"))
+            if f["protocol"] not in splits] if path.is_file() else []
+    atomic_write_bytes(path, json.dumps(kept + [vars(f) for f in folds], indent=2).encode("utf-8"))
     return folds
 
 
@@ -196,7 +209,7 @@ def _run_fold(fold: Fold, args: argparse.Namespace, device: Any) -> None:
         cfg = _fold_config(args.configs_dir, row, args.overlay, fold, None)
         out = root / cfg.name / "baseline"
         if not _finished(out):
-            run_baseline_row(cfg, args.data_root, out, attribution=False)
+            run_baseline_row(cfg, args.data_root, out, attribution=row == 2)
     for row in args.learned_rows:
         for seed in args.seeds:
             cfg = _fold_config(args.configs_dir, row, args.overlay, fold, seed)
@@ -208,8 +221,9 @@ def _run_fold(fold: Fold, args: argparse.Namespace, device: Any) -> None:
                     "data_root": str(args.data_root), "driver": "floodfusion.crossval",
                     "cv": {"protocol": fold.protocol, "fold": fold.name},
                 })
-                evaluate_run(run_dir, data_root=args.data_root, device=device, figures=False)
-            if row == 9:
+                if not args.skip_test:
+                    evaluate_run(run_dir, data_root=args.data_root, device=device, figures=False)
+            if row == 9 and not args.skip_test:
                 out = run_dir_for(root, ROW_CONFIGS[11], seed)
                 if not _finished(out):
                     evaluate_run(run_dir, data_root=args.data_root, device=device, force_sar_only=True,
@@ -223,13 +237,58 @@ def run_cv(args: argparse.Namespace) -> None:
     cfg = load_config(args.configs_dir / "row09_fusion_crossattn.yaml", overlays=args.overlay)
     chip_dir = args.data_root / Path(cfg.data.chip_root).name
     device = resolve_device(args.device)
+    if args.skip_test:
+        LOGGER.warning("--skip-test: training only; no test split is scored (development runs)")
+    else:
+        _freeze_protocol(args, chip_dir, cfg.data.manifest_name)
     for protocol in args.protocol:
         folds = folds_on_disk(chip_dir, protocol)
         if args.fold:
+            unknown = sorted(set(args.fold) - {f.name for f in folds})
+            if unknown:
+                raise ValueError(f"unknown {protocol} folds {unknown}; known: {[f.name for f in folds]}")
             folds = [f for f in folds if f.name in set(args.fold)]
         for i, fold in enumerate(folds, start=1):
             LOGGER.info("== %s fold %d/%d: %s", protocol, i, len(folds), fold.name)
             _run_fold(fold, args, device)
+
+
+def _protocol_record(args: argparse.Namespace, chip_dir: Path, manifest_name: str) -> dict[str, Any]:
+    from floodfusion.config import config_sha256, config_to_dict, load_config
+    from floodfusion.data.records import load_manifest_meta
+    from floodfusion.utils.env import git_state
+
+    configs = {}
+    for row in [*args.baseline_rows, *args.learned_rows]:
+        cfg = load_config(args.configs_dir / f"{_config_name(row)}.yaml", overlays=args.overlay)
+        configs[str(row)] = config_sha256(config_to_dict(cfg))
+    return {"rows": configs, "seeds": list(args.seeds), "overlays": [str(o) for o in args.overlay],
+            "folds": [vars(f) for f in folds_on_disk(chip_dir)],
+            "manifest_sha256": load_manifest_meta(chip_dir / manifest_name)["manifest_sha256"],
+            "git_sha": git_state().get("git_sha")}
+
+
+def _freeze_protocol(args: argparse.Namespace, chip_dir: Path, manifest_name: str) -> None:
+    """Write the evaluation protocol once, before any test split is scored; refuse a silent change.
+
+    Rows, their configuration hashes, seeds, folds and the manifest are recorded in
+    ``<runs_root>/protocol.json``. A later run with a different protocol must say so
+    (``--new-protocol``), so a configuration can never drift after test results were seen.
+    """
+    record = _protocol_record(args, chip_dir, manifest_name)
+    path = args.runs_root / "protocol.json"
+    if path.is_file():
+        frozen = json.loads(path.read_text(encoding="utf-8"))
+        same = {k: frozen.get(k) for k in ("seeds", "manifest_sha256", "folds")} == \
+            {k: record[k] for k in ("seeds", "manifest_sha256", "folds")} and \
+            all(frozen["rows"].get(r, h) == h for r, h in record["rows"].items())
+        if not same and not args.new_protocol:
+            raise ValueError(f"{path} records a different protocol (rows, seeds, folds or manifest); "
+                             "pass --new-protocol to start one deliberately")
+        if same:
+            record["rows"] = {**frozen["rows"], **record["rows"]}
+    args.runs_root.mkdir(parents=True, exist_ok=True)
+    atomic_write_bytes(path, json.dumps(record, indent=2).encode("utf-8"))
 
 
 def _make_splits(args: argparse.Namespace) -> None:
@@ -267,6 +326,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     run.add_argument("--baseline-rows", type=int, nargs="*", default=list(BASELINE_CV_ROWS))
     run.add_argument("--learned-rows", type=int, nargs="*", default=list(LEARNED_CV_ROWS))
     run.add_argument("--device", default=None)
+    run.add_argument("--skip-test", action="store_true", help="train only; never score the test split (dev runs)")
+    run.add_argument("--new-protocol", action="store_true", help="accept a protocol differing from protocol.json")
     table = sub.choices["table"]
     table.add_argument("--out", type=Path, default=Path("reports/sen1floods11_table.md"))
     table.add_argument("--allow-dirty", action="store_true")

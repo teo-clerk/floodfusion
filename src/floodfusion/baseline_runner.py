@@ -34,7 +34,7 @@ import math
 import time
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -234,10 +234,13 @@ def _attribution(test_windows: Mapping[Path, Any], scene_info: Mapping[str, Any]
     variants: dict[str, dict[str, ConfusionMatrix]] = defaultdict(dict)
     for path, wins in test_windows.items():
         scene, surface = scene_info[path.parent.name]["scene"], scene_info[path.parent.name]["surface"]
+        no_change = replace(cfg, baseline=replace(cfg.baseline, use_change_term=False))
         for name, kwargs in (("all_masks", {}), ("no_slope", {"disable": "slope"}), ("no_hand", {"disable": "hand"}),
                              ("no_layover_shadow", {"disable": "layover_shadow"}),
-                             ("no_permanent_water", {"disable": "permanent_water"}), ("or_rule", {"combine": "or"})):
-            pred = flood_map(scene, surface, cfg, offset_db=offset, **kwargs)
+                             ("no_permanent_water", {"disable": "permanent_water"}), ("or_rule", {"combine": "or"}),
+                             ("no_change_term", {"_cfg": no_change})):
+            rule_cfg = kwargs.pop("_cfg", cfg)
+            pred = flood_map(scene, surface, rule_cfg, offset_db=offset, **kwargs)
             variants[name] = _merge(variants[name], score_windows(pred, scene, wins))
     return variants
 
@@ -276,6 +279,7 @@ def _row_result(cfg: ExperimentConfig, sweep: Mapping[str, Sequence[Mapping[str,
         "sweep_val_macro_iou": [macro_iou(dict(pb)) if pb else float("nan") for pb in sweep["val"]],
         "sweep_test_macro_iou": [macro_iou(dict(pb)) if pb else float("nan") for pb in sweep["test"]],
         "mask_attribution": attribution, "scenes": dict(scene_info), "n_chips": len(data.test),
+        "attribution_per_basin": {name: _basin_summary(dict(pb)) for name, pb in variants.items()},
         "manifest_sha256": data.manifest_sha256, "split_sha256": data.split_sha256,
         "test_chips_sha256": chip_set_sha256(data.test), "synthetic_data": data.is_synthetic,
         "evaluation_git": git_state(),

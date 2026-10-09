@@ -262,6 +262,11 @@ def _bbox_overlap(a: Sequence[float], b: Sequence[float]) -> float:
     return w * h
 
 
+def datetime_of(item: Mapping[str, Any]) -> datetime:
+    """An item's acquisition time (``datetime``, else ``start_datetime``), timezone-aware."""
+    return _datetime_of(item)
+
+
 def _day_window(query: EventQuery) -> tuple[datetime, datetime]:
     start = datetime.combine(query.flood_start.date(), time.min, tzinfo=UTC)
     end = datetime.combine(query.flood_end.date(), time.max, tzinfo=UTC)

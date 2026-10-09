@@ -279,7 +279,7 @@ def ingest_event(
 ) -> dict[str, Any]:
     """Ingest one event into ``<out_root>/events/<event_id>/``; returns its ``event.json``.
 
-    GDAL's HTTP reads run with explicit timeouts and retries (:data:`_GDAL_ENV`).
+    GDAL's HTTP reads run with explicit timeouts and retries (:data:`floodfusion.data.archive.GDAL_ENV`).
     """
     import rasterio
 
@@ -389,6 +389,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             # Error texts of HTTP/GDAL failures embed signed URLs: never print the token.
             LOGGER.error("%s failed: %s: %s", event.event_id, type(exc).__name__, redact(str(exc)))
             failures += 1
+    if not any((args.out / "events").glob("*/chips.parquet")):
+        LOGGER.error("no event produced chips: nothing to merge into a manifest")
+        return 1
     digest = build_dataset(args.out, cfg, split_epsg=args.split_epsg)
     LOGGER.info("manifest %s", digest)
     return 1 if failures else 0

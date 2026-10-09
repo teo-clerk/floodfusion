@@ -52,9 +52,11 @@ __all__ = [
     "average_precision",
     "basin_bootstrap_ci",
     "expected_calibration_error",
+    "holm_adjust",
     "macro_iou",
     "paired_bootstrap_delta",
     "precision_recall_curve",
+    "sign_flip_p_value",
     "sum_confusions",
 ]
 
@@ -399,6 +401,41 @@ def paired_bootstrap_delta(
         return float(delta), float("nan"), float("nan")
     lower, upper = np.percentile(deltas, [100 * alpha / 2, 100 * (1 - alpha / 2)])
     return float(delta), float(lower), float(upper)
+
+
+def sign_flip_p_value(deltas: Sequence[float], *, n_mc: int = 200_000, seed: int = 0) -> float:
+    r"""Two-sided paired permutation test of :math:`H_0`: the mean per-basin difference is 0.
+
+    Under :math:`H_0` (the two rows are exchangeable within each basin) each per-basin
+    difference is equally likely to carry either sign. The p-value is the fraction of the
+    :math:`2^K` sign patterns whose mean is at least as extreme as the observed one — exact
+    for :math:`K \le 20` (enumerated), Monte Carlo above. Unlike a percentile bootstrap it
+    is valid at any K; with few basins it simply cannot reach significance
+    (:math:`p \ge 2^{1-K}`: K = 3 gives at least 0.25).
+    """
+    d = np.asarray([x for x in deltas if math.isfinite(x)], dtype=np.float64)
+    k = len(d)
+    if k == 0:
+        return float("nan")
+    observed = abs(d.mean())
+    if k <= 20:
+        signs = 1 - 2 * ((np.arange(2**k)[:, None] >> np.arange(k)) & 1)   # every pattern of +-1
+    else:
+        signs = np.random.default_rng(seed).choice((-1, 1), size=(n_mc, k))
+    null = np.abs((signs * d).mean(axis=1))
+    return float((null >= observed - 1e-12).mean())
+
+
+def holm_adjust(p_values: Mapping[str, float]) -> dict[str, float]:
+    """Holm-Bonferroni adjusted p-values (family-wise error control across the gaps of a table)."""
+    finite = sorted(((p, k) for k, p in p_values.items() if math.isfinite(p)))
+    m = len(finite)
+    adjusted: dict[str, float] = {k: float("nan") for k, p in p_values.items() if not math.isfinite(p)}
+    running = 0.0
+    for rank, (p, key) in enumerate(finite):
+        running = max(running, min(1.0, (m - rank) * p))
+        adjusted[key] = running
+    return adjusted
 
 
 def expected_calibration_error(

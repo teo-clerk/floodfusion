@@ -52,6 +52,8 @@ LOGGER = logging.getLogger(__name__)
 #: km^2 — a HydroBASINS level-8 size). Narrower basins lose most chips to the boundary
 #: and buffer rules (docs/05 6.4: > 20 % dropped means basins too small for the chip).
 _GEOMETRY = dict(n_basins=3, basin_width_px=1024, height_px=2048)
+#: The stated, nominal acquisition time of every synthetic scene (products and STAC items need one).
+NOMINAL_ACQUISITION = "2023-11-07T17:07:00+00:00"
 
 DEFAULT_EVENTS: tuple[EventSpec, ...] = (
     EventSpec(
@@ -167,7 +169,9 @@ def build_benchmark(
         for bid, geom in geoms.items():
             basins[bid] = (spec.event_id, geom)
         meta = {**rendered.meta, "chip_counts": counts, "n_chips": len(chips),
-                "render_seconds": round(time.time() - started, 2)}
+                "render_seconds": round(time.time() - started, 2),
+                # A synthetic scene has no acquisition; products need a time, so it is a stated nominal one.
+                "s1_post_datetime": NOMINAL_ACQUISITION, "synthetic": True}
         (event_dir / "event.json").write_text(json.dumps(meta, indent=2, default=str), encoding="utf-8")
         events.append(meta)
         LOGGER.info("%s rendered in %.1f s: %d chips, flood %.1f %% of valid pixels",

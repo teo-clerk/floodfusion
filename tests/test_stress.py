@@ -7,7 +7,7 @@ from dataclasses import asdict
 import pytest
 
 from floodfusion.data.synthetic.benchmark import DEFAULT_EVENTS
-from floodfusion.stress import FACTORS, base_spec, variant
+from floodfusion.stress import FACTORS, LANDSCAPE_SEEDS, base_spec, variant
 
 
 def test_each_variant_changes_exactly_one_factor() -> None:
@@ -22,8 +22,9 @@ def test_each_variant_changes_exactly_one_factor() -> None:
         assert changed_any == expected                                  # and the factor itself does
 
 
-def test_the_stress_landscape_is_not_a_training_landscape() -> None:
-    assert base_spec().seed not in {e.seed for e in DEFAULT_EVENTS}
+def test_the_stress_landscapes_are_not_training_landscapes() -> None:
+    assert len(LANDSCAPE_SEEDS) >= 5 and not set(LANDSCAPE_SEEDS) & {e.seed for e in DEFAULT_EVENTS}
+    assert {variant("wind_speed_ms", 2.0, s).seed for s in LANDSCAPE_SEEDS} == set(LANDSCAPE_SEEDS)
 
 
 def test_unknown_factor_is_refused() -> None:
@@ -34,5 +35,6 @@ def test_unknown_factor_is_refused() -> None:
 def test_curves_are_plotted(tmp_path) -> None:
     from floodfusion.stress import _plot_curves
 
-    out = _plot_curves({"wind_speed_ms": {"1": {"a": 0.7, "b": 0.6}, "8": {"a": 0.4, "b": 0.5}}}, tmp_path / "s.png")
+    point = {"mean": 0.6, "min": 0.5, "max": 0.7}
+    out = _plot_curves({"wind_speed_ms": {"1": {"a": point, "b": point}, "8": {"a": point, "b": point}}}, tmp_path / "s.png")
     assert out.stat().st_size > 1000

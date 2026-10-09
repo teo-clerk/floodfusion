@@ -157,6 +157,15 @@ def write_product(path: Path, prob: np.ndarray, flags: np.ndarray, *, tau: float
     return path, prob_path
 
 
+def _portable(path: Path) -> str:
+    """A path for a published artefact: relative to the working directory, never a home directory."""
+    resolved = Path(path).resolve()
+    try:
+        return str(resolved.relative_to(Path.cwd().resolve()))
+    except ValueError:
+        return resolved.name
+
+
 def _resolve_run(run_dir: Path) -> tuple[Path, dict[str, Any]]:
     """(directory holding best.pt, evaluation holding the calibration) — row 11 points at row 9."""
     from floodfusion.runs import load_run_record
@@ -202,7 +211,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     flags = build_flags(validity, slope, landcover, prob, optical_used, slope_max_deg=cfg.baseline.slope_max_deg,
                         tau=tau, cost_ratio=cfg.eval.cost_ratio)
     write_product(args.out, prob, flags, tau=tau, profile=profile, tags={
-        "run": str(args.run_dir), "config_sha256": record["config_sha256"], "git_sha": record.get("git_sha"),
+        "run": _portable(args.run_dir), "config_sha256": record["config_sha256"], "git_sha": record.get("git_sha"),
         "calibration": json.dumps(calibration), "sar_only": sar_only,
         "note": "snapshot at the S1 acquisition time; no depth; forest/urban/steep flagged as not reliably mapped",
     })

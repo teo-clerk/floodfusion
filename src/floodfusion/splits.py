@@ -678,9 +678,17 @@ def compute_norm_stats(
     return replace(base, sar_mean_db=tuple(float(v) for v in mean), sar_std_db=tuple(float(v) for v in std))
 
 
-def load_norm_stats(path: Path | str, base: Any) -> Any:
-    """Apply a frozen ``norm_stats.json`` to a :class:`NormalizationStats`."""
+def load_norm_stats(path: Path | str, base: Any, *, expected_manifest_sha256: str | None = None) -> Any:
+    """Apply a frozen ``norm_stats.json`` to a :class:`NormalizationStats`.
+
+    With ``expected_manifest_sha256`` the statistics must have been computed on that dataset:
+    statistics of another manifest would silently shift every input.
+    """
     raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    bound = raw.get("manifest_sha256")
+    if expected_manifest_sha256 and bound and bound != expected_manifest_sha256:
+        raise ValueError(f"{path}: statistics computed on manifest {bound[:12]}…, dataset is "
+                         f"{expected_manifest_sha256[:12]}… — recompute them for this dataset")
     return replace(base, sar_mean_db=tuple(raw["sar_mean_db"]), sar_std_db=tuple(raw["sar_std_db"]))
 
 
