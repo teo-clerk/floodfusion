@@ -130,14 +130,23 @@ class EventConfig:
     pre_event_window_days: int = 60
     catalogue_url: str = PC_STAC_URL
     max_s2_candidates: int = 4
+    #: Pin the post-event acquisition (one named pass of a multi-pass event).
+    relative_orbit: int | None = None
+    orbit_state: str | None = None
+    #: The pre-event reference must also predate this (a region flooded twice).
+    reference_before: date | None = None
     notes: str = ""
 
     def query(self) -> EventQuery:
+        def at(d: date | None) -> datetime | None:
+            return None if d is None else datetime.combine(d, datetime.min.time())
+
         return EventQuery(
             event_id=self.event_id, bbox=self.bbox,
-            flood_start=datetime.combine(self.flood_start, datetime.min.time()),
-            flood_end=datetime.combine(self.flood_end, datetime.min.time()),
+            flood_start=at(self.flood_start), flood_end=at(self.flood_end),
             pre_event_window_days=self.pre_event_window_days,
+            relative_orbit=self.relative_orbit, orbit_state=self.orbit_state,
+            reference_before=at(self.reference_before),
         )
 
 
@@ -166,7 +175,9 @@ def load_event_config(path: Path | str) -> EventConfig:
     if len(bbox) != 4 or not (bbox[0] < bbox[2] and bbox[1] < bbox[3]):
         raise ValueError(f"{path}: bbox must be [west, south, east, north], got {values['bbox']}")
     values["bbox"] = bbox
-    for key in ("flood_start", "flood_end"):
+    for key in ("flood_start", "flood_end", "reference_before"):
+        if key not in values or values[key] is None:
+            continue
         v = values[key]
         values[key] = v if isinstance(v, date) else date.fromisoformat(str(v))
     if values["flood_end"] < values["flood_start"]:

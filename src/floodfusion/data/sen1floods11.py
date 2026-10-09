@@ -495,6 +495,10 @@ def _ingest_one_event(event: S1F11Event, chips: Sequence[HandChip], out_root: Pa
     except NoMatchingPairError as exc:
         LOGGER.error("%s dropped: %s", event.group, exc)
         return {**status, **{c.chip_id: f"dropped: {exc}" for c in todo}}
+    except Exception as exc:  # noqa: BLE001 - one event's archive failure must not abort the dataset
+        message = f"failed: {type(exc).__name__}: {redact(str(exc))[:300]}"
+        LOGGER.error("%s %s", event.group, message)
+        return {**status, **{c.chip_id: message for c in todo}}
     polygon = _event_polygon(footprints.values())
     shift = _event_optical_shift(chips, footprints, archive, cfg)
     status["optical_shift"] = json.dumps(shift)

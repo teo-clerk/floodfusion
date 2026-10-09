@@ -168,11 +168,38 @@ def expand_grid(grid: AnalysisGrid, margin_px: int) -> AnalysisGrid:
                    width=grid.width + 2 * margin_px, height=grid.height + 2 * margin_px)
 
 
-def read_acquisition_geometry(sources: IngestSources, matched: MatchedScenes) -> list[S1Annotation]:
-    """The post-event frames' GRD product annotations (heading, tie-point incidence)."""
-    grd_ids = [grd_id_for_rtc(i) for i in (matched.s1_post_frames or (matched.s1_post_id,))]
-    grd_items = items_by_id(sources.client, "sentinel-1-grd", grd_ids)
-    annotations = [parse_annotation(sources.fetch_bytes(product_annotation_href(it, "vv"))) for it in grd_items]
+def read_acquisition_geometry(sources: IngestSources, matched: MatchedScenes, *,
+                              fallback: bool = True) -> list[S1Annotation]:
+    """The post-event frames' GRD product annotations (heading, tie-point incidence).
+
+    Planetary Computer's ``sentinel-1-grd`` has gaps (an RTC frame whose source GRD is not
+    listed). With ``fallback`` the geometry is then modelled from the RTC frame footprints
+    and the orbit (:mod:`floodfusion.data.orbit_model`, < 1 deg incidence error) and the
+    substitution is logged and recorded (``geometry_source``); without it, it raises.
+    """
+    frames = matched.s1_post_frames or (matched.s1_post_id,)
+    try:
+        grd_items = items_by_id(sources.client, "sentinel-1-grd", [grd_id_for_rtc(i) for i in frames])
+        annotations = [parse_annotation(sources.fetch_bytes(product_annotation_href(it, "vv"))) for it in grd_items]
+    except (LookupError, KeyError) as exc:
+        if not fallback:
+            raise
+        from shapely.geometry import shape
+
+        from floodfusion.data.orbit_model import footprint_geometry
+
+        LOGGER.warning("%s: no GRD annotation (%s) — geometry from the RTC footprints and the orbit model",
+                       matched.event_id, str(exc)[:120])
+        from shapely.geometry import box
+
+        def footprint(item: Mapping[str, Any]) -> Any:
+            if item.get("geometry"):
+                return shape(item["geometry"])
+            LOGGER.warning("%s has no footprint geometry: using its bbox (incidence less exact)", item["id"])
+            return box(*item["bbox"])
+
+        rtc = items_by_id(sources.client, PROFILES["planetary_computer"].s1_collection, frames)
+        return [footprint_geometry(footprint(it), matched.orbit_state) for it in rtc]  # type: ignore[misc]
     states = {a.orbit_state for a in annotations}
     if states != {matched.orbit_state}:
         raise ValueError(f"annotation pass {states} disagrees with the catalogue ({matched.orbit_state})")
@@ -460,6 +487,7 @@ def _grid_meta(task: GridTask, ref: GridReference, phi: float, theta: np.ndarray
         "width": grid.width, "height": grid.height, "grid_notes": list(grid.notes),
         "relative_orbit": matched.relative_orbit, "orbit_state": matched.orbit_state,
         "look_azimuth_deg": phi, "heading_deg": [a.heading_deg for a in task.annotations],
+        "geometry_source": sorted({getattr(a, "source", "GRD product annotation") for a in task.annotations}),
         "incidence_deg": [float(np.nanmin(theta)), float(np.nanmax(theta))],
         "s1_post_frames": list(matched.s1_post_frames), "s1_pre_frames": list(matched.s1_pre_frames),
         "s1_post_datetime": matched.s1_post_datetime, "s1_pre_datetime": matched.s1_pre_datetime,

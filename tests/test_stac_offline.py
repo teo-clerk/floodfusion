@@ -212,3 +212,16 @@ class TestNamedAcquisition:
         with pytest.raises(ValueError, match="optical_end"):
             search_matched_pairs(_query(optical_start=datetime(2023, 11, 9), optical_end=datetime(2023, 11, 8)),
                                  PC, client=self._catalogue())
+
+
+def test_reference_before_skips_scenes_of_an_earlier_flood() -> None:
+    cat = InMemoryCatalogue.from_dicts([
+        _s1("post", "2023-11-07T17:07:13Z"),
+        _s1("pre_after_first_flood", "2023-10-26T17:07:13Z"),
+        _s1("pre_clean", "2023-10-14T17:07:13Z"),
+    ])
+    assert search_matched_pairs(_query(), PC, client=cat).s1_pre_id == "pre_after_first_flood"
+    m = search_matched_pairs(_query(reference_before=datetime(2023, 10, 20)), PC, client=cat)
+    assert m.s1_pre_id == "pre_clean" and m.s1_post_id == "post"
+    with pytest.raises(LookupError, match="before 2023-10-10"):
+        search_matched_pairs(_query(reference_before=datetime(2023, 10, 10), pre_event_window_days=5), PC, client=cat)

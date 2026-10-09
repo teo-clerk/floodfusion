@@ -344,3 +344,33 @@ class TestSen1Floods11Route:
         report = ingest_sen1floods11(_s1f11_raw(tmp_path, orbit=15), tmp_path / "out", cfg,
                                      sources=IngestSources(client=archive[1]), margin_px=32)
         assert report["summary"]["dropped"] == 1 and "relative orbit 15" in report["events"]["Testland"]["Testland_1"]
+
+
+def test_missing_grd_annotation_falls_back_to_the_orbit_model(archive) -> None:
+    """Planetary Computer lists some RTC frames whose source GRD it does not carry."""
+    from floodfusion.data.assembly import read_acquisition_geometry
+    from floodfusion.data.stac import search_matched_pairs
+
+    from shapely.geometry import MultiPoint, mapping
+
+    from floodfusion.data.assembly import incidence_on_grid
+    from floodfusion.data.chipping import build_analysis_grid
+    from floodfusion.data.s1_annotation import parse_annotation
+
+    _, catalogue = archive
+    truth = parse_annotation(ANNOTATION.read_bytes())
+    swath = MultiPoint(np.column_stack([truth.geolocation["longitude"], truth.geolocation["latitude"]])).convex_hull
+    items = [i if i["collection"] != "sentinel-1-rtc" else {**i, "geometry": mapping(swath)}
+             for i in catalogue.items if i["collection"] != "sentinel-1-grd"]
+    no_grd = InMemoryCatalogue.from_dicts(items)
+    event = EventConfig(event_id="T_po", bbox=BBOX, flood_start=date(2023, 11, 4), flood_end=date(2023, 11, 7),
+                        label_path=Path("unused"), catalogue_url=PC)
+    matched = search_matched_pairs(event.query(), PC, client=no_grd)
+    (geometry,) = read_acquisition_geometry(IngestSources(client=no_grd), matched)
+    assert geometry.source.startswith("orbit model") and geometry.orbit_state == "ascending"
+    assert geometry.look_azimuth_deg == pytest.approx(truth.look_azimuth_deg, abs=0.5)
+    grid = build_analysis_grid(BBOX, 10.0)
+    modelled, measured = incidence_on_grid([geometry], grid), incidence_on_grid([truth], grid)
+    assert np.abs(modelled - measured).max() < 0.8
+    with pytest.raises(LookupError):
+        read_acquisition_geometry(IngestSources(client=no_grd), matched, fallback=False)

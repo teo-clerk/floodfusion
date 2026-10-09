@@ -120,6 +120,11 @@ class EventQuery:
     optical_start, optical_end
         Optional Sentinel-2 window (inclusive at day resolution); defaults to the flood
         window. A label drawn on a named optical scene needs that scene's date.
+    reference_before
+        Optional: the pre-event reference must be acquired **before this date** as well as
+        before the flood window — for a region flooded twice in quick succession
+        (Emilia-Romagna, 2-3 and 16-17 May 2023), the latest same-orbit scene before the
+        second flood still shows the first one.
     """
 
     event_id: str
@@ -131,6 +136,7 @@ class EventQuery:
     orbit_state: str | None = None
     optical_start: datetime | None = None
     optical_end: datetime | None = None
+    reference_before: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -420,9 +426,12 @@ def search_matched_pairs(
     rel = int(post["properties"]["sat:relative_orbit"])
     state = str(post["properties"]["sat:orbit_state"]).lower()
 
-    pre_start = start - timedelta(days=query.pre_event_window_days)
+    pre_end = start
+    if query.reference_before is not None:
+        pre_end = min(start, datetime.combine(query.reference_before.date(), time.min, tzinfo=UTC))
+    pre_start = pre_end - timedelta(days=query.pre_event_window_days)
     candidates = [
-        i for i in _search(client, profile.s1_collection, query.bbox, _interval(pre_start, start - timedelta(seconds=1)))
+        i for i in _search(client, profile.s1_collection, query.bbox, _interval(pre_start, pre_end - timedelta(seconds=1)))
         if _is_usable_s1(i, profile)
         and int(i["properties"]["sat:relative_orbit"]) == rel
         and str(i["properties"]["sat:orbit_state"]).lower() == state
@@ -430,7 +439,7 @@ def search_matched_pairs(
     if not candidates:
         raise NoMatchingPairError(
             f"{query.event_id}: no pre-event scene on relative orbit {rel} ({state}) within "
-            f"{query.pre_event_window_days} days before {start.date()}. Drop the event — do "
+            f"{query.pre_event_window_days} days before {pre_end.date()}. Drop the event — do "
             "not relax the constraint (docs/05 section 2.1, criterion 3)."
         )
     pre_group = _group_acquisitions(candidates)[-1]
