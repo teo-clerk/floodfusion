@@ -92,8 +92,11 @@ s1f11-ingest:  ## Re-fetch every Sen1Floods11 input from Planetary Computer (~40
 s1f11-splits:  ## Leave-one-event-out folds + the published split, with train-only statistics per fold
 	$(PY) -m floodfusion.crossval splits --data-root $(S1F11_ROOT) --raw $(S1F11_RAW) --overlay $(S1F11_OVERLAY)
 
-s1f11-cv:  ## Train + evaluate rows 1-4, 9, 11 on every fold of both protocols
-	$(PY) -m floodfusion.crossval run --data-root $(S1F11_ROOT) --overlay $(S1F11_OVERLAY) --runs-root $(S1F11_RUNS)
+# Add 14 (TerraMind) after `uv sync --extra dev --extra fm`: make s1f11-cv S1F11_LEARNED="4 9 14"
+S1F11_LEARNED ?= 4 9
+s1f11-cv:  ## Train + evaluate rows 1-4, 9, 11 (+14) on every fold; row 9 x3 seeds, others x1
+	$(PY) -m floodfusion.crossval run --data-root $(S1F11_ROOT) --overlay $(S1F11_OVERLAY) --runs-root $(S1F11_RUNS) \
+		--learned-rows $(S1F11_LEARNED)
 
 s1f11-table:  ## reports/sen1floods11_table.md from the run directories alone
 	$(PY) -m floodfusion.crossval table --data-root $(S1F11_ROOT) --runs-root $(S1F11_RUNS)

@@ -197,6 +197,17 @@ def _config_name(row: int) -> str:
     return {**ROW_CONFIGS, **EXTRA_ROWS}[row]
 
 
+#: The reference row: under the affordable protocol it alone gets every seed.
+REFERENCE_ROW = 9
+
+
+def seeds_for(row: int, seeds: Sequence[int], protocol: str) -> list[int]:
+    """Seeds a learned row is trained with: all of them for the reference row (or under 'full')."""
+    if protocol not in ("affordable", "full"):
+        raise ValueError(f"unknown seed protocol {protocol!r}")
+    return list(seeds) if protocol == "full" or row == REFERENCE_ROW else list(seeds[:1])
+
+
 def _run_fold(fold: Fold, args: argparse.Namespace, device: Any) -> None:
     from floodfusion.ablation import ROW_CONFIGS, _finished
     from floodfusion.baseline_runner import run_baseline_row
@@ -211,7 +222,7 @@ def _run_fold(fold: Fold, args: argparse.Namespace, device: Any) -> None:
         if not _finished(out):
             run_baseline_row(cfg, args.data_root, out, attribution=row == 2)
     for row in args.learned_rows:
-        for seed in args.seeds:
+        for seed in seeds_for(row, args.seeds, args.seed_protocol):
             cfg = _fold_config(args.configs_dir, row, args.overlay, fold, seed)
             run_dir = run_dir_for(root, cfg.name, seed)
             if not _finished(run_dir):
@@ -262,7 +273,8 @@ def _protocol_record(args: argparse.Namespace, chip_dir: Path, manifest_name: st
     for row in [*args.baseline_rows, *args.learned_rows]:
         cfg = load_config(args.configs_dir / f"{_config_name(row)}.yaml", overlays=args.overlay)
         configs[str(row)] = config_sha256(config_to_dict(cfg))
-    return {"rows": configs, "seeds": list(args.seeds), "overlays": [str(o) for o in args.overlay],
+    return {"rows": configs, "seeds": {str(r): seeds_for(r, args.seeds, args.seed_protocol) for r in args.learned_rows},
+            "seed_protocol": args.seed_protocol, "overlays": [str(o) for o in args.overlay],
             "folds": [vars(f) for f in folds_on_disk(chip_dir)],
             "manifest_sha256": load_manifest_meta(chip_dir / manifest_name)["manifest_sha256"],
             "git_sha": git_state().get("git_sha")}
@@ -322,7 +334,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     run = sub.choices["run"]
     run.add_argument("--protocol", nargs="+", default=["loeo", "official"], choices=("loeo", "official"))
     run.add_argument("--fold", nargs="*", default=None)
-    run.add_argument("--seeds", type=int, nargs="+", default=[42])
+    run.add_argument("--seeds", type=int, nargs="+", default=[42, 43, 44])
+    run.add_argument("--seed-protocol", choices=("affordable", "full"), default="affordable",
+                     help="affordable (docs/09 2.2): row 9 with every seed, other rows with the first; full: all")
     run.add_argument("--baseline-rows", type=int, nargs="*", default=list(BASELINE_CV_ROWS))
     run.add_argument("--learned-rows", type=int, nargs="*", default=list(LEARNED_CV_ROWS))
     run.add_argument("--device", default=None)

@@ -178,7 +178,8 @@ class TestDriverGuards:
         import argparse
 
         base = dict(configs_dir=Path(__file__).resolve().parents[1] / "configs", overlay=[], runs_root=tmp_path / "runs",
-                    baseline_rows=[2], learned_rows=[9], seeds=[42], new_protocol=False)
+                    baseline_rows=[2], learned_rows=[4, 9], seeds=[42], seed_protocol="affordable",
+                    new_protocol=False)
         base.update(kw)
         return argparse.Namespace(**base)
 
@@ -199,11 +200,13 @@ class TestDriverGuards:
         chip_dir = self._chip_dir(tmp_path)
         _freeze_protocol(self._args(tmp_path), chip_dir, "manifest.parquet")
         frozen = json.loads((tmp_path / "runs" / "protocol.json").read_text())
-        assert set(frozen["rows"]) == {"2", "9"} and frozen["seeds"] == [42] and frozen["manifest_sha256"] == "m1"
+        assert set(frozen["rows"]) == {"2", "4", "9"} and frozen["manifest_sha256"] == "m1"
+        assert frozen["seeds"] == {"4": [42], "9": [42]}
         _freeze_protocol(self._args(tmp_path), chip_dir, "manifest.parquet")        # same protocol: fine
         with pytest.raises(ValueError, match="different protocol"):
             _freeze_protocol(self._args(tmp_path, seeds=[42, 43]), chip_dir, "manifest.parquet")
         _freeze_protocol(self._args(tmp_path, seeds=[42, 43], new_protocol=True), chip_dir, "manifest.parquet")
+        assert json.loads((tmp_path / "runs" / "protocol.json").read_text())["seeds"] == {"4": [42], "9": [42, 43]}
 
     def test_refreezing_one_protocol_keeps_the_others(self, tmp_path, monkeypatch) -> None:
         import floodfusion.splits as splits_mod
@@ -220,3 +223,13 @@ class TestDriverGuards:
         write_folds(chip_dir, Cfg(), {"loeo": leave_one_group_out(_records())})
         protocols = {f.protocol for f in folds_on_disk(chip_dir)}
         assert protocols == {"loeo", "official"} and len(folds_on_disk(chip_dir, "loeo")) == 4
+
+
+def test_affordable_seed_protocol() -> None:
+    from floodfusion.crossval import seeds_for
+
+    assert seeds_for(9, [42, 43, 44], "affordable") == [42, 43, 44]
+    assert seeds_for(4, [42, 43, 44], "affordable") == [42] == seeds_for(14, [42, 43], "affordable")
+    assert seeds_for(4, [42, 43], "full") == [42, 43]
+    with pytest.raises(ValueError):
+        seeds_for(4, [42], "lavish")
