@@ -46,6 +46,10 @@ Repository = "https://github.com/teo-clerk/floodfusion"
 Issues = "https://github.com/teo-clerk/floodfusion/issues"
 
 [project.optional-dependencies]
+# Optional: the TerraMind foundation-model comparison row (IBM/ESA, via TerraTorch).
+fm = [
+    "terratorch>=1.2.5",
+]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
