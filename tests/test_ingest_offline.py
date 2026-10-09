@@ -256,8 +256,12 @@ class TestIngestedEvent:
         out, _ = ingested
         on_disk = json.loads((out / "events" / "T_po" / "event.json").read_text())
         assert set(on_disk["rtc_qa"]) == {"vv_post_db", "vh_post_db", "vv_pre_db", "vh_pre_db"}
-        assert {"pre_vs_post", "terrain_simulation_vs_post", "sar_vs_optical_nir", "p1_m1_pass"} <= set(
-            on_disk["coregistration_qa"])
+        # The optical check uses the alignment's own band (SWIR) and cloud mask since the release
+        # review: the NIR check measured NIR's vegetation bias, not the residual misregistration.
+        qa = on_disk["coregistration_qa"]
+        assert {"pre_vs_post", "terrain_simulation_vs_post", "sar_vs_optical_swir", "p1_m1_pass"} <= set(qa)
+        assert qa["p1_m1_pass"] in (True, False, None)
+        assert all("measurable" in qa[k] and "median_se_px" in qa[k] for k in ("pre_vs_post", "sar_vs_optical_swir"))
         assert (out / "events" / "T_po" / "scenes.json").is_file()
 
     def test_build_dataset_merges_events(self, ingested, cfg) -> None:

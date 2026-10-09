@@ -32,6 +32,7 @@ import numpy as np
 
 __all__ = [
     "median_displacement",
+    "median_shift_se",
     "phase_correlation",
     "simulate_backscatter",
     "structure_image",
@@ -114,21 +115,34 @@ def median_displacement(
     min_peak: float = 0.05,
     min_texture: float = 1e-6,
     upsample_factor: int = 20,
+    valid: np.ndarray | None = None,
+    min_valid_fraction: float = 0.9,
 ) -> dict[str, Any]:
     """Median absolute displacement over many windows (``P1-M1``: must be < 1 px).
 
     Windows with no texture, or whose correlation peak is below ``min_peak`` (nothing
     shared to register), are skipped and counted. Pass structure images (see
-    :func:`structure_image`) for cross-modal pairs.
+    :func:`structure_image`) for cross-modal pairs. With ``valid``, a window is used only
+    where at least ``min_valid_fraction`` of it is valid: cloud or unlabelled pixels filled
+    with a constant would otherwise draw edges that match nothing.
+
+    ``median_se_px`` is the standard error of the median shift vector
+    (:func:`median_shift_se`, corrected for the windows' overlap).
     """
     a = np.asarray(reference, dtype=np.float64)
     b = np.asarray(moving, dtype=np.float64)
     if a.shape != b.shape:
         raise ValueError("reference and moving must share one shape")
+    ok = None if valid is None else np.asarray(valid, dtype=bool)
+    if ok is not None and ok.shape != a.shape:
+        raise ValueError("valid must have the images' shape")
     shifts = []
     skipped = 0
     for r in range(0, a.shape[0] - window + 1, step):
         for c in range(0, a.shape[1] - window + 1, step):
+            if ok is not None and ok[r:r + window, c:c + window].mean() < min_valid_fraction:
+                skipped += 1
+                continue
             wa, wb = a[r:r + window, c:c + window], b[r:r + window, c:c + window]
             if np.nanstd(wa) < min_texture or np.nanstd(wb) < min_texture:
                 skipped += 1
@@ -141,7 +155,7 @@ def median_displacement(
     if not shifts:
         return {"n_windows": 0, "skipped": skipped, "median_abs_displacement": float("nan"),
                 "median_dy": float("nan"), "median_dx": float("nan"), "median_shift_px": float("nan"),
-                "shifts": np.empty((0, 2))}
+                "median_se_px": float("nan"), "shifts": np.empty((0, 2))}
     s = np.asarray(shifts)
     return {
         "n_windows": len(shifts),
@@ -153,8 +167,26 @@ def median_displacement(
         # per-window magnitudes above also carries each window's random error, which for a
         # cross-modal (SAR vs optical) pair is several pixels even when the images agree.
         "median_shift_px": float(np.hypot(np.median(s[:, 0]), np.median(s[:, 1]))),
+        "median_se_px": median_shift_se(s, overlap_factor=max(1.0, (window / step) ** 2)),
         "shifts": s,
     }
+
+
+def median_shift_se(shifts: np.ndarray, *, overlap_factor: float = 1.0) -> float:
+    r"""Standard error (px) of the median shift vector of per-window ``(dy, dx)`` shifts.
+
+    Per axis :math:`1.2533\,\hat\sigma/\sqrt{n_{\mathrm{eff}}}` with the robust
+    :math:`\hat\sigma = 1.4826\,\mathrm{MAD}`, and :math:`n_{\mathrm{eff}} = n /`
+    ``overlap_factor`` — windows overlapping by half in both axes share each pixel four times.
+    A check whose windows scatter (noise matches on flat terrain) gets a large error and is
+    *not measurable*, rather than *failed*. ``nan`` below two windows.
+    """
+    s = np.asarray(shifts, dtype=np.float64).reshape(-1, 2)
+    if len(s) < 2:
+        return float("nan")
+    sigma = 1.4826 * np.median(np.abs(s - np.median(s, axis=0)), axis=0)
+    se = 1.2533 * sigma / np.sqrt(len(s) / overlap_factor)
+    return float(np.hypot(se[0], se[1]))
 
 
 def simulate_backscatter(

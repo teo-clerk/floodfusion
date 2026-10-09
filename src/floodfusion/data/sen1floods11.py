@@ -65,11 +65,13 @@ from floodfusion.data.archive import (
     items_in_bbox,
 )
 from floodfusion.data.assembly import (
+    SHIFT_MAX_CI_PX,
     GridReference,
     GridTask,
     assemble_on_grid,
     expand_grid,
-    pooled_optical_shift,
+    label_window_shifts,
+    pooled_shift,
     read_acquisition_geometry,
     sar_optical_window_shifts,
 )
@@ -91,6 +93,7 @@ __all__ = [
     "HandChip",
     "S1F11Event",
     "chip_reference",
+    "choose_event_shift",
     "download",
     "ingest_sen1floods11",
     "list_hand_chips",
@@ -130,8 +133,10 @@ _LABEL_SENTINEL = -32768
 DEFAULT_MARGIN_PX = 256
 #: The dataset's date is a calendar date; the same orbit cannot repeat within a day.
 _DATE_TOLERANCE_DAYS = 1
-#: Chips sampled per event to measure the pass-level SAR-optical misregistration.
-_SHIFT_SAMPLE_CHIPS = 24
+#: Chips sampled per event to measure its misregistration (all of them for every event but India).
+_SHIFT_SAMPLE_CHIPS = 64
+#: A label-based event shift needs this many chips: the interval resamples chips.
+_LABEL_MIN_GRIDS = 5
 
 
 # ---------------------------------------------------------------------------
@@ -414,60 +419,87 @@ def _to_grid_crs(geometry: Any, epsg: int) -> Any:
     return shapely.transform(geometry, lambda x, y: to_grid.transform(x, y), interleaved=False)
 
 
-def _event_optical_shift(chips: Sequence[HandChip], footprints: Mapping[str, Sequence[float]],
-                         archive: _EventArchive, cfg: ExperimentConfig) -> dict[str, Any]:
-    """The whole-pixel shift that moves this event's Sentinel-2 pass onto the SAR geometry.
+def choose_event_shift(optical: Mapping[str, Any], label: Mapping[str, Any], *,
+                       max_ci_px: float = SHIFT_MAX_CI_PX, min_grids: int = _LABEL_MIN_GRIDS) -> dict[str, Any]:
+    """The one whole-pixel shift that moves an event's labels and Sentinel-2 onto the SAR.
+
+    The labels were drawn on the Sentinel-2 image (they follow it to ~0 px on 8 of 10 events),
+    so both move together. The label's water edges against the SAR's measure that offset where
+    clouds leave the SWIR estimate too few clear windows — India, Mekong, Bolivia and Sri Lanka
+    kept labels 1-3 px off the SAR under SWIR alone. The label estimate decides when it is a
+    measurement (at least ``min_grids`` chips, 95 % interval within ``max_ci_px``); otherwise
+    the label-free SWIR estimate does. This uses labels for a two-parameter, per-event
+    registration applied identically for every model; it is disclosed in DATA_CARD.md.
+    """
+    precise = (label.get("n_grids", 0) >= min_grids
+               and float(label.get("ci_halfwidth_px", float("nan"))) <= max_ci_px)
+    chosen = label if precise else optical
+    return {"shift_px": [int(v) for v in chosen["shift_px"]], "source": "label" if precise else "optical",
+            "optical": dict(optical), "label": dict(label)}
+
+
+def _event_shift(chips: Sequence[HandChip], footprints: Mapping[str, Sequence[float]],
+                 archive: _EventArchive, cfg: ExperimentConfig) -> dict[str, Any]:
+    """Measure an event's SWIR and label offsets against the SAR and choose its shift.
 
     Geolocation error of an optical pass is a property of the pass (attitude, ephemeris),
-    not of a 5 km chip: one shift is measured from the pooled windows of up to
-    :data:`_SHIFT_SAMPLE_CHIPS` chips (clouds masked) and applied to every chip.
+    not of a 5 km chip: both offsets are pooled over the windows of up to
+    :data:`_SHIFT_SAMPLE_CHIPS` chips (clouds masked, unlabelled pixels skipped) and one
+    shift (:func:`choose_event_shift`) is applied to every chip.
     """
     import rasterio
 
-    from floodfusion.data.chipping import CLEAR_QUALITY
+    from floodfusion.data.chipping import CLEAR_QUALITY, reproject_to_grid
     from floodfusion.data.sources import read_s1_rtc, read_s2_reflectance
     from floodfusion.masks import quality_from_scl
 
     # Evenly spread over the event (ids sort roughly by place): not the first N chips.
     picks = np.unique(np.linspace(0, len(chips) - 1, min(len(chips), _SHIFT_SAMPLE_CHIPS)).round().astype(int))
-    shifts = []
+    optical_shifts, label_shifts = [], []
     for chip in [chips[int(i)] for i in picks]:
         footprint = footprints[chip.chip_id]
         try:
             matched = _restrict(archive.matched, archive.by_id, footprint)
         except NoMatchingPairError:
             continue
-        if not matched.s2_ids:
-            continue
         grid = build_analysis_grid(tuple(footprint), cfg.grid.pixel_size_m)
         with rasterio.Env(**GDAL_ENV):
             vv, _ = read_s1_rtc(items_by_id(archive.catalogue, PROFILES["planetary_computer"].s1_collection,
                                             matched.s1_post_frames), grid, "VV")
-            rho, scl, _ = read_s2_reflectance(items_by_id(archive.catalogue, "sentinel-2-l2a", matched.s2_ids), grid)
-        rho = np.where(quality_from_scl(scl)[None] >= CLEAR_QUALITY, rho, np.nan)
-        if np.isfinite(rho[1]).mean() > 0.2:
-            shifts.append(sar_optical_window_shifts(vv, rho))
-    result = pooled_optical_shift(shifts)
-    LOGGER.info("%s: optical pass offset %s px from %d windows on %d chips -> shift %s", chips[0].event,
-                np.round(result["median_shift"], 2).tolist(), result["n_windows"], result["n_grids"], result["shift_px"])
+            raw = reproject_to_grid(str(chip.label_path), grid, kind="categorical", src_nodata=_LABEL_SENTINEL,
+                                    dtype="float32")
+            rho, scl = (read_s2_reflectance(items_by_id(archive.catalogue, "sentinel-2-l2a", matched.s2_ids), grid)[:2]
+                        if matched.s2_ids else (None, None))
+        label_shifts.append(label_window_shifts(vv, np.where(raw == 1, 1.0, np.where(raw == 0, 0.0, np.nan))))
+        if rho is not None:
+            rho = np.where(quality_from_scl(scl)[None] >= CLEAR_QUALITY, rho, np.nan)
+            if np.isfinite(rho[1]).mean() > 0.2:
+                optical_shifts.append(sar_optical_window_shifts(vv, rho))
+    result = choose_event_shift(pooled_shift(optical_shifts), pooled_shift(label_shifts))
+    for name in ("optical", "label"):
+        r = result[name]
+        LOGGER.info("%s: %s offset %s px (95%% +/- %.2f) from %d windows on %d chips", chips[0].event, name,
+                    np.round(r["median_shift"], 2).tolist(), r["ci_halfwidth_px"], r["n_windows"], r["n_grids"])
+    LOGGER.info("%s: labels and optical move by %s px (%s estimate)", chips[0].event, result["shift_px"],
+                result["source"])
     return result
 
 
 def _ingest_chip(chip: HandChip, event: S1F11Event, archive: _EventArchive, footprint: Sequence[float],
                  event_polygon: Any, out_root: Path, cfg: ExperimentConfig, sources: IngestSources,
-                 margin_px: int, split_epsg: int, optical_shift: Sequence[int]) -> dict[str, Any]:
+                 margin_px: int, split_epsg: int, event_shift: Mapping[str, Any]) -> dict[str, Any]:
     import rasterio
 
     # Every GDAL read of this chip — reference layers included — runs with bounded HTTP
     # timeouts: rasterio.Env is per thread, and this runs in a worker thread.
     with rasterio.Env(**GDAL_ENV):
         return _assemble_chip(chip, event, archive, footprint, event_polygon, out_root, cfg, sources, margin_px,
-                              split_epsg, optical_shift)
+                              split_epsg, event_shift)
 
 
 def _assemble_chip(chip: HandChip, event: S1F11Event, archive: _EventArchive, footprint: Sequence[float],
                    event_polygon: Any, out_root: Path, cfg: ExperimentConfig, sources: IngestSources,
-                   margin_px: int, split_epsg: int, optical_shift: Sequence[int]) -> dict[str, Any]:
+                   margin_px: int, split_epsg: int, event_shift: Mapping[str, Any]) -> dict[str, Any]:
     from rasterio.warp import transform_bounds
 
     grid = build_analysis_grid(tuple(footprint), cfg.grid.pixel_size_m)
@@ -480,9 +512,11 @@ def _assemble_chip(chip: HandChip, event: S1F11Event, archive: _EventArchive, fo
                                  [i for i in archive.worldcover if _overlaps(i["bbox"], footprint)]),
         basins={event.group: _to_grid_crs(event_polygon, grid.epsg)},
         dem_items=tuple(i for i in archive.dem if _overlaps(i["bbox"], wide)),
-        extra_meta={"sen1floods11": {"chip_id": chip.chip_id, **{k: str(v) for k, v in asdict(event).items()}}},
+        extra_meta={"sen1floods11": {"chip_id": chip.chip_id, **{k: str(v) for k, v in asdict(event).items()}},
+                    "event_shift": {"shift_px": [int(v) for v in event_shift["shift_px"]],
+                                    "source": event_shift["source"]}},
         terrain_margin_px=margin_px, label_follows_optical=True,
-        optical_shift_px=(int(optical_shift[0]), int(optical_shift[1])),
+        optical_shift_px=(int(event_shift["shift_px"][0]), int(event_shift["shift_px"][1])),
         generator="floodfusion.data.sen1floods11 (labels: Sen1Floods11 v1.1; inputs: Planetary Computer)",
     )
     chip_sources = IngestSources(client=archive.catalogue, fetch_bytes=sources.fetch_bytes)
@@ -512,7 +546,7 @@ def _ingest_one_event(event: S1F11Event, chips: Sequence[HandChip], out_root: Pa
     try:
         archive = _event_archive(event, _union_bbox(footprints.values()), sources, margin_m)
         polygon = _event_polygon(footprints.values())
-        shift = _event_optical_shift(chips, footprints, archive, cfg)
+        shift = _event_shift(chips, footprints, archive, cfg)
     except NoMatchingPairError as exc:
         LOGGER.error("%s dropped: %s", event.group, exc)
         return {**status, **{c.chip_id: f"dropped: {exc}" for c in todo}}
@@ -520,12 +554,12 @@ def _ingest_one_event(event: S1F11Event, chips: Sequence[HandChip], out_root: Pa
         message = f"failed: {type(exc).__name__}: {redact(str(exc))[:300]}"
         LOGGER.error("%s %s\n%s", event.group, message, redacted_traceback(exc))
         return {**status, **{c.chip_id: message for c in todo}}
-    status["optical_shift"] = json.dumps(shift)
+    status["event_shift"] = json.dumps(shift, allow_nan=True)
 
     def run(chip: HandChip) -> tuple[str, str]:
         try:
             meta = _ingest_chip(chip, event, archive, footprints[chip.chip_id], polygon, out_root, cfg, sources,
-                                margin_px, split_epsg, shift["shift_px"])
+                                margin_px, split_epsg, shift)
             if not meta["n_chips"]:
                 return chip.chip_id, f"dropped: no window passed the filters {meta['chip_counts']}"
             return chip.chip_id, f"ok: {meta['n_chips']} windows, optical={meta['has_optical']}"
@@ -580,7 +614,7 @@ def ingest_sen1floods11(
                     metadata[name].s2_date)
         report["events"][name] = _ingest_one_event(metadata[name], event_chips, out_root, cfg, sources,
                                                    margin_px, split_epsg, workers)
-    outcomes = [o for ev in report["events"].values() for k, o in ev.items() if k != "optical_shift"]
+    outcomes = [o for ev in report["events"].values() for k, o in ev.items() if k != "event_shift"]
     report["summary"] = {k: sum(o.startswith(k) for o in outcomes) for k in ("ok", "done-before", "dropped", "failed")}
     out_root.mkdir(parents=True, exist_ok=True)
     atomic_write_bytes(out_root / "ingest_report.json", json.dumps(report, indent=2).encode("utf-8"))

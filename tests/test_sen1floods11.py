@@ -194,3 +194,37 @@ class TestChipReference:
         assert np.isnan(ref.label[ref.inside_aoi]).mean() == pytest.approx(0.1, abs=0.03)  # the -1 strip
         assert ref.permanent.any() and not (ref.label[ref.permanent] == 1).any()           # flood != permanent
         assert (ref.landcover == 0).all()                                                  # no WorldCover given
+
+
+_OPTICAL_ESTIMATE = {"n_windows": 600, "n_grids": 20, "median_shift": [0.1, 0.3], "shift_px": [0, 0],
+                     "ci_halfwidth_px": 0.4}
+
+
+class TestEventShiftDecision:
+    """One whole-pixel shift per event for label + optical (DATA_CARD: label registration)."""
+
+    OPTICAL = _OPTICAL_ESTIMATE
+
+    def test_a_precise_label_estimate_decides(self) -> None:
+        from floodfusion.data.sen1floods11 import choose_event_shift
+
+        label = {"n_windows": 900, "n_grids": 30, "median_shift": [0.2, 2.6], "shift_px": [0, 3], "ci_halfwidth_px": 0.4}
+        out = choose_event_shift(self.OPTICAL, label)
+        assert out["shift_px"] == [0, 3] and out["source"] == "label"
+        assert out["optical"] == self.OPTICAL and out["label"] == label
+
+    def test_an_imprecise_or_missing_label_estimate_falls_back_to_the_optical_one(self) -> None:
+        from floodfusion.data.sen1floods11 import choose_event_shift
+
+        vague = {"n_windows": 90, "n_grids": 6, "median_shift": [-0.9, 1.0], "shift_px": [-1, 1], "ci_halfwidth_px": 4.2}
+        assert choose_event_shift(self.OPTICAL, vague)["source"] == "optical"
+        assert choose_event_shift(self.OPTICAL, vague)["shift_px"] == [0, 0]
+        empty = {"n_windows": 0, "n_grids": 0, "median_shift": [float("nan")] * 2, "shift_px": [0, 0],
+                 "ci_halfwidth_px": float("nan")}
+        assert choose_event_shift(self.OPTICAL, empty)["source"] == "optical"
+
+    def test_too_few_chips_never_decide(self) -> None:
+        from floodfusion.data.sen1floods11 import choose_event_shift
+
+        two_chips = {"n_windows": 400, "n_grids": 2, "median_shift": [0.0, 2.0], "shift_px": [0, 2], "ci_halfwidth_px": 0.1}
+        assert choose_event_shift(self.OPTICAL, two_chips)["source"] == "optical"

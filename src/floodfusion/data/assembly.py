@@ -56,7 +56,10 @@ __all__ = [
     "circular_mean_deg",
     "expand_grid",
     "incidence_on_grid",
-    "pooled_optical_shift",
+    "label_window_shifts",
+    "pooled_shift",
+    "pooled_shift_ci_halfwidth",
+    "qa_verdict",
     "read_acquisition_geometry",
     "sar_optical_window_shifts",
     "shift_pixels",
@@ -73,6 +76,16 @@ _SAR_LAYERS = ("vv_post_db", "vh_post_db", "vv_pre_db", "vh_pre_db")
 #: A co-registration check on fewer windows is not a measurement (flat terrain offers the
 #: terrain simulation nothing to correlate; one window's peak is noise).
 MIN_QA_WINDOWS = 5
+#: ...and neither is one whose median shift has a standard error above this (overlap-corrected,
+#: see coregistration.median_shift_se). Calibrated on the release data's null case — same-orbit
+#: pre/post RTC pairs, which agree by construction: of the 379 Sen1Floods11 grids, those within
+#: this bound read >= 1 px in 2 % of cases, the others in 36 %. A 1 px verdict is then >= 2 SE
+#: from zero.
+QA_MAX_SE_PX = 0.5
+#: A pooled pass/event shift is applied only if its 95 % interval (chips resampled, since the
+#: windows of one chip are not independent) is at most this wide on each side.
+SHIFT_MAX_CI_PX = 0.5
+_BOOTSTRAP_RESAMPLES = 200
 #: A systematic SAR-optical misregistration of at least this many pixels is corrected by
 #: moving the optical layers onto the SAR/DEM geometry (measured on the real archive:
 #: Sentinel-2 L2A of 2018-2019 sits ~2 px from the RTC gamma0; see align_optical_to_sar).
@@ -360,18 +373,21 @@ def shift_pixels(array: np.ndarray, dy: int, dx: int, fill: Any) -> np.ndarray:
     return out
 
 
-def pooled_optical_shift(per_grid_shifts: Sequence[np.ndarray], *,
-                         min_shift_px: float = OPTICAL_SHIFT_MIN_PX) -> dict[str, Any]:
-    """One whole-pixel SAR-optical shift from the window shifts of many grids of one pass.
+def pooled_shift(per_grid_shifts: Sequence[np.ndarray], *,
+                 min_shift_px: float = OPTICAL_SHIFT_MIN_PX) -> dict[str, Any]:
+    """One whole-pixel shift from the window shifts of many grids of one pass (or event).
 
     The median over **all windows** (not the median of per-grid medians), so a grid with
     few textured windows weighs little. ``shift_px`` is ``[0, 0]`` below ``min_shift_px``
-    or with fewer than :data:`MIN_QA_WINDOWS` windows in total.
+    or with fewer than :data:`MIN_QA_WINDOWS` windows in total. ``ci_halfwidth_px`` is the
+    precision of the median (:func:`pooled_shift_ci_halfwidth`); deciding whether it is
+    good enough is the caller's choice.
     """
     shifts = [np.asarray(s, dtype=np.float64).reshape(-1, 2) for s in per_grid_shifts]
     allw = np.concatenate(shifts) if shifts else np.empty((0, 2))
     out: dict[str, Any] = {"n_windows": int(len(allw)), "n_grids": sum(1 for s in shifts if len(s)),
-                           "median_shift": [float("nan"), float("nan")], "shift_px": [0, 0]}
+                           "median_shift": [float("nan"), float("nan")], "shift_px": [0, 0],
+                           "ci_halfwidth_px": pooled_shift_ci_halfwidth(shifts)}
     if len(allw) < MIN_QA_WINDOWS:
         return out
     dy, dx = np.median(allw, axis=0)
@@ -381,8 +397,49 @@ def pooled_optical_shift(per_grid_shifts: Sequence[np.ndarray], *,
     return out
 
 
+def pooled_shift_ci_halfwidth(per_grid_shifts: Sequence[np.ndarray], *, n_boot: int = _BOOTSTRAP_RESAMPLES,
+                              seed: int = 0) -> float:
+    """Half-width (px, worse axis) of the 95 % interval of the pooled median shift.
+
+    Grids are resampled with replacement — the windows of one grid overlap and share its
+    content, so the grid is the independent unit. Chips that disagree (half say 0 px, half
+    4 px) give a wide interval however many windows each has. ``nan`` without windows.
+    """
+    grids = [np.asarray(s, dtype=np.float64).reshape(-1, 2) for s in per_grid_shifts]
+    grids = [g for g in grids if len(g)]
+    if not grids:
+        return float("nan")
+    rng = np.random.default_rng(seed)
+    medians = np.array([np.median(np.concatenate([grids[i] for i in rng.integers(0, len(grids), len(grids))]), axis=0)
+                        for _ in range(n_boot)])
+    lo, hi = np.percentile(medians, [2.5, 97.5], axis=0)
+    return float(np.max((hi - lo) / 2.0))
+
+
+def label_window_shifts(sar_post_db: np.ndarray, label: np.ndarray) -> np.ndarray:
+    """Per-window ``(dy, dx)`` of a water label (1 water, 0 land, NaN unlabelled) relative to SAR.
+
+    Its water edges against the SAR's: the edges a flood label is drawn along, and the
+    sharpest structure C-band has. Windows less than 90 % labelled are skipped.
+    """
+    from floodfusion.data.coregistration import median_displacement, structure_image
+
+    lab = np.asarray(label, dtype=np.float64)
+    sar = np.asarray(sar_post_db, dtype=np.float64)
+    valid = np.isfinite(lab) & np.isfinite(sar)
+    if not valid.any():
+        return np.empty((0, 2))
+    post = np.nan_to_num(sar, nan=float(np.nanmedian(sar[valid])))
+    water = np.where(np.isfinite(lab), lab, 0.0)
+    return median_displacement(structure_image(post, log=False), structure_image(water, log=False),
+                               valid=valid)["shifts"]
+
+
 def sar_optical_window_shifts(sar_post_db: np.ndarray, reflectance: np.ndarray) -> np.ndarray:
-    """Per-window ``(dy, dx)`` of optical SWIR relative to SAR (input of :func:`pooled_optical_shift`)."""
+    """Per-window ``(dy, dx)`` of optical SWIR relative to SAR (input of :func:`pooled_shift`).
+
+    NaN reflectance (cloud) does not vote: windows less than 90 % clear are skipped.
+    """
     return _sar_optical_offset(sar_post_db, reflectance)["shifts"]
 
 
@@ -392,15 +449,19 @@ def sar_optical_window_shifts(sar_post_db: np.ndarray, reflectance: np.ndarray) 
 _ALIGNMENT_BAND = 2
 
 
-def _sar_optical_offset(sar_post_db: np.ndarray, reflectance: np.ndarray) -> dict[str, Any]:
+def _sar_optical_offset(sar_post_db: np.ndarray, reflectance: np.ndarray,
+                        quality: np.ndarray | None = None) -> dict[str, Any]:
     from floodfusion.data.coregistration import median_displacement, structure_image
 
-    post = np.nan_to_num(sar_post_db, nan=float(np.nanmedian(sar_post_db)))
-    swir = reflectance[_ALIGNMENT_BAND]
-    if not np.isfinite(swir).any():
+    swir = np.asarray(reflectance[_ALIGNMENT_BAND], dtype=np.float64)
+    valid = np.isfinite(swir) & np.isfinite(sar_post_db)
+    if quality is not None:
+        valid &= np.asarray(quality) >= CLEAR_QUALITY
+    if not valid.any():
         return median_displacement(np.zeros((1, 1)), np.zeros((1, 1)))
-    swir = np.nan_to_num(swir, nan=float(np.nanmedian(swir)))
-    return median_displacement(structure_image(post, log=False), structure_image(swir, log=True))
+    post = np.nan_to_num(sar_post_db, nan=float(np.nanmedian(sar_post_db)))
+    swir = np.where(valid, swir, float(np.median(swir[valid])))
+    return median_displacement(structure_image(post, log=False), structure_image(swir, log=True), valid=valid)
 
 
 def align_optical_to_sar(
@@ -417,9 +478,10 @@ def align_optical_to_sar(
 
     The SAR/DEM geometry is the reference: RTC gamma0 is geocoded with precise orbits and
     the same DEM as every terrain layer. The systematic offset is the median shift vector
-    over many windows of SAR and SWIR (B11) structure images; it is applied in **whole pixels**
-    when its length reaches ``min_shift_px`` (sub-pixel residuals stay — moving by a
-    fraction would resample the optical a second time).
+    over many clear windows of SAR and SWIR (B11) structure images; it is applied in **whole
+    pixels** when its length reaches ``min_shift_px`` and it is a measurement (standard error
+    at most :data:`QA_MAX_SE_PX`). Sub-pixel residuals stay — moving by a fraction would
+    resample the optical a second time.
 
     ``fixed_shift_px`` applies a shift measured elsewhere — pooled over every grid of one
     optical pass, which is where the error lives — and only reports this grid's own estimate.
@@ -427,15 +489,17 @@ def align_optical_to_sar(
     Returns ``(reflectance, quality, label, inside_aoi, info)``; vacated pixels become NaN
     reflectance, quality 0 (not clear), NaN label and outside the AOI.
     """
-    measured = _sar_optical_offset(sar_post_db, reflectance)
+    measured = _sar_optical_offset(sar_post_db, reflectance, quality)
     info: dict[str, Any] = {"measured_shift_px": [measured["median_dy"], measured["median_dx"]],
+                            "measured_se_px": measured["median_se_px"],
                             "n_windows": measured["n_windows"], "applied_shift_px": [0, 0],
                             "label_shifted": False, "source": "this grid" if fixed_shift_px is None else "pooled"}
     if fixed_shift_px is not None:
         dy, dx = int(fixed_shift_px[0]), int(fixed_shift_px[1])
         if (dy, dx) == (0, 0):
             return reflectance, quality, label, inside_aoi, info
-    elif measured["n_windows"] < MIN_QA_WINDOWS or not measured["median_shift_px"] >= min_shift_px:
+    elif (measured["n_windows"] < MIN_QA_WINDOWS or not measured["median_se_px"] <= QA_MAX_SE_PX
+          or not measured["median_shift_px"] >= min_shift_px):
         return reflectance, quality, label, inside_aoi, info
     else:
         dy, dx = round(measured["median_dy"]), round(measured["median_dx"])
@@ -480,8 +544,26 @@ def _coregister(task: GridTask, sar: Mapping[str, np.ndarray], optical: _Optical
     return optical, ref, info
 
 
+def qa_verdict(checks: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
+    """Mark each check measurable or not and give the ``P1-M1`` verdict over the measurable ones.
+
+    ``p1_m1_pass`` is ``True`` when every measurable check is below 1 px, ``False`` when one is
+    not, and ``None`` when nothing could be measured (flat, textureless or cloud-covered grids):
+    "not measured" is not "failed".
+    """
+    out: dict[str, Any] = {}
+    measured = []
+    for name, check in checks.items():
+        ok = check["n_windows"] >= MIN_QA_WINDOWS and check.get("median_se_px", float("nan")) <= QA_MAX_SE_PX
+        out[name] = {**check, "measurable": bool(ok)}
+        if ok:
+            measured.append(check["median_shift_px"])
+    out["p1_m1_pass"] = None if not measured else all(m < 1.0 for m in measured)
+    return out
+
+
 def _coregistration_qa(sar: Mapping[str, np.ndarray], terrain: Mapping[str, np.ndarray],
-                       reflectance: np.ndarray | None) -> dict[str, Any]:
+                       reflectance: np.ndarray | None, quality: np.ndarray | None = None) -> dict[str, Any]:
     """``P1-M1``: median displacements (pixels) between layers that must be co-registered."""
     from floodfusion.data.coregistration import (
         median_displacement,
@@ -495,21 +577,16 @@ def _coregistration_qa(sar: Mapping[str, np.ndarray], terrain: Mapping[str, np.n
     post = np.nan_to_num(sar["vv_post_db"], nan=float(np.nanmedian(sar["vv_post_db"])))
     pre = np.nan_to_num(sar["vv_pre_db"], nan=float(np.nanmedian(sar["vv_pre_db"])))
     qa = {
-        "pre_vs_post": summary(median_displacement(structure_image(pre, log=False), structure_image(post, log=False))),
+        "pre_vs_post": summary(median_displacement(
+            structure_image(pre, log=False), structure_image(post, log=False),
+            valid=np.isfinite(sar["vv_pre_db"]) & np.isfinite(sar["vv_post_db"]))),
         "terrain_simulation_vs_post": summary(validate_geocoding(
             post, terrain["theta_loc"], shadow=terrain["shadow"], layover=terrain["layover"])),
     }
     if reflectance is not None:
-        nir = np.nan_to_num(reflectance[1], nan=float(np.nanmedian(reflectance[1])))
-        qa["sar_vs_optical_nir"] = summary(median_displacement(
-            structure_image(post, log=False), structure_image(nir, log=True)))
-    measured = []
-    for check in qa.values():
-        check["measurable"] = check["n_windows"] >= MIN_QA_WINDOWS
-        if check["measurable"]:
-            measured.append(check["median_shift_px"])
-    qa["p1_m1_pass"] = bool(measured) and all(m < 1.0 for m in measured)
-    return qa
+        # The alignment's own band and cloud mask: a per-grid check of what was applied.
+        qa["sar_vs_optical_swir"] = summary(_sar_optical_offset(sar["vv_post_db"], reflectance, quality))
+    return qa_verdict(qa)
 
 
 def _grid_meta(task: GridTask, ref: GridReference, phi: float, theta: np.ndarray, optical: _OpticalLayers,
@@ -592,13 +669,16 @@ def assemble_on_grid(task: GridTask, cfg: ExperimentConfig, sources: IngestSourc
     meta = {
         **_grid_meta(task, ref, phi, theta, optical, {**terrain, "nodata": nodata}, validity),
         "chip_counts": counts, "n_chips": len(records), "basins": sorted(task.basins), "rtc_qa": rtc_qa,
-        "coregistration_qa": _coregistration_qa(sar, terrain, optical.reflectance),
+        "coregistration_qa": _coregistration_qa(sar, terrain, optical.reflectance, optical.quality),
         "optical_alignment": alignment,
     }
     atomic_write_bytes(task.out_dir / "event.json",
                        json.dumps(_json_safe(meta), indent=2, default=str, allow_nan=False).encode("utf-8"))
-    if not meta["coregistration_qa"]["p1_m1_pass"]:
+    verdict = meta["coregistration_qa"]["p1_m1_pass"]
+    if verdict is False:
         LOGGER.warning("%s: P1-M1 co-registration check did not pass: %s", task.event_id, meta["coregistration_qa"])
+    elif verdict is None:
+        LOGGER.info("%s: P1-M1 co-registration not measurable on this grid (no precise check)", task.event_id)
     return meta
 
 

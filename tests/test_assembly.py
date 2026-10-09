@@ -114,15 +114,15 @@ class TestOpticalAlignment:
         assert label2 is None and inside2 is None
 
     def test_pooled_shift_uses_every_window_and_ignores_too_little_evidence(self) -> None:
-        from floodfusion.data.assembly import pooled_optical_shift
+        from floodfusion.data.assembly import pooled_shift
 
         rng = np.random.default_rng(0)
         good = [np.column_stack([rng.normal(0.1, 0.4, 30), rng.normal(2.2, 0.4, 30)]) for _ in range(4)]
         noisy_grid = np.array([[5.0, 0.0], [4.8, 0.2]])           # two outlier windows on one grid
-        pooled = pooled_optical_shift([*good, noisy_grid, np.empty((0, 2))])
+        pooled = pooled_shift([*good, noisy_grid, np.empty((0, 2))])
         assert pooled["shift_px"] == [0, 2] and pooled["n_windows"] == 122 and pooled["n_grids"] == 5
-        assert pooled_optical_shift([np.array([[0.0, 3.0]])])["shift_px"] == [0, 0]          # < 5 windows
-        assert pooled_optical_shift([np.column_stack([np.zeros(20), np.full(20, 0.6)])])["shift_px"] == [0, 0]
+        assert pooled_shift([np.array([[0.0, 3.0]])])["shift_px"] == [0, 0]          # < 5 windows
+        assert pooled_shift([np.column_stack([np.zeros(20), np.full(20, 0.6)])])["shift_px"] == [0, 0]
 
     def test_a_fixed_shift_overrides_the_local_estimate(self) -> None:
         from floodfusion.data.assembly import align_optical_to_sar
@@ -153,3 +153,81 @@ def test_a_cloudy_chip_still_moves_its_label_by_the_pass_shift() -> None:
     Task.label_follows_optical = False                  # a vector label in true geometry stays put
     _, kept, info = _coregister(Task(), {"vv_post_db": np.zeros((40, 40))}, no_optical, ref)
     assert kept is ref and info["applied_shift_px"] == [0, 0]
+
+
+class TestLabelRegistration:
+    """Sen1Floods11: on cloudy events the optical estimate under-reads; label water edges do not."""
+
+    @staticmethod
+    def _flood_scene(dy: int, dx: int):
+        from scipy.ndimage import gaussian_filter
+
+        rng = np.random.default_rng(11)
+        water = gaussian_filter(rng.normal(size=(384, 384)), 6) > 0.0
+        sar_db = np.where(water, -21.0, -9.0) + rng.normal(0.0, 1.0, water.shape)
+        label = np.roll(water, (dy, dx), axis=(0, 1)).astype(np.float64)   # drawn on an offset image
+        label[:, :40] = np.nan                                               # unlabelled strip
+        return sar_db, label
+
+    def test_label_offset_is_measured_and_the_shift_removes_it(self) -> None:
+        from floodfusion.data.assembly import label_window_shifts, pooled_shift, shift_pixels
+
+        # Arrange
+        sar, label = self._flood_scene(0, 3)
+
+        # Act
+        pooled = pooled_shift([label_window_shifts(sar, label)])
+        dy, dx = pooled["shift_px"]
+        residual = pooled_shift([label_window_shifts(sar, shift_pixels(label, dy, dx, np.nan))])
+
+        # Assert
+        assert pooled["shift_px"] == [0, 3]
+        assert np.hypot(*residual["median_shift"]) < 0.5
+
+    def test_unlabelled_windows_do_not_vote(self) -> None:
+        from floodfusion.data.assembly import label_window_shifts
+
+        sar, label = self._flood_scene(0, 0)
+        label[:, :] = np.nan
+        assert len(label_window_shifts(sar, label)) == 0
+
+
+class TestPooledShiftPrecision:
+    def test_agreeing_grids_are_precise(self) -> None:
+        from floodfusion.data.assembly import pooled_shift_ci_halfwidth
+
+        rng = np.random.default_rng(0)
+        grids = [np.column_stack([rng.normal(0.0, 1.0, 40), rng.normal(2.5, 1.0, 40)]) for _ in range(12)]
+        assert pooled_shift_ci_halfwidth(grids) < 0.5
+
+    def test_disagreeing_grids_are_not(self) -> None:
+        # Half the chips say 0 px, half say 4 px: the pooled median is not a measurement.
+        from floodfusion.data.assembly import pooled_shift_ci_halfwidth
+
+        rng = np.random.default_rng(1)
+        grids = [np.column_stack([rng.normal(0.0, 0.3, 40), rng.normal(4.0 * (i % 2), 0.3, 40)]) for i in range(8)]
+        assert pooled_shift_ci_halfwidth(grids) > 1.0
+
+    def test_is_deterministic_and_nan_without_grids(self) -> None:
+        from floodfusion.data.assembly import pooled_shift_ci_halfwidth
+
+        grids = [np.random.default_rng(i).normal(0.0, 1.0, (30, 2)) for i in range(5)]
+        assert pooled_shift_ci_halfwidth(grids) == pooled_shift_ci_halfwidth(grids)
+        assert np.isnan(pooled_shift_ci_halfwidth([])) and np.isnan(pooled_shift_ci_halfwidth([np.empty((0, 2))]))
+
+
+class TestCoregistrationQA:
+    """Flat terrain: noise matches must read 'not measurable', never 'failed'."""
+
+    def test_a_check_is_measurable_only_when_precise(self) -> None:
+        from floodfusion.data.assembly import qa_verdict
+
+        precise = {"n_windows": 80.0, "median_shift_px": 0.1, "median_se_px": 0.05}
+        noise = {"n_windows": 12.0, "median_shift_px": 78.4, "median_se_px": 21.0}
+        failed = {"n_windows": 80.0, "median_shift_px": 2.0, "median_se_px": 0.1}
+
+        assert qa_verdict({"a": dict(precise), "b": dict(noise)})["p1_m1_pass"] is True
+        assert qa_verdict({"a": dict(noise)})["p1_m1_pass"] is None
+        out = qa_verdict({"a": dict(precise), "b": dict(failed), "c": dict(noise)})
+        assert out["p1_m1_pass"] is False
+        assert (out["a"]["measurable"], out["b"]["measurable"], out["c"]["measurable"]) == (True, True, False)

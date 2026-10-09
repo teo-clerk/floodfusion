@@ -8,6 +8,7 @@ from scipy import ndimage
 
 from floodfusion.data.coregistration import (
     median_displacement,
+    median_shift_se,
     phase_correlation,
     simulate_backscatter,
     structure_image,
@@ -53,6 +54,43 @@ class TestMedianDisplacement:
     def test_textureless_windows_are_skipped(self) -> None:
         r = median_displacement(np.ones((256, 256)), np.ones((256, 256)))
         assert r["n_windows"] == 0 and r["skipped"] > 0 and np.isnan(r["median_abs_displacement"])
+
+    def test_windows_mostly_outside_the_valid_mask_are_skipped_not_filled(self) -> None:
+        # Arrange: only the right half is valid (e.g. the left half is cloud or unlabelled).
+        base = _texture((256, 512))
+        valid = np.zeros(base.shape, dtype=bool)
+        valid[:, 256:] = True
+
+        # Act
+        r = median_displacement(structure_image(base, log=False), structure_image(_shift(base, (0.0, 1.0)), log=False),
+                                valid=valid)
+
+        # Assert: 3 rows x 3 cols of 128-px windows (step 64) lie entirely in the right half.
+        assert r["n_windows"] == 9 and r["median_dx"] == pytest.approx(1.0, abs=0.1)
+        assert median_displacement(np.ones((256, 256)), np.ones((256, 256)), valid=np.zeros((256, 256), bool))[
+            "n_windows"] == 0
+
+    def test_valid_mask_must_match_the_images(self) -> None:
+        with pytest.raises(ValueError, match="valid"):
+            median_displacement(np.zeros((256, 256)), np.zeros((256, 256)), valid=np.ones((128, 128), bool))
+
+
+class TestMedianShiftPrecision:
+    def test_consistent_windows_give_a_small_standard_error(self) -> None:
+        shifts = np.random.default_rng(0).normal([0.0, 2.0], 0.3, size=(100, 2))
+        assert median_shift_se(shifts) < 0.15
+
+    def test_scattered_windows_give_a_large_one(self) -> None:
+        # What a terrain simulation matches on a flat plain: a few windows, anywhere.
+        shifts = np.random.default_rng(1).uniform(-60.0, 60.0, size=(12, 2))
+        assert median_shift_se(shifts) > 5.0
+
+    def test_overlap_reduces_the_effective_number_of_windows(self) -> None:
+        shifts = np.random.default_rng(2).normal(0.0, 1.0, size=(64, 2))
+        assert median_shift_se(shifts, overlap_factor=4.0) == pytest.approx(2.0 * median_shift_se(shifts))
+
+    def test_no_windows_is_nan(self) -> None:
+        assert np.isnan(median_shift_se(np.empty((0, 2))))
 
 
 class TestSimulationCheck:
