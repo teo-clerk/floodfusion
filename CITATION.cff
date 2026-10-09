@@ -1,0 +1,48 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "floodfusion: SAR-first Sentinel-1 / Sentinel-2 fusion for near-real-time flood mapping"
+type: software
+authors:
+  - family-names: Clerk
+    given-names: Teo
+version: 1.0.0
+license: MIT
+repository-code: "https://github.com/teo-clerk/floodfusion"
+keywords:
+  - sentinel-1
+  - sentinel-2
+  - synthetic aperture radar
+  - flood mapping
+  - copernicus emergency management service
+  - multimodal fusion
+  - earth observation
+references:
+  - type: article
+    title: "Sen1Floods11: a georeferenced dataset to train and test deep learning flood algorithms for Sentinel-1"
+    authors:
+      - family-names: Bonafilia
+        given-names: Derrick
+      - family-names: Tellman
+        given-names: Beth
+      - family-names: Anderson
+        given-names: Tyler
+      - family-names: Issenberg
+        given-names: Erica
+    year: 2020
+    conference:
+      name: "CVPR Workshops"
+  - type: article
+    title: "Conformal Risk Control"
+    authors:
+      - family-names: Angelopoulos
+        given-names: Anastasios N.
+      - family-names: Bates
+        given-names: Stephen
+      - family-names: Fisch
+        given-names: Adam
+      - family-names: Lei
+        given-names: Lihua
+      - family-names: Schuster
+        given-names: Tal
+    year: 2022
+    journal: "arXiv"

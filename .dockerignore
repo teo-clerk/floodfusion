@@ -1,0 +1,13 @@
+.git
+.venv
+data
+runs
+curriculum
+portfolio_briefing
+reports/products
+reports/figures
+**/__pycache__
+.pytest_cache
+.ruff_cache
+.coverage*
+htmlcov

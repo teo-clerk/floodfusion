@@ -48,7 +48,7 @@ test-gpu:  ## GPU smoke tests only
 	$(UV) run --no-sync pytest -m gpu
 
 cov:  ## Offline suite with a line+branch coverage report
-	$(UV) run --no-sync pytest --cov=floodfusion --cov-report=term-missing
+	$(UV) run --no-sync pytest --cov=floodfusion --cov-report=term-missing --cov-fail-under=80
 
 lint:  ## Static checks
 	$(UV) run --no-sync ruff check src tests

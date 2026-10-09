@@ -12,6 +12,8 @@ license = { text = "MIT" }
 authors = [{ name = "Teo Clerk" }]
 keywords = ["sentinel-1", "sentinel-2", "sar", "flood-mapping", "copernicus", "multimodal-fusion"]
 classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -38,6 +40,10 @@ dependencies = [
     "xarray>=2023.12",
     "requests>=2.31",
 ]
+
+[project.urls]
+Repository = "https://github.com/teo-clerk/floodfusion"
+Issues = "https://github.com/teo-clerk/floodfusion/issues"
 
 [project.optional-dependencies]
 dev = [
