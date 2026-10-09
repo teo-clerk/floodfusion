@@ -1,0 +1,15 @@
+# =============================================================================
+#  Overlay: the synthetic demonstration run (make demo).
+#  Applied ON TOP of every row config; it changes only what the synthetic benchmark
+#  and the session's compute budget require. Recorded verbatim in every run directory.
+#
+#  NOT an ablation row, and its numbers are NEVER real-world accuracy: the benchmark
+#  validates the pipeline (splits, leakage, calibration, VRAM, the table).
+# =============================================================================
+data:
+  chip_root: "chips"           # resolved against --data-root (data/synthetic)
+  num_workers: 4
+  # MEASURED, not guessed (docs/05 section 6.2): `python -m floodfusion.splits` finds an
+  # empirical variogram range of 2300 m (gamma0 VV) and 1200 m (label) on this benchmark,
+  # so the 1000 m default is refused; 2500 m exceeds the governing range.
+  basin_buffer_m: 2500.0

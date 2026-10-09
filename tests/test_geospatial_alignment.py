@@ -27,21 +27,6 @@ import pytest
 from floodfusion.config import GridConfig
 from floodfusion.data.chipping import build_analysis_grid
 
-EXPECT_UNIMPLEMENTED = True
-ALWAYS_PASS = frozenset({
-    "test_origin_snapping_is_deterministic",
-    "test_half_pixel_convention_costs_five_metres",
-    "test_bilinear_interpolation_of_class_indices_invents_water",
-    "test_nearest_neighbour_preserves_class_values",
-    "test_rasterio_and_gdal_orderings_differ",
-    "test_cubic_overshoots_at_a_land_water_edge",
-    "test_vertical_datum_error_maps_to_horizontal_geolocation_error",
-    "test_north_up_grid_has_negative_y_step",
-    "test_downsampling_requires_averaging_not_point_sampling",
-    "test_sub_pixel_criterion_is_one_pixel",
-    "test_phase_correlation_recovers_a_known_shift",
-})
-
 
 class TestAffineConventions:
     def test_origin_snapping_is_deterministic(self) -> None:

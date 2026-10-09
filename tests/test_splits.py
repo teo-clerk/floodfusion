@@ -24,12 +24,6 @@ from floodfusion.splits import (
     random_chip_split,
 )
 
-EXPECT_UNIMPLEMENTED = True
-ALWAYS_PASS = frozenset({
-    "test_assignment_is_frozen",
-    "test_leaky_strategy_is_named_explicitly",
-})
-
 
 def _assignment(strategy: str = "leave_one_basin_out") -> SplitAssignment:
     return SplitAssignment(
