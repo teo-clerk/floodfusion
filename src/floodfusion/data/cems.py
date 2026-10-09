@@ -86,7 +86,35 @@ def _read_capped(response: Any, cap: int, url: str) -> bytes:
     return b"".join(chunks)
 
 
-def _http_get(url: str, *, cap: int, params: Mapping[str, str] | None = None) -> bytes:
+#: Transient server answers retried with exponential backoff (the service returns 502s under load).
+_RETRY_STATUS = (429, 500, 502, 503, 504)
+_RETRIES = 5
+_BACKOFF_S = 2.0
+
+
+class _TransientHTTPError(OSError):
+    pass
+
+
+def _http_get(url: str, *, cap: int, params: Mapping[str, str] | None = None,
+              sleep: Callable[[float], None] | None = None) -> bytes:
+    """GET with retries on transient errors (429/5xx): ``_RETRIES`` attempts, doubling backoff."""
+    import time
+
+    sleep = sleep or time.sleep
+    for attempt in range(_RETRIES):
+        try:
+            return _http_get_once(url, cap=cap, params=params)
+        except _TransientHTTPError as exc:
+            if attempt == _RETRIES - 1:
+                raise
+            wait = _BACKOFF_S * 2**attempt
+            LOGGER.warning("%s — retrying in %.0f s (%d/%d)", exc, wait, attempt + 1, _RETRIES - 1)
+            sleep(wait)
+    raise AssertionError("unreachable")
+
+
+def _http_get_once(url: str, *, cap: int, params: Mapping[str, str] | None = None) -> bytes:
     """GET from the API host; a single redirect is followed only into the CEMS S3 bucket."""
     import requests
 
@@ -96,10 +124,12 @@ def _http_get(url: str, *, cap: int, params: Mapping[str, str] | None = None) ->
             target = _check_url(r.headers.get("Location", ""), (_S3_HOST,))
             with requests.get(target, timeout=(10, _HTTP_TIMEOUT_S), allow_redirects=False, stream=True) as s3:
                 if s3.status_code != 200:
-                    raise OSError(f"HTTP {s3.status_code} from the CEMS bucket for {url}")
+                    error = _TransientHTTPError if s3.status_code in _RETRY_STATUS else OSError
+                    raise error(f"HTTP {s3.status_code} from the CEMS bucket for {url}")
                 return _read_capped(s3, cap, url)
         if r.status_code != 200:
-            raise OSError(f"HTTP {r.status_code} for {url}")
+            error = _TransientHTTPError if r.status_code in _RETRY_STATUS else OSError
+            raise error(f"HTTP {r.status_code} for {url}")
         return _read_capped(r, cap, url)
 
 

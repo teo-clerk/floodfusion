@@ -173,3 +173,23 @@ class TestHttp:
         self._patch(monkeypatch, {api: _Response(200, b"x" * 101)})
         with pytest.raises(OSError, match="larger than"):
             cems._http_get(api, cap=100)
+
+    def test_transient_errors_are_retried_with_backoff(self, monkeypatch) -> None:
+        import requests
+
+        api = "https://rapidmapping.emergency.copernicus.eu/backend/x.json"
+        answers = iter([_Response(502), _Response(503), _Response(200, b"ok")])
+        monkeypatch.setattr(requests, "get", lambda url, **kw: next(answers))
+        waits = []
+        assert cems._http_get(api, cap=100, sleep=waits.append) == b"ok" and waits == [2.0, 4.0]
+
+    def test_permanent_errors_and_exhausted_retries_raise(self, monkeypatch) -> None:
+        import requests
+
+        api = "https://rapidmapping.emergency.copernicus.eu/backend/x.json"
+        monkeypatch.setattr(requests, "get", lambda url, **kw: _Response(404))
+        with pytest.raises(OSError, match="404"):
+            cems._http_get(api, cap=100, sleep=lambda s: None)
+        monkeypatch.setattr(requests, "get", lambda url, **kw: _Response(502))
+        with pytest.raises(OSError, match="502"):
+            cems._http_get(api, cap=100, sleep=lambda s: None)

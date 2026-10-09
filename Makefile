@@ -20,7 +20,7 @@ SEED_PROTOCOL ?= auto
 
 .PHONY: help setup lock preflight test test-fast test-all test-gpu cov lint synth ingest splits \
         baseline train-p1 vram-budget ablation table predict demo clean \
-        s1f11 s1f11-download s1f11-ingest s1f11-splits s1f11-cv s1f11-table
+        s1f11 s1f11-download s1f11-ingest s1f11-splits s1f11-cv s1f11-table stress forli
 
 help:  ## List targets
 	@grep -E '^[a-zA-Z0-9_-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -99,6 +99,17 @@ s1f11-table:  ## reports/sen1floods11_table.md from the run directories alone
 	$(PY) -m floodfusion.crossval table --data-root $(S1F11_ROOT) --runs-root $(S1F11_RUNS)
 
 s1f11: s1f11-download s1f11-ingest s1f11-splits s1f11-cv s1f11-table  ## The whole real-data benchmark
+
+stress:  ## Single-factor stress curves + the gate figure on unseen synthetic landscapes
+	$(PY) -m floodfusion.stress --runs-root $(RUNS_ROOT) --overlay $(OVERLAY) --out reports/stress.md
+
+FORLI_RUN ?= $(S1F11_RUNS)/official/official
+forli:  ## EMSR664 Forlì: every Sentinel-1 pass against every CEMS delineation (zero-shot)
+	$(PY) -m floodfusion.case_study prepare --activation EMSR664 --aoi 1 --out data/emsr664
+	$(PY) -m floodfusion.case_study run --case data/emsr664 --overlay $(S1F11_OVERLAY) \
+		--fusion-run $(FORLI_RUN)/row09_fusion_crossattn/seed42 \
+		--sar-only-run $(FORLI_RUN)/row11_fusion_eval_sar_only/seed42 \
+		--baseline-run $(FORLI_RUN)/row02_baseline_adaptive/baseline --out reports/emsr664_forli.md
 
 predict:  ## Product GeoTIFF for one event stack: make predict RUN=runs/... STACK=... OUT=...
 	$(PY) -m floodfusion.predict --run-dir $(RUN) --stack $(STACK) --out $(OUT)
