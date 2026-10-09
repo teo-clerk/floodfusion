@@ -248,12 +248,13 @@ def _supplementary(summaries: Mapping[str, Mapping[str, Any]]) -> list[str]:
 
 
 def _gaps(summaries: Mapping[str, Mapping[str, Any]], rows: Mapping[str, Sequence[Mapping[str, Any]]],
-          n_boot: int, alpha: float) -> tuple[list[str], dict[str, Any]]:
+          n_boot: int, alpha: float,
+          gaps: Sequence[tuple[int, int, str, str]] = GAPS) -> tuple[list[str], dict[str, Any]]:
     """Paired gaps on MATCHED seeds; a verdict only with enough basins to support one."""
     lines = ["| Gap (B − A) | Question | Seeds | Δ IoU [95 % paired CI] | B > A in | Verdict | Expected sign |",
              "| --- | --- | --- | --- | --- | --- | --- |"]
     out: dict[str, Any] = {}
-    for a, b, question, expected in GAPS:
+    for a, b, question, expected in gaps:
         ra, rb = rows.get(str(a)), rows.get(str(b))
         if ra is None or rb is None or a in _NOT_COMPARABLE or b in _NOT_COMPARABLE:
             continue

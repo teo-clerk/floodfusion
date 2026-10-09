@@ -15,12 +15,15 @@ SEED       ?= 42
 REF_CONFIG := configs/row09_fusion_crossattn.yaml
 EVENT      ?= configs/events/example.yaml
 REAL_ROOT  ?= data/real
+# Seed protocol of the synthetic grid: auto (decided from a measured run), full, affordable.
+SEED_PROTOCOL ?= auto
 
 .PHONY: help setup lock preflight test test-fast test-all test-gpu cov lint synth ingest splits \
-        baseline train-p1 vram-budget ablation table predict demo clean
+        baseline train-p1 vram-budget ablation table predict demo clean \
+        s1f11 s1f11-download s1f11-ingest s1f11-splits s1f11-cv s1f11-table
 
 help:  ## List targets
-	@grep -E '^[a-zA-Z0-9_-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z0-9_-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
 
 setup:  ## Create .venv (Python 3.12) and install the locked dependencies + dev tools
 	$(UV) venv --python 3.12 --allow-existing .venv
@@ -70,10 +73,32 @@ vram-budget:  ## P1-M4.1: predicted vs measured peak VRAM table -> reports/vram_
 	$(PY) -m floodfusion.utils.vram --config $(REF_CONFIG) --out reports/vram_budget.md
 
 ablation:  ## P1-M5: run the whole grid (rows 1-13) and write reports/ablation_table.md
-	$(PY) -m floodfusion.ablation --data-root $(DATA_ROOT) --runs-root $(RUNS_ROOT) --overlay $(OVERLAY)
+	$(PY) -m floodfusion.ablation --data-root $(DATA_ROOT) --runs-root $(RUNS_ROOT) --overlay $(OVERLAY) --protocol $(SEED_PROTOCOL)
 
 table:  ## Regenerate the ablation table from existing run directories (one command)
 	$(PY) -m floodfusion.evaluate --ablation-table --runs-root $(RUNS_ROOT) --out reports/ablation_table.md
+
+S1F11_RAW ?= data/sen1floods11_raw
+S1F11_ROOT ?= data/sen1floods11
+S1F11_RUNS ?= runs/sen1floods11
+S1F11_OVERLAY ?= configs/overlays/sen1floods11.yaml
+
+s1f11-download:  ## Sen1Floods11 hand labels + metadata + split lists (md5-verified; ~3 MB)
+	$(PY) -m floodfusion.data.sen1floods11 download --raw $(S1F11_RAW)
+
+s1f11-ingest:  ## Re-fetch every Sen1Floods11 input from Planetary Computer (~40 min, resumable)
+	$(PY) -m floodfusion.data.sen1floods11 ingest --raw $(S1F11_RAW) --out $(S1F11_ROOT)
+
+s1f11-splits:  ## Leave-one-event-out folds + the published split, with train-only statistics per fold
+	$(PY) -m floodfusion.crossval splits --data-root $(S1F11_ROOT) --raw $(S1F11_RAW) --overlay $(S1F11_OVERLAY)
+
+s1f11-cv:  ## Train + evaluate rows 1-4, 9, 11 on every fold of both protocols
+	$(PY) -m floodfusion.crossval run --data-root $(S1F11_ROOT) --overlay $(S1F11_OVERLAY) --runs-root $(S1F11_RUNS)
+
+s1f11-table:  ## reports/sen1floods11_table.md from the run directories alone
+	$(PY) -m floodfusion.crossval table --data-root $(S1F11_ROOT) --runs-root $(S1F11_RUNS)
+
+s1f11: s1f11-download s1f11-ingest s1f11-splits s1f11-cv s1f11-table  ## The whole real-data benchmark
 
 predict:  ## Product GeoTIFF for one event stack: make predict RUN=runs/... STACK=... OUT=...
 	$(PY) -m floodfusion.predict --run-dir $(RUN) --stack $(STACK) --out $(OUT)

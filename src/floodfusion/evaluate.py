@@ -280,7 +280,8 @@ def evaluate_run(
     test_reservoir = LogitReservoir(RESERVOIR_CAPACITY, seed=seed + 1)
     scored = validate(model, _loader(target, cfg), device=device, cfg=cfg, thresholds=thresholds,
                       force_sar_only=sar_only, crop_px=EVAL_CONTEXT_PX, logit_sink=test_reservoir,
-                      temperature=calibration.temperature, offset=calibration.offset)
+                      temperature=calibration.temperature, offset=calibration.offset,
+                      per_chip_threshold=special["tau_star"])
     metrics = _test_metrics(scored, special, cfg, seed)
     subset = _cloud_free_subset(model, target, cfg, device, sar_only, calibration, special["tau_star"], seed)
     z_t, y_t = test_reservoir.arrays()
@@ -298,6 +299,9 @@ def evaluate_run(
         "val_best_macro_iou_raw": val["best_macro_iou"], "manifest_sha256": data.manifest_sha256,
         "split_sha256": data.split_sha256, "test_chips_sha256": chip_set_sha256(target),
         "cloud_free_subset": subset, "synthetic_data": data.is_synthetic, "evaluation_git": _eval_git(record),
+        # [tp, fp, fn, tn] per chip at tau*: lets a report re-score any chip subset (docs/09 5.3).
+        "per_chip_tau_star": scored["per_chip"],
+        "per_chip_basin": {r.chip_id: r.basin_id for r in target},
     }
     if latency is not None and getattr(device, "type", "") == "cuda":
         result["latency"] = latency(model, device, sar_only)

@@ -57,6 +57,9 @@ LOGGER = logging.getLogger(__name__)
 
 STRATEGY_LOBO = "leave_one_basin_out"
 STRATEGY_RANDOM = "random_chip"
+#: A dataset's own published split, used as published (e.g. Sen1Floods11's): its groups may
+#: overlap by the publisher's design. Reported as within-group, never as generalisation.
+STRATEGY_PUBLISHED = "published"
 
 
 @dataclass(frozen=True)
@@ -530,7 +533,8 @@ def _assert_disjoint(assignment: SplitAssignment, *, allow_basin_overlap: bool) 
         if basins and not allow_basin_overlap:
             raise ValueError(
                 f"{a} and {b} share basins {sorted(basins)[:5]} — spatial leakage. Only "
-                "strategy='random_chip' (ablation row 13) may overlap (docs/05 section 6)."
+                "strategy='random_chip' (ablation row 13) or a dataset's own 'published' split "
+                "may overlap (docs/05 section 6)."
             )
 
 
@@ -572,15 +576,21 @@ def load_splits(path: Path | str, *, expected_manifest_sha256: str | None = None
     values = {k: (tuple(v) if isinstance(v, list) else v) for k, v in raw.items() if k in known}
     values["buffer_m"] = float(values["buffer_m"])
     assignment = SplitAssignment(**values)
-    if assignment.strategy not in {STRATEGY_LOBO, STRATEGY_RANDOM}:
+    if assignment.strategy not in {STRATEGY_LOBO, STRATEGY_RANDOM, STRATEGY_PUBLISHED}:
         raise ValueError(f"{path}: unknown split strategy {assignment.strategy!r}")
-    leaky = assignment.strategy == STRATEGY_RANDOM
+    leaky = assignment.strategy in {STRATEGY_RANDOM, STRATEGY_PUBLISHED}
     _assert_disjoint(assignment, allow_basin_overlap=leaky)
-    if leaky:
+    if assignment.strategy == STRATEGY_RANDOM:
         warnings.warn(
             f"{path}: strategy='random_chip' — a deliberately LEAKY split for ablation row 13 "
             "only. Its score measures recognition, not generalisation; never report it as a "
             "headline number (docs/09 section 5.3).",
+            UserWarning, stacklevel=2,
+        )
+    elif assignment.strategy == STRATEGY_PUBLISHED:
+        warnings.warn(
+            f"{path}: strategy='published' — a dataset's own split whose groups overlap by design. "
+            "Its score is a within-group score, reported only next to a group-blocked one.",
             UserWarning, stacklevel=2,
         )
     if expected_manifest_sha256 and assignment.manifest_sha256 != expected_manifest_sha256:
@@ -780,7 +790,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     # 3. Normalisation statistics from the TRAINING split only.
     train_records = [by_id[c] for c in lobo.train_chips]
     norm = compute_norm_stats(train_records, cfg.norm, cfg.grid, seed=args.seed)
-    atomic_write_bytes(chip_dir / "norm_stats.json", json.dumps({
+    atomic_write_bytes(chip_dir / cfg.data.norm_stats_file, json.dumps({
         "sar_mean_db": list(norm.sar_mean_db), "sar_std_db": list(norm.sar_std_db),
         "computed_on": "train split of splits.json (evaluation-grid chips)",
         "manifest_sha256": manifest_sha,

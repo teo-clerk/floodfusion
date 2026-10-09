@@ -1,0 +1,17 @@
+# =============================================================================
+#  Overlay: the Sen1Floods11 real-data benchmark (make s1f11-cv).
+#  Applied ON TOP of every row config. Fold-specific settings (split file, train-only
+#  normalisation statistics, split strategy) are added per fold by floodfusion.crossval
+#  and recorded in each run directory; nothing here is tuned on test results.
+# =============================================================================
+data:
+  chip_root: "chips"           # resolved against --data-root (data/sen1floods11)
+  num_workers: 4
+
+train:
+  # Compute budget fixed BEFORE any run: ~2 300 training windows per fold; 30 epochs of the
+  # balanced sampler and early stopping on the validation EVENT keep 11 folds x 2 learned
+  # rows inside one overnight session on the RTX 4060 Laptop.
+  epochs: 30
+  warmup_epochs: 3
+  early_stopping_patience: 8

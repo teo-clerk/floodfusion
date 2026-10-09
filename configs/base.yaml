@@ -70,6 +70,7 @@ data:
   chip_root: "chips"
   manifest_name: "manifest.parquet"
   split_file_name: "splits.json"
+  norm_stats_file: "norm_stats.json" # train-only statistics of that split (one per CV fold)
 
   chip_size: 256 # 2.56 km at 10 m
   train_stride: 128 # 50 % overlap — acceptable WITHIN a split only

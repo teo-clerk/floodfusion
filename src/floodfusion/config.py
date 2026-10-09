@@ -183,6 +183,8 @@ class DataConfig:
     chip_root: Path = Path("chips")
     manifest_name: str = "manifest.parquet"
     split_file_name: str = "splits.json"
+    #: Train-only normalisation statistics of that split (one per cross-validation fold).
+    norm_stats_file: str = "norm_stats.json"
 
     chip_size: int = 256
     train_stride: int = 128  # 50 % overlap; acceptable WITHIN a split only
@@ -222,7 +224,7 @@ class DataConfig:
     CHIP_SOURCES: ClassVar[frozenset[str]] = frozenset({"auto", "raster", "synthetic"})
 
     def __post_init__(self) -> None:
-        allowed = {"leave_one_basin_out", "random_chip"}
+        allowed = {"leave_one_basin_out", "random_chip", "published"}
         if self.split_strategy not in allowed:
             raise ValueError(
                 f"split_strategy must be one of {sorted(allowed)}, "

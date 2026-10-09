@@ -1,0 +1,278 @@
+r"""Cross-validation over flood events: leave-one-event-out, and the leaderboard's own split.
+
+A single fixed split of a real dataset offers few test basins; Sen1Floods11 offers eleven
+**events** on five continents. Two protocols are run with the same rows and seeds:
+
+``loeo``
+    One fold per event: the event's evaluation-grid chips are the test set, the next event
+    (sorted order, cyclic — fixed before any run) is the validation set, every chip of the
+    other nine events trains. Each event is tested exactly once, by a model that never saw
+    it, so the per-event confusion matrices of all folds pool into one table with K = 11
+    test events — enough for the interval verdicts the synthetic table had to withhold
+    (:data:`floodfusion.reporting.MIN_BASINS_FOR_VERDICT`).
+``official``
+    The dataset's own hand-labelled split: train, validation and test are drawn from the
+    **same ten events**; Bolivia (``official_bolivia``) is the only held-out event. Scores
+    on it are within-event scores — the leakage row (13) of the ablation, on a public
+    leaderboard. :mod:`floodfusion.cv_report` measures the gap on the *same test chips*.
+
+Normalisation statistics are recomputed on each fold's training chips only. Folds share
+everything else: configuration, seeds, the decision threshold rule, the calibration.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from floodfusion.data.records import ChipRecord, atomic_write_bytes
+from floodfusion.splits import STRATEGY_LOBO, STRATEGY_PUBLISHED, SplitAssignment
+
+__all__ = ["CV_DIR", "LEARNED_CV_ROWS", "Fold", "folds_on_disk", "leave_one_group_out", "main", "official_splits",
+           "run_cv", "write_folds"]
+
+LOGGER = logging.getLogger(__name__)
+
+CV_DIR = "cv"
+BASELINE_CV_ROWS = (1, 2, 3)
+#: Row 11 (row 9 evaluated SAR-only) is derived from every row-9 checkpoint.
+LEARNED_CV_ROWS = (4, 9)
+
+
+@dataclass(frozen=True)
+class Fold:
+    """One fold of one protocol: its split file and its train-only statistics, relative to the chip dir."""
+
+    protocol: str
+    name: str
+    split_file: str
+    norm_file: str
+    strategy: str
+
+    def overrides(self) -> list[str]:
+        return [f"data.split_file_name={self.split_file}", f"data.norm_stats_file={self.norm_file}",
+                f"data.split_strategy={self.strategy}"]
+
+
+# ---------------------------------------------------------------------------
+# Folds
+# ---------------------------------------------------------------------------
+def leave_one_group_out(records: Sequence[ChipRecord], *, manifest_sha256: str = "") -> dict[str, SplitAssignment]:
+    """``{group: split}``: test = the group, validation = the next group, train = the rest.
+
+    Groups are ``record.basin_id`` (one per flood event). Validation and test keep only
+    evaluation-grid chips (every pixel scored once); training keeps every window.
+    """
+    groups = sorted({r.basin_id for r in records})
+    if len(groups) < 3:
+        raise ValueError(f"leave-one-group-out needs >= 3 groups, got {groups}")
+    folds = {}
+    for i, test_group in enumerate(groups):
+        val_group = groups[(i + 1) % len(groups)]
+
+        def chips(group: str) -> tuple[str, ...]:
+            return tuple(sorted(r.chip_id for r in records if r.basin_id == group and r.eval_grid))
+
+        train = tuple(sorted(r.chip_id for r in records if r.basin_id not in (test_group, val_group)))
+        folds[test_group] = SplitAssignment(
+            train_chips=train, val_chips=chips(val_group), test_chips=chips(test_group),
+            train_basins=tuple(g for g in groups if g not in (test_group, val_group)),
+            val_basins=(val_group,), test_basins=(test_group,), buffer_m=0.0,
+            strategy=STRATEGY_LOBO, manifest_sha256=manifest_sha256,
+        )
+    return folds
+
+
+def official_splits(records: Sequence[ChipRecord], chip_split: Mapping[str, str], *,
+                    source_of: Any, manifest_sha256: str = "") -> dict[str, SplitAssignment]:
+    """The dataset's own split, mapped from source chips to our windows.
+
+    ``chip_split`` maps a source chip id to ``train | val | test | bolivia``;
+    ``source_of(record)`` gives a record's source chip id. Returns ``official`` (test = the
+    within-event test chips) and ``official_bolivia`` (test = the held-out event), sharing
+    train and validation. Strategy ``published``: groups overlap across splits by design.
+    """
+    parts: dict[str, list[ChipRecord]] = {"train": [], "val": [], "test": [], "bolivia": []}
+    unknown = 0
+    for r in records:
+        split = chip_split.get(source_of(r))
+        if split is None:
+            unknown += 1
+            continue
+        parts[split].append(r)
+    if unknown:
+        LOGGER.warning("official split: %d windows belong to chips outside the published split lists", unknown)
+
+    def ids(rs: Sequence[ChipRecord], eval_only: bool) -> tuple[str, ...]:
+        return tuple(sorted(r.chip_id for r in rs if r.eval_grid or not eval_only))
+
+    def groups(rs: Sequence[ChipRecord]) -> tuple[str, ...]:
+        return tuple(sorted({r.basin_id for r in rs}))
+
+    train, val = ids(parts["train"], False), ids(parts["val"], True)
+    return {
+        name: SplitAssignment(train_chips=train, val_chips=val, test_chips=ids(parts[test], True),
+                              train_basins=groups(parts["train"]), val_basins=groups(parts["val"]),
+                              test_basins=groups(parts[test]), buffer_m=0.0, strategy=STRATEGY_PUBLISHED,
+                              manifest_sha256=manifest_sha256)
+        for name, test in (("official", "test"), ("official_bolivia", "bolivia"))
+    }
+
+
+def write_folds(chip_dir: Path, cfg: Any, splits: Mapping[str, Mapping[str, SplitAssignment]], *,
+                seed: int = 0) -> list[Fold]:
+    """Freeze every fold's split and its train-only normalisation statistics under ``chip_dir/cv``."""
+    from floodfusion.data.records import load_manifest
+    from floodfusion.splits import compute_norm_stats, freeze_splits
+    from floodfusion.utils.env import git_state
+
+    records = {r.chip_id: r for r in load_manifest(chip_dir / cfg.data.manifest_name)}
+    out_dir = chip_dir / CV_DIR
+    out_dir.mkdir(parents=True, exist_ok=True)
+    folds = []
+    norm_cache: dict[tuple[str, ...], str] = {}
+    for protocol, by_fold in splits.items():
+        for name, split in sorted(by_fold.items()):
+            fold = Fold(protocol, name, f"{CV_DIR}/{protocol}__{name}.json", "", split.strategy)
+            norm_file = norm_cache.get(split.train_chips)
+            if norm_file is None:
+                norm = compute_norm_stats([records[c] for c in split.train_chips], cfg.norm, cfg.grid, seed=seed)
+                norm_file = f"{CV_DIR}/{protocol}__{name}.norm_stats.json"
+                atomic_write_bytes(chip_dir / norm_file, json.dumps({
+                    "sar_mean_db": list(norm.sar_mean_db), "sar_std_db": list(norm.sar_std_db),
+                    "computed_on": f"train split of {fold.split_file}", "manifest_sha256": split.manifest_sha256,
+                }, indent=2).encode("utf-8"))
+                norm_cache[split.train_chips] = norm_file
+            fold = Fold(protocol, name, fold.split_file, norm_file, split.strategy)
+            freeze_splits(split, chip_dir / fold.split_file, metadata={
+                "protocol": protocol, "fold": name, "norm_stats_file": norm_file, **git_state(),
+                "note": "groups are separate flood events (thousands of km apart): no buffer is needed "
+                        "between groups; official folds are within-event by the dataset's design",
+            })
+            folds.append(fold)
+    atomic_write_bytes(out_dir / "folds.json", json.dumps([vars(f) for f in folds], indent=2).encode("utf-8"))
+    return folds
+
+
+def folds_on_disk(chip_dir: Path, protocol: str | None = None) -> list[Fold]:
+    folds = [Fold(**f) for f in json.loads((chip_dir / CV_DIR / "folds.json").read_text(encoding="utf-8"))]
+    return [f for f in folds if protocol is None or f.protocol == protocol]
+
+
+# ---------------------------------------------------------------------------
+# Driver
+# ---------------------------------------------------------------------------
+def _fold_config(configs_dir: Path, row: int, overlays: Sequence[Path], fold: Fold, seed: int | None) -> Any:
+    from floodfusion.ablation import ROW_CONFIGS
+    from floodfusion.config import load_config
+
+    overrides = fold.overrides() + ([f"train.seed={seed}"] if seed is not None else [])
+    return load_config(configs_dir / f"{ROW_CONFIGS[row]}.yaml", overlays=overlays, overrides=overrides)
+
+
+def _run_fold(fold: Fold, args: argparse.Namespace, device: Any) -> None:
+    from floodfusion.ablation import ROW_CONFIGS, _finished
+    from floodfusion.baseline_runner import run_baseline_row
+    from floodfusion.evaluate import evaluate_run
+    from floodfusion.runs import run_dir_for
+    from floodfusion.train import fit, load_training_data
+
+    root = args.runs_root / fold.protocol / fold.name
+    for row in args.baseline_rows:
+        cfg = _fold_config(args.configs_dir, row, args.overlay, fold, None)
+        out = root / cfg.name / "baseline"
+        if not _finished(out):
+            run_baseline_row(cfg, args.data_root, out, attribution=False)
+    for row in args.learned_rows:
+        for seed in args.seeds:
+            cfg = _fold_config(args.configs_dir, row, args.overlay, fold, seed)
+            run_dir = run_dir_for(root, cfg.name, seed)
+            if not _finished(run_dir):
+                fit(load_training_data(cfg, args.data_root), run_dir, device=device, provenance={
+                    "config_path": str(args.configs_dir / f"{ROW_CONFIGS[row]}.yaml"),
+                    "overlays": [str(o) for o in args.overlay], "overrides": [*fold.overrides(), f"train.seed={seed}"],
+                    "data_root": str(args.data_root), "driver": "floodfusion.crossval",
+                    "cv": {"protocol": fold.protocol, "fold": fold.name},
+                })
+                evaluate_run(run_dir, data_root=args.data_root, device=device, figures=False)
+            if row == 9:
+                out = run_dir_for(root, ROW_CONFIGS[11], seed)
+                if not _finished(out):
+                    evaluate_run(run_dir, data_root=args.data_root, device=device, force_sar_only=True,
+                                 out_dir=out, figures=False)
+
+
+def run_cv(args: argparse.Namespace) -> None:
+    from floodfusion.config import load_config
+    from floodfusion.train import resolve_device
+
+    cfg = load_config(args.configs_dir / "row09_fusion_crossattn.yaml", overlays=args.overlay)
+    chip_dir = args.data_root / Path(cfg.data.chip_root).name
+    device = resolve_device(args.device)
+    for protocol in args.protocol:
+        folds = folds_on_disk(chip_dir, protocol)
+        if args.fold:
+            folds = [f for f in folds if f.name in set(args.fold)]
+        for i, fold in enumerate(folds, start=1):
+            LOGGER.info("== %s fold %d/%d: %s", protocol, i, len(folds), fold.name)
+            _run_fold(fold, args, device)
+
+
+def _make_splits(args: argparse.Namespace) -> None:
+    from floodfusion.config import load_config
+    from floodfusion.data.records import load_manifest, load_manifest_meta
+    from floodfusion.data.sen1floods11 import GROUP_PREFIX, official_split
+
+    cfg = load_config(args.configs_dir / "row09_fusion_crossattn.yaml", overlays=args.overlay)
+    chip_dir = args.data_root / Path(cfg.data.chip_root).name
+    manifest = chip_dir / cfg.data.manifest_name
+    records, sha = load_manifest(manifest), load_manifest_meta(manifest)["manifest_sha256"]
+    splits: dict[str, dict[str, SplitAssignment]] = {"loeo": leave_one_group_out(records, manifest_sha256=sha)}
+    if args.raw is not None:
+        splits["official"] = official_splits(records, official_split(args.raw), manifest_sha256=sha,
+                                             source_of=lambda r: r.event_id.removeprefix(GROUP_PREFIX))
+    for fold in write_folds(chip_dir, cfg, splits, seed=args.seed):
+        LOGGER.info("%s/%s -> %s (%s)", fold.protocol, fold.name, fold.split_file, fold.norm_file)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Event-level cross-validation (leave-one-event-out, official split).")
+    sub = parser.add_subparsers(dest="command", required=True)
+    for name in ("splits", "run", "table"):
+        p = sub.add_parser(name)
+        p.add_argument("--data-root", type=Path, required=True)
+        p.add_argument("--configs-dir", type=Path, default=Path("configs"))
+        p.add_argument("--overlay", type=Path, action="append", default=[])
+        p.add_argument("--runs-root", type=Path, default=Path("runs/sen1floods11"))
+    sub.choices["splits"].add_argument("--raw", type=Path, default=None, help="Sen1Floods11 raw root (official split)")
+    sub.choices["splits"].add_argument("--seed", type=int, default=0)
+    run = sub.choices["run"]
+    run.add_argument("--protocol", nargs="+", default=["loeo", "official"], choices=("loeo", "official"))
+    run.add_argument("--fold", nargs="*", default=None)
+    run.add_argument("--seeds", type=int, nargs="+", default=[42])
+    run.add_argument("--baseline-rows", type=int, nargs="*", default=list(BASELINE_CV_ROWS))
+    run.add_argument("--learned-rows", type=int, nargs="*", default=list(LEARNED_CV_ROWS))
+    run.add_argument("--device", default=None)
+    table = sub.choices["table"]
+    table.add_argument("--out", type=Path, default=Path("reports/sen1floods11_table.md"))
+    table.add_argument("--allow-dirty", action="store_true")
+    args = parser.parse_args(argv)
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    if args.command == "splits":
+        _make_splits(args)
+    elif args.command == "run":
+        run_cv(args)
+    else:
+        from floodfusion.cv_report import build_cv_table
+
+        build_cv_table(args.runs_root, out=args.out, allow_dirty=args.allow_dirty)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

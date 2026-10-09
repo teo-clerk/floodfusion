@@ -136,7 +136,7 @@ def load_training_data(cfg: ExperimentConfig, data_root: Path | str) -> Training
     split = load_splits(split_path, expected_manifest_sha256=meta["manifest_sha256"])
     if split.strategy != cfg.data.split_strategy:
         raise ValueError(f"{split_path} has strategy {split.strategy!r}, config wants {cfg.data.split_strategy!r}")
-    norm_path = chip_dir / "norm_stats.json"
+    norm_path = chip_dir / cfg.data.norm_stats_file
     norm = load_norm_stats(norm_path, cfg.norm)
     cfg = replace(cfg, norm=norm)
     parts = [tuple(records[c] for c in split.chips(name)) for name in ("train", "val", "test")]
@@ -281,6 +281,7 @@ def validate(
     logit_sink: Any = None,
     temperature: float = 1.0,
     offset: float = 0.0,
+    per_chip_threshold: float | None = None,
 ) -> dict[str, Any]:
     r"""Per-basin confusion matrices at fixed thresholds; macro-over-basin IoU.
 
@@ -296,7 +297,9 @@ def validate(
 
     Returns ``per_basin`` (basin -> one :class:`ConfusionMatrix` per threshold),
     ``macro_iou_by_threshold``, ``micro_iou_by_threshold``, ``best_threshold``,
-    ``best_macro_iou`` and the pooled ``average_precision``.
+    ``best_macro_iou`` and the pooled ``average_precision``. With ``per_chip_threshold``
+    (calibrated scale) also ``per_chip``: chip id -> ``[tp, fp, fn, tn]`` at that threshold,
+    so any subset of the chips can be re-scored without running the model again.
     """
     thresholds = tuple(cfg.eval.pr_thresholds if thresholds is None else thresholds)
     if not all(0.0 < t < 1.0 for t in thresholds):
@@ -304,6 +307,9 @@ def validate(
     score_thresholds = tuple(temperature * math.log(t / (1.0 - t)) - offset for t in thresholds)
     model.eval()
     per_basin: dict[str, list[ConfusionMatrix]] = {}
+    per_chip: dict[str, list[int]] = {}
+    chip_score = (None if per_chip_threshold is None
+                  else temperature * math.log(per_chip_threshold / (1.0 - per_chip_threshold)) - offset)
     for batch in iter_batches_to_device(loader, device, channels_last=cfg.train.channels_last):
         with _autocast(device, cfg):
             logits, _ = model(**model_inputs(batch, batch["optical_available"], force_sar_only=force_sar_only))
@@ -319,6 +325,10 @@ def validate(
                                        valid.index_select(0, idx), score_thresholds)
             current = per_basin.get(basin)
             per_basin[basin] = list(cms) if current is None else [a + b for a, b in zip(current, cms)]
+        if chip_score is not None:
+            for j, chip in enumerate(batch["chip_id"]):
+                (cm,) = accumulate_confusion(logits[j:j + 1], label[j:j + 1], valid[j:j + 1], (chip_score,))
+                per_chip[str(chip)] = [cm.tp, cm.fp, cm.fn, cm.tn]
         if logit_sink is not None:
             logit_sink.add(logits[valid].cpu().numpy(), (label[valid] > 0.5).cpu().numpy())
     if not per_basin:
@@ -336,6 +346,7 @@ def validate(
         "thresholds": thresholds, "per_basin": frozen, "macro_iou_by_threshold": macro,
         "micro_iou_by_threshold": [m.iou for m in pooled], "best_threshold": thresholds[best],
         "best_macro_iou": macro[best], "average_precision": ap,
+        **({"per_chip": per_chip} if chip_score is not None else {}),
     }
 
 
