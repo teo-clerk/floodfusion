@@ -182,6 +182,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--stack", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--device", default=None)
+    parser.add_argument("--package", type=Path, default=None,
+                        help="also write the GFM-style COG layers + STAC item.json into this directory")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     weights_dir, evaluation = _resolve_run(args.run_dir)
@@ -204,6 +206,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         "calibration": json.dumps(calibration), "sar_only": sar_only,
         "note": "snapshot at the S1 acquisition time; no depth; forest/urban/steep flagged as not reliably mapped",
     })
+    if args.package is not None:
+        from importlib.metadata import version
+
+        from floodfusion.products import write_package
+
+        meta_path = args.stack.with_name("event.json")
+        meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.is_file() else {}
+        write_package(args.package, prob, flags, tau=tau, profile=profile, meta=meta, weights=weights_dir / "best.pt",
+                      provenance={"git_sha": record.get("git_sha"), "config_sha256": record["config_sha256"],
+                                  "calibration": calibration, "sar_only": sar_only, "version": version("floodfusion")})
     flood = int(np.nansum(prob > tau))
     LOGGER.info("wrote %s: %d flood pixels (%.2f km^2) at tau*=%.2f", args.out, flood, flood * 1e-4, tau)
     return 0
