@@ -33,6 +33,7 @@ TORCH_FREE_MODULES = (
     "floodfusion.data.sources",
     "floodfusion.data.archive",
     "floodfusion.data.assembly",
+    "floodfusion.data.cems",
     "floodfusion.data.ingest",
     "floodfusion.data.sen1floods11",
     "floodfusion.data.synthetic.benchmark",
