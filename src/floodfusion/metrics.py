@@ -29,8 +29,12 @@ References
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import math
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+import numpy as np
 
 # ``torch`` is needed only for the type annotations below, and this module carries
 # ``from __future__ import annotations``, so those are lazy strings at runtime. Importing it
@@ -47,8 +51,11 @@ __all__ = [
     "accumulate_confusion",
     "average_precision",
     "basin_bootstrap_ci",
+    "expected_calibration_error",
+    "macro_iou",
     "paired_bootstrap_delta",
     "precision_recall_curve",
+    "sum_confusions",
 ]
 
 
@@ -69,7 +76,7 @@ class ConfusionMatrix:
     fn: int
     tn: int
 
-    def __add__(self, other: "ConfusionMatrix") -> "ConfusionMatrix":
+    def __add__(self, other: ConfusionMatrix) -> ConfusionMatrix:
         return ConfusionMatrix(
             self.tp + other.tp,
             self.fp + other.fp,
@@ -124,12 +131,13 @@ def accumulate_confusion(
     probabilities, target, valid
         ``(B, 1, H, W)``. ``valid`` is ``bool``.
     thresholds
-        Ascending thresholds at which to evaluate.
+        Thresholds at which to evaluate (any order; output follows the input order).
 
     Returns
     -------
     tuple[ConfusionMatrix, ...]
-        One per threshold, same order.
+        One per threshold, same order. A pixel is predicted flooded iff ``p > t``
+        (strict, as in the Bayes rule of ``docs/00`` section 6.2).
 
     Notes
     -----
@@ -139,17 +147,46 @@ def accumulate_confusion(
     bound, and it is the direct cause of the epoch-41 OOM in debugging challenge C2
     (``docs/10`` section 3). Accumulating counts instead is :math:`O(1)` in memory.
 
-    Do this under ``torch.inference_mode()``.
-
-    TODO(student)
-    -------------
-    1. Mask to valid pixels once, outside the threshold loop.
-    2. For each threshold, compute the four counts. Sorting the probabilities once and
-       using ``searchsorted`` turns the loop from :math:`O(T \\cdot N)` into
-       :math:`O(N \\log N + T)`, which matters at 199 thresholds.
-    3. Return Python ``int`` counts so that aggregation across basins cannot overflow.
+    Implementation: the valid pixels are split by label, each group is **sorted once**,
+    and ``searchsorted`` counts the predictions above every threshold — :math:`O(N \\log
+    N + T)` instead of :math:`O(T \\cdot N)`. The comparison happens in the probability's
+    own dtype (a float32 ``0.05`` is *not* greater than the threshold ``0.05``). Counts
+    are returned as Python ``int`` so aggregation across basins cannot overflow.
     """
-    raise NotImplementedError("Implement confusion accumulation. See docs/08 section 7.3.")
+    import torch
+
+    if probabilities.shape != target.shape or probabilities.shape != valid.shape:
+        raise ValueError(
+            f"shape mismatch: probabilities {tuple(probabilities.shape)}, target "
+            f"{tuple(target.shape)}, valid {tuple(valid.shape)}"
+        )
+    if valid.dtype != torch.bool:
+        raise TypeError(f"valid must be bool, got {valid.dtype}")
+    with torch.inference_mode():
+        mask = valid.reshape(-1)
+        probs = probabilities.reshape(-1)[mask].detach()
+        labels = target.reshape(-1)[mask] > 0.5
+        pos_sorted = torch.sort(probs[labels]).values
+        neg_sorted = torch.sort(probs[~labels]).values
+        n_pos, n_neg = int(pos_sorted.numel()), int(neg_sorted.numel())
+        t = torch.as_tensor(thresholds, dtype=probs.dtype, device=probs.device)
+        # number of elements <= t  ->  elements > t is the complement
+        pos_le = torch.searchsorted(pos_sorted, t, right=True)
+        neg_le = torch.searchsorted(neg_sorted, t, right=True)
+        tps = (n_pos - pos_le).tolist()
+        fps = (n_neg - neg_le).tolist()
+    return tuple(
+        ConfusionMatrix(tp=int(tp), fp=int(fp), fn=n_pos - int(tp), tn=n_neg - int(fp))
+        for tp, fp in zip(tps, fps)
+    )
+
+
+def sum_confusions(matrices: Sequence[ConfusionMatrix]) -> ConfusionMatrix:
+    """Pool confusion matrices (exact integer sum)."""
+    total = ConfusionMatrix(0, 0, 0, 0)
+    for m in matrices:
+        total = total + m
+    return total
 
 
 def precision_recall_curve(
@@ -162,13 +199,21 @@ def precision_recall_curve(
     precisions, recalls
         Parallel tuples, ordered by increasing recall.
 
-    TODO(student)
-    -------------
-    1. Map each matrix to (precision, recall).
-    2. Sort by recall; handle the undefined-precision endpoint explicitly rather than
-       letting a ``nan`` into the curve.
+    Notes
+    -----
+    Points are ordered by the **number of predicted positives** (``tp + fp``), which is
+    the same as ordering by decreasing threshold whatever order the thresholds were
+    given in, and breaks recall ties correctly: at equal recall the point with fewer
+    predictions (higher precision) is reached first. Points whose precision is
+    undefined (no positive predictions at all) are dropped explicitly rather than
+    letting a ``nan`` into the curve; they carry zero recall and contribute nothing to
+    :func:`average_precision`.
     """
-    raise NotImplementedError("Implement the PR curve. See docs/06 section 7.")
+    defined = [m for m in matrices if (m.tp + m.fp) > 0]
+    if any(m.tp + m.fn == 0 for m in defined):
+        raise ValueError("recall is undefined: the evaluated set contains no positive pixels")
+    ordered = sorted(defined, key=lambda m: (m.tp + m.fp, -m.tp))
+    return tuple(m.precision for m in ordered), tuple(m.recall for m in ordered)
 
 
 def average_precision(
@@ -179,16 +224,56 @@ def average_precision(
 
     Notes
     -----
-    This is the **step-wise** definition, not the trapezoidal one. The trapezoidal rule
-    interpolates between operating points that are not jointly achievable and
-    systematically over-estimates. Use the step form and say which you used.
-
-    TODO(student)
-    -------------
-    1. Accumulate the recall-weighted precision.
-    2. Assert the result lies in ``[0, 1]``.
+    This is the **step-wise** definition (with :math:`R_0 = 0`), not the trapezoidal
+    one. The trapezoidal rule interpolates between operating points that are not
+    jointly achievable and systematically over-estimates.
     """
-    raise NotImplementedError("Implement average precision. See docs/06 section 7.3.")
+    if len(precisions) != len(recalls):
+        raise ValueError("precisions and recalls must have the same length")
+    ap = 0.0
+    previous_recall = 0.0
+    for p, r in zip(precisions, recalls):
+        if r < previous_recall - 1e-12:
+            raise ValueError("recalls must be non-decreasing; use precision_recall_curve")
+        ap += max(r - previous_recall, 0.0) * p
+        previous_recall = max(previous_recall, r)
+    if not -1e-9 <= ap <= 1.0 + 1e-9:
+        raise AssertionError(f"average precision {ap} outside [0, 1]")
+    return float(min(max(ap, 0.0), 1.0))
+
+
+def macro_iou(per_basin: Mapping[str, ConfusionMatrix]) -> float:
+    """Mean of per-basin IoU (``docs/06`` section 2.6), ignoring undefined basins.
+
+    A basin with an empty union (no flood in label *or* prediction) has undefined IoU and
+    is excluded explicitly rather than counted as 0 or 1. Returns ``nan`` if every basin
+    is undefined.
+    """
+    values = [m.iou for m in per_basin.values()]
+    finite = [v for v in values if not math.isnan(v)]
+    return float(np.mean(finite)) if finite else float("nan")
+
+
+def _bootstrap_statistic(
+    matrices: np.ndarray, statistic: str
+) -> float:
+    """IoU of a (k, 4) array of [tp, fp, fn, tn] rows, pooled or macro."""
+    if statistic == "pooled":
+        tp, fp, fn = matrices[:, 0].sum(), matrices[:, 1].sum(), matrices[:, 2].sum()
+        denom = tp + fp + fn
+        return float("nan") if denom == 0 else float(tp / denom)
+    denom = matrices[:, 0] + matrices[:, 1] + matrices[:, 2]
+    with np.errstate(invalid="ignore", divide="ignore"):
+        per = np.where(denom > 0, matrices[:, 0] / np.where(denom > 0, denom, 1), np.nan)
+    finite = per[np.isfinite(per)]
+    return float(finite.mean()) if finite.size else float("nan")
+
+
+def _as_array(per_basin: Mapping[str, ConfusionMatrix], keys: Sequence[str]) -> np.ndarray:
+    return np.array(
+        [[per_basin[k].tp, per_basin[k].fp, per_basin[k].fn, per_basin[k].tn] for k in keys],
+        dtype=np.float64,
+    )
 
 
 def basin_bootstrap_ci(
@@ -197,6 +282,7 @@ def basin_bootstrap_ci(
     n_boot: int = 10_000,
     alpha: float = 0.05,
     seed: int = 0,
+    statistic: str = "pooled",
 ) -> tuple[float, float, float]:
     r"""Bootstrap a confidence interval by resampling **basins**.
 
@@ -210,11 +296,15 @@ def basin_bootstrap_ci(
         Two-sided significance level.
     seed
         For reproducibility. Record it.
+    statistic
+        ``"pooled"`` — sum the resampled basins' counts, then compute IoU (the procedure
+        of ``docs/09`` section 3.2); ``"macro"`` — mean of the resampled basins' IoU (the
+        headline of ``docs/06`` section 2.6).
 
     Returns
     -------
     point, lower, upper
-        Point estimate and percentile interval.
+        Point estimate on the original basin set and the percentile interval.
 
     Notes
     -----
@@ -227,18 +317,28 @@ def basin_bootstrap_ci(
     :math:`\pm 0.05` — and a 0.02 difference is then plainly inside the noise, which is
     the correct conclusion.
 
-    **Aggregate counts, then compute the metric.** Do not average per-basin IoU values
-    across the resample: that weights basins by nothing meaningful.
-
-    TODO(student)
-    -------------
-    1. Sample :math:`K` basin keys with replacement, :math:`n_{\mathrm{boot}}` times.
-    2. Sum their confusion matrices, then compute IoU.
-    3. Return the point estimate and the ``[alpha/2, 1-alpha/2]`` percentiles.
-    4. Verify against the pixel bootstrap and report the width ratio — ``docs/09``
-       exercise 1.
+    The basin bootstrap implicitly assumes perfect within-basin correlation, so the
+    interval is **conservative** (``docs/09`` section 3.1 bridge): an honest lower bound on
+    precision, not a tight interval.
     """
-    raise NotImplementedError("Implement the basin bootstrap. See docs/09 section 3.2.")
+    if statistic not in {"pooled", "macro"}:
+        raise ValueError(f"statistic must be 'pooled' or 'macro', got {statistic!r}")
+    if not per_basin:
+        raise ValueError("basin_bootstrap_ci needs at least one basin")
+    if not 0.0 < alpha < 1.0:
+        raise ValueError("alpha must lie in (0, 1)")
+    keys = sorted(per_basin)
+    data = _as_array(per_basin, keys)
+    point = _bootstrap_statistic(data, statistic)
+    rng = np.random.default_rng(seed)
+    k = len(keys)
+    idx = rng.integers(0, k, size=(n_boot, k))
+    replicates = np.array([_bootstrap_statistic(data[row], statistic) for row in idx])
+    replicates = replicates[np.isfinite(replicates)]
+    if replicates.size == 0:
+        return point, float("nan"), float("nan")
+    lower, upper = np.percentile(replicates, [100 * alpha / 2, 100 * (1 - alpha / 2)])
+    return float(point), float(lower), float(upper)
 
 
 def paired_bootstrap_delta(
@@ -248,6 +348,7 @@ def paired_bootstrap_delta(
     n_boot: int = 10_000,
     alpha: float = 0.05,
     seed: int = 0,
+    statistic: str = "pooled",
 ) -> tuple[float, float, float]:
     r"""Bootstrap the **difference** :math:`\mathrm{IoU}_B - \mathrm{IoU}_A`.
 
@@ -262,16 +363,84 @@ def paired_bootstrap_delta(
     **This is the correct test for comparing two ablation rows**, and it is strictly
     more powerful than comparing two independent intervals. The models are evaluated on
     the *same* basins, so their errors are strongly correlated — a hard basin is hard for
-    both — and resampling one basin set for both models cancels that shared difficulty.
+    both — and resampling one basin set for both models cancels that shared difficulty:
+    :math:`\operatorname{Var}[B-A] = \operatorname{Var}[A] + \operatorname{Var}[B] -
+    2\operatorname{Cov}[A,B]`.
 
-    Two models can have heavily overlapping individual CIs while their difference
-    interval excludes zero.
+    One basin sample is drawn per replicate and used for **both** models; drawing two
+    would silently revert to the unpaired test.
 
-    TODO(student)
-    -------------
-    1. Draw **one** basin sample per replicate and use it for **both** models. Drawing
-       two independent samples silently reverts to the unpaired test.
-    2. Assert both dictionaries have identical key sets, and raise if not — comparing
-       models evaluated on different basins is meaningless.
+    Raises
+    ------
+    ValueError
+        If the two models were not evaluated on identical basin sets — comparing models
+        evaluated on different basins is meaningless.
     """
-    raise NotImplementedError("Implement the paired bootstrap. See docs/09 section 3.3.")
+    if set(per_basin_a) != set(per_basin_b):
+        only_a = sorted(set(per_basin_a) - set(per_basin_b))
+        only_b = sorted(set(per_basin_b) - set(per_basin_a))
+        raise ValueError(
+            f"paired comparison needs identical basin sets; only in A: {only_a}, only in B: {only_b}"
+        )
+    if statistic not in {"pooled", "macro"}:
+        raise ValueError(f"statistic must be 'pooled' or 'macro', got {statistic!r}")
+    keys = sorted(per_basin_a)
+    if not keys:
+        raise ValueError("paired_bootstrap_delta needs at least one basin")
+    a, b = _as_array(per_basin_a, keys), _as_array(per_basin_b, keys)
+    delta = _bootstrap_statistic(b, statistic) - _bootstrap_statistic(a, statistic)
+    rng = np.random.default_rng(seed)
+    idx = rng.integers(0, len(keys), size=(n_boot, len(keys)))
+    deltas = np.array(
+        [_bootstrap_statistic(b[row], statistic) - _bootstrap_statistic(a[row], statistic) for row in idx]
+    )
+    deltas = deltas[np.isfinite(deltas)]
+    if deltas.size == 0:
+        return float(delta), float("nan"), float("nan")
+    lower, upper = np.percentile(deltas, [100 * alpha / 2, 100 * (1 - alpha / 2)])
+    return float(delta), float(lower), float(upper)
+
+
+def expected_calibration_error(
+    probabilities: np.ndarray,
+    labels: np.ndarray,
+    *,
+    n_bins: int = 15,
+    strategy: str = "quantile",
+) -> tuple[float, dict[str, np.ndarray]]:
+    r"""Expected calibration error and the reliability-diagram data (``docs/09`` 4.2).
+
+    .. math:: \mathrm{ECE} = \sum_m \frac{n_m}{N}\,\bigl|\mathrm{freq}(m) - \mathrm{conf}(m)\bigr|
+
+    **Bin by quantile, not by equal width**: at a 2 % positive rate nearly every
+    prediction sits near zero, so equal-width bins put almost all mass in one bin and the
+    diagram is uninformative.
+
+    Returns
+    -------
+    ece, diagram
+        ``diagram`` holds per-bin ``confidence``, ``frequency`` and ``count``.
+    """
+    p = np.asarray(probabilities, dtype=np.float64).ravel()
+    y = np.asarray(labels, dtype=np.float64).ravel()
+    if p.shape != y.shape:
+        raise ValueError("probabilities and labels must have the same number of elements")
+    if p.size == 0:
+        raise ValueError("expected_calibration_error needs at least one sample")
+    if strategy == "quantile":
+        edges = np.unique(np.quantile(p, np.linspace(0.0, 1.0, n_bins + 1)))
+    elif strategy == "uniform":
+        edges = np.linspace(0.0, 1.0, n_bins + 1)
+    else:
+        raise ValueError(f"strategy must be 'quantile' or 'uniform', got {strategy!r}")
+    if edges.size < 2:
+        edges = np.array([p.min(), p.max() + 1e-12])
+    bins = np.clip(np.searchsorted(edges, p, side="right") - 1, 0, edges.size - 2)
+    count = np.bincount(bins, minlength=edges.size - 1).astype(np.float64)
+    conf = np.bincount(bins, weights=p, minlength=edges.size - 1)
+    freq = np.bincount(bins, weights=y, minlength=edges.size - 1)
+    nonempty = count > 0
+    conf_mean = np.where(nonempty, conf / np.where(nonempty, count, 1), np.nan)
+    freq_mean = np.where(nonempty, freq / np.where(nonempty, count, 1), np.nan)
+    ece = float(np.nansum((count / count.sum()) * np.abs(freq_mean - conf_mean)))
+    return ece, {"confidence": conf_mean, "frequency": freq_mean, "count": count, "edges": edges}

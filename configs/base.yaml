@@ -90,6 +90,9 @@ data:
   pin_memory: true
   persistent_workers: true
   prefetch_factor: 4
+  # Every reported run reads real stacked GeoTIFFs. "auto"/"synthetic" exist only for
+  # unit tests; train/evaluate refuse them without an explicit --allow-synthetic.
+  chip_source: "raster"
 
 # -----------------------------------------------------------------------------
 # Architecture (docs/07)
@@ -136,6 +139,9 @@ baseline:
   use_optical_override: true
   speckle_filter: "refined_lee"
   speckle_window: 7
+  # Region growing from the SAR decision into pixels within this margin above the
+  # threshold surface that ALSO show >= half the required darkening (docs/06 4.2 step 7).
+  region_grow_margin_db: 1.5
 
 # -----------------------------------------------------------------------------
 # Objective (docs/08 section 2)

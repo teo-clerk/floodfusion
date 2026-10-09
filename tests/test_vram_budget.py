@@ -27,18 +27,6 @@ from floodfusion.utils.vram import (
     static_bytes,
 )
 
-EXPECT_UNIMPLEMENTED = True
-ALWAYS_PASS = frozenset({
-    "test_adamw_costs_sixteen_bytes_per_parameter",
-    "test_optimizer_table_is_ordered_by_cost",
-    "test_budget_predicted_bytes",
-    "test_budget_relative_error",
-    "test_relative_error_is_none_before_measurement",
-    "test_reference_model_static_memory_is_small",
-    "test_gradient_accumulation_preserves_effective_batch",
-    "test_attention_matrix_scales_quadratically_with_tokens",
-    "test_calibrated_prediction_meets_the_fifteen_percent_criterion",
-})
 
 USABLE_VRAM_BYTES = int(7.6 * 1024**3)
 

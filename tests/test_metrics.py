@@ -43,20 +43,6 @@ def _require_torch():
     return pytest.importorskip("torch", reason="PyTorch is required for this test")
 
 
-EXPECT_UNIMPLEMENTED = True
-ALWAYS_PASS = frozenset({
-    "test_iou_definition",
-    "test_f1_definition",
-    "test_iou_f1_identity",
-    "test_f1_always_exceeds_iou",
-    "test_perfect_prediction",
-    "test_null_predictor_scores_zero_iou_despite_high_accuracy",
-    "test_empty_union_is_nan_not_zero",
-    "test_matrices_add",
-    "test_precision_collapses_under_imbalance",
-})
-
-
 class TestConfusionMatrix:
     def test_iou_definition(self) -> None:
         assert ConfusionMatrix(tp=10, fp=5, fn=5, tn=100).iou == pytest.approx(0.5)

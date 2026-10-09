@@ -26,20 +26,6 @@ from floodfusion.data.preprocessing import (
     terrain_correct,
 )
 
-EXPECT_UNIMPLEMENTED = True
-ALWAYS_PASS = frozenset({
-    "test_averaging_in_db_is_biased_low",
-    "test_one_db_is_a_twenty_six_percent_power_change",
-    "test_db_derivative_is_4343_over_sigma",
-    "test_gamma0_removes_the_incidence_gradient",
-    "test_speckle_sigma_at_iw_grdh_look_number",
-    "test_multilooking_reduces_variance_as_one_over_n",
-    "test_calibration_squares_the_digital_number",
-    "test_bias_shrinks_with_more_looks",
-    "test_nesz_sits_where_calm_water_vh_sits",
-    "test_is_backward_geocoded",
-})
-
 
 def _digamma(x: float) -> float:
     """Asymptotic digamma, adequate for x >= 4."""

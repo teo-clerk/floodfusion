@@ -28,15 +28,27 @@ References
 
 from __future__ import annotations
 
+import heapq
+import math
+
 import numpy as np
 
+from floodfusion.config import ValidityFlag
+
 __all__ = [
+    "build_validity_mask",
     "cast_shadow_and_layover",
+    "hand",
     "horn_slope_aspect",
     "local_incidence_angle",
-    "hand",
-    "build_validity_mask",
+    "permanent_water_from_occurrence",
+    "validity_flag_counts",
 ]
+
+#: D8 neighbour offsets (row, col), clockwise from north.
+_D8_OFFSETS: tuple[tuple[int, int], ...] = (
+    (-1, 0), (-1, 1), (0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1),
+)
 
 
 def horn_slope_aspect(
@@ -108,7 +120,28 @@ def horn_slope_aspect(
        are adjacent directions but numerically maximally distant
        (``docs/03`` section 9).
     """
-    raise NotImplementedError("Implement Horn slope. See docs/03 section 4.")
+    z = np.asarray(elevation, dtype=np.float64)
+    if z.ndim != 2:
+        raise ValueError("elevation must be a 2-D array")
+    if pixel_size_x_m <= 0 or pixel_size_y_m <= 0:
+        raise ValueError("pixel sizes must be positive distances in metres")
+    # Border handling: replicate-pad by one cell, compute, then the output is trimmed
+    # back to the input shape. Replicated borders bias the edge row/column towards
+    # zero slope across the border, which is the conservative choice for an exclusion.
+    zp = np.pad(z, 1, mode="edge")
+    z1, z2, z3 = zp[:-2, :-2], zp[:-2, 1:-1], zp[:-2, 2:]
+    z4, z6 = zp[1:-1, :-2], zp[1:-1, 2:]
+    z7, z8, z9 = zp[2:, :-2], zp[2:, 1:-1], zp[2:, 2:]
+    dzdx = ((z3 + 2.0 * z6 + z9) - (z1 + 2.0 * z4 + z7)) / (8.0 * pixel_size_x_m)
+    # Rows increase SOUTHWARD, so this is (south - north): +ve when terrain rises to the south.
+    dzdy = ((z7 + 2.0 * z8 + z9) - (z1 + 2.0 * z2 + z3)) / (8.0 * pixel_size_y_m)
+    slope = np.degrees(np.arctan(np.hypot(dzdx, dzdy)))
+    # atan2(dz/dy, -dz/dx) is a MATH angle (counter-clockwise from east); converting with
+    # (90 - angle) mod 360 gives the compass bearing of steepest DESCENT (ESRI convention).
+    aspect = np.mod(90.0 - np.degrees(np.arctan2(dzdy, -dzdx)), 360.0)
+    aspect[aspect >= 360.0] = 0.0  # np.mod(-0.0, 360) can return 360.0
+    aspect[slope == 0.0] = 0.0     # undefined on flats; any value works since sin(0) = 0
+    return slope, aspect
 
 
 def local_incidence_angle(
@@ -160,7 +193,13 @@ def local_incidence_angle(
        46 degrees, and using a scalar mid-swath value discards a real effect
        (``docs/01`` sections 4.2, 6.1).
     """
-    raise NotImplementedError("Implement the local incidence angle. See docs/03 section 5.1.")
+    alpha = np.radians(np.asarray(slope_deg, dtype=np.float64))
+    aspect = np.radians(np.asarray(aspect_deg, dtype=np.float64))
+    theta = np.radians(np.asarray(incidence_deg, dtype=np.float64))
+    phi = np.radians(np.asarray(look_azimuth_deg, dtype=np.float64))
+    cos_loc = np.cos(alpha) * np.cos(theta) + np.sin(alpha) * np.sin(theta) * np.cos(phi - aspect)
+    theta_loc = np.degrees(np.arccos(np.clip(cos_loc, -1.0, 1.0)))
+    return np.broadcast_to(theta_loc, np.broadcast_shapes(alpha.shape, theta.shape)).copy()
 
 
 def cast_shadow_and_layover(
@@ -168,7 +207,9 @@ def cast_shadow_and_layover(
     incidence_deg: np.ndarray | float,
     look_azimuth_deg: float,
     pixel_size_m: float,
-) -> tuple[np.ndarray, np.ndarray]:
+    *,
+    return_components: bool = False,
+) -> tuple[np.ndarray, np.ndarray] | dict[str, np.ndarray]:
     r"""Layover and shadow masks, including **cast** shadow.
 
     Returns
@@ -219,7 +260,83 @@ def cast_shadow_and_layover(
     3. Combine local and cast with a logical OR.
     4. Compare the two masks' pixel counts and report the difference.
     """
-    raise NotImplementedError("Implement the masks. See docs/03 section 5.3.")
+    z = np.asarray(elevation, dtype=np.float64)
+    if z.ndim != 2:
+        raise ValueError("elevation must be a 2-D array")
+    if pixel_size_m <= 0:
+        raise ValueError("pixel_size_m must be a positive distance in metres")
+    theta = np.radians(np.broadcast_to(np.asarray(incidence_deg, dtype=np.float64), z.shape))
+    if np.any((theta <= 0.0) | (theta >= np.pi / 2)):
+        raise ValueError("incidence angles must lie strictly between 0 and 90 degrees")
+    h_px, w_px = z.shape
+    rows, cols = np.mgrid[0:h_px, 0:w_px]
+    east = cols * pixel_size_m
+    north = -rows * pixel_size_m
+    # look_azimuth is the bearing FROM the target TO the sensor (docs/03 section 5.1), so
+    # ground range increases along psi = phi + 180 deg (away from the sensor).
+    psi = math.radians(look_azimuth_deg + 180.0)
+    rng_coord = east * math.sin(psi) + north * math.cos(psi)
+    az_coord = east * math.cos(psi) - north * math.sin(psi)
+    # "Interpolate along rays": every pixel joins the range profile (ray) whose azimuth
+    # coordinate it falls in, at its EXACT ground range — no rotation, no resampling of z,
+    # and phi is not snapped to an array axis.
+    ray = np.floor(az_coord / pixel_size_m + 0.5).astype(np.int64).ravel()
+    r = rng_coord.ravel()
+    zf = z.ravel()
+    th = theta.ravel()
+    # Shadow: the grazing ray from a nearer point q descends cot(theta) per metre of range,
+    # so p is shadowed iff z_p + r_p cot(theta) < max_{q nearer} (z_q + r_q cot(theta)).
+    horizon = zf + r / np.tan(th)
+    # Layover: p is in layover iff a FARTHER point has a SMALLER slant range,
+    # slant ~ r sin(theta) - z cos(theta) (far-field projection on the look direction).
+    slant = r * np.sin(th) - zf * np.cos(th)
+    order = np.lexsort((r, ray))           # by ray, then near -> far
+    ray_sorted = ray[order]
+    rank = np.concatenate(([0], np.cumsum(np.diff(ray_sorted) != 0)))
+    eps = 1e-6
+
+    # Segmented running max (near -> far) via a per-ray offset larger than any range of h.
+    hs = horizon[order]
+    big_h = (hs.max() - hs.min()) + 1.0
+    h_off = hs + rank * big_h
+    run_max = np.maximum.accumulate(h_off)
+    prev_max = np.concatenate(([-np.inf], run_max[:-1]))
+    shadow_sorted = h_off < prev_max - eps
+
+    # Segmented running min (far -> near): traverse reversed, larger offsets for earlier rays.
+    ss = slant[order][::-1]
+    rank_rev = rank[::-1]
+    big_s = (ss.max() - ss.min()) + 1.0
+    s_off = ss + rank_rev * big_s
+    run_min = np.minimum.accumulate(s_off)
+    prev_min = np.concatenate(([np.inf], run_min[:-1]))
+    layover_sorted = (s_off > prev_min + eps)[::-1]
+
+    cast_shadow = np.zeros(zf.size, dtype=bool)
+    cast_layover = np.zeros(zf.size, dtype=bool)
+    cast_shadow[order] = shadow_sorted
+    cast_layover[order] = layover_sorted
+    cast_shadow = cast_shadow.reshape(z.shape)
+    cast_layover = cast_layover.reshape(z.shape)
+
+    # Local (facet) tests, OR-ed in: the slope component in the range plane, positive when
+    # the facet faces the sensor. Layover iff alpha_r >= theta; shadow iff the back slope
+    # exceeds the 90 - theta depression of the ray. (theta_loc from arccos can never be
+    # <= 0, which is why the signed range component is used here.)
+    slope, aspect = horn_slope_aspect(z, pixel_size_m, pixel_size_m)
+    alpha_r = np.arctan(np.tan(np.radians(slope)) * np.cos(np.radians(look_azimuth_deg - aspect)))
+    local_layover = alpha_r >= theta
+    local_shadow = -alpha_r >= (np.pi / 2 - theta)
+
+    shadow = cast_shadow | local_shadow
+    layover = cast_layover | local_layover
+    if return_components:
+        return {
+            "shadow": shadow, "layover": layover,
+            "cast_shadow": cast_shadow, "cast_layover": cast_layover,
+            "local_shadow": local_shadow, "local_layover": local_layover,
+        }
+    return shadow, layover
 
 
 def hand(
@@ -287,7 +404,114 @@ def hand(
        extreme values (say > 50 m). A hard HAND mask makes dam breaks, urban pluvial
        flooding and coastal surge undetectable by construction.
     """
-    raise NotImplementedError("Implement HAND. See docs/03 section 8.")
+    z = np.asarray(elevation, dtype=np.float64)
+    if z.ndim != 2:
+        raise ValueError("elevation must be a 2-D array")
+    if accumulation_threshold <= 0:
+        raise ValueError("accumulation_threshold (in cells) must be positive")
+    if pixel_size_m <= 0:
+        raise ValueError("pixel_size_m must be a positive distance in metres")
+    filled = _priority_flood_epsilon(z)
+    down = _d8_receivers(filled, pixel_size_m)
+    accumulation = _flow_accumulation(filled, down)
+    # Drainage network: cells above the accumulation threshold, plus every cell that
+    # drains out of the domain (the domain edge is the outlet of the conditioned DEM).
+    drainage = (accumulation.ravel() >= accumulation_threshold) | (down < 0)
+    return _height_above_drainage(filled, down, drainage).reshape(z.shape)
+
+
+def _priority_flood_epsilon(z: np.ndarray) -> np.ndarray:
+    """Barnes et al. (2014) Priority-Flood + epsilon depression filling.
+
+    Fills every pit to its spill level and imposes a strictly increasing epsilon gradient
+    (one ``nextafter`` step) across flats, so every interior cell has a strictly lower
+    neighbour and D8 is defined everywhere. **Filling** (not breaching) is the
+    conditioning choice recorded here (docs/03 section 8.2). NaN cells are treated as
+    outlets (nodata holes drain out).
+    """
+    h, w = z.shape
+    filled = z.copy()
+    closed = np.zeros((h, w), dtype=bool)
+    heap: list[tuple[float, int, int, int]] = []
+    counter = 0
+    nan = ~np.isfinite(z)
+    for r in range(h):
+        for c in range(w):
+            if r in (0, h - 1) or c in (0, w - 1) or nan[r, c]:
+                closed[r, c] = True
+                if nan[r, c]:
+                    filled[r, c] = -np.inf
+                heapq.heappush(heap, (filled[r, c], counter, r, c))
+                counter += 1
+    nextafter = math.nextafter
+    inf = math.inf
+    while heap:
+        level, _, r, c = heapq.heappop(heap)
+        for dr, dc in _D8_OFFSETS:
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < h and 0 <= nc < w and not closed[nr, nc]:
+                closed[nr, nc] = True
+                if filled[nr, nc] <= level:
+                    filled[nr, nc] = nextafter(level, inf)
+                heapq.heappush(heap, (filled[nr, nc], counter, nr, nc))
+                counter += 1
+    return filled
+
+
+def _d8_receivers(filled: np.ndarray, pixel_size_m: float) -> np.ndarray:
+    """Flat index of each cell's steepest-descent D8 neighbour; -1 = drains off-domain."""
+    h, w = filled.shape
+    padded = np.pad(filled, 1, mode="constant", constant_values=-np.inf)
+    best_drop = np.full((h, w), -np.inf)
+    best_k = np.full((h, w), -1, dtype=np.int64)
+    for k, (dr, dc) in enumerate(_D8_OFFSETS):
+        dist = pixel_size_m * (math.sqrt(2.0) if dr and dc else 1.0)
+        neighbour = padded[1 + dr:1 + dr + h, 1 + dc:1 + dc + w]
+        with np.errstate(invalid="ignore"):
+            drop = (filled - neighbour) / dist
+        better = drop > best_drop
+        best_drop = np.where(better, drop, best_drop)
+        best_k = np.where(better, k, best_k)
+    rows, cols = np.mgrid[0:h, 0:w]
+    offsets = np.array(_D8_OFFSETS)
+    nr = rows + offsets[best_k, 0]
+    nc = cols + offsets[best_k, 1]
+    inside = (best_drop > 0) & (nr >= 0) & (nr < h) & (nc >= 0) & (nc < w) & (best_k >= 0)
+    inside &= np.isfinite(filled)
+    receivers = np.where(inside, nr * w + nc, -1)
+    return receivers.ravel()
+
+
+def _flow_accumulation(filled: np.ndarray, down: np.ndarray) -> np.ndarray:
+    """Upslope cell count (incl. self), one sweep in topological (descending) order."""
+    order = np.argsort(filled.ravel(), kind="stable")[::-1]
+    acc = np.ones(filled.size, dtype=np.float64)
+    down_list = down.tolist()
+    acc_list = acc.tolist()
+    for idx in order.tolist():
+        receiver = down_list[idx]
+        if receiver >= 0:
+            acc_list[receiver] += acc_list[idx]
+    return np.asarray(acc_list).reshape(filled.shape)
+
+
+def _height_above_drainage(filled: np.ndarray, down: np.ndarray, drainage: np.ndarray) -> np.ndarray:
+    """HAND along the flow path: z(p) - z(first drainage cell downstream of p)."""
+    flat = filled.ravel()
+    drain_level = np.full(flat.size, np.nan)
+    order = np.argsort(flat, kind="stable")  # downstream cells (lower) first
+    down_list = down.tolist()
+    is_drain = drainage.ravel().tolist()
+    level = drain_level.tolist()
+    values = flat.tolist()
+    for idx in order.tolist():
+        if is_drain[idx] or down_list[idx] < 0:
+            level[idx] = values[idx]
+        else:
+            level[idx] = level[down_list[idx]]
+    hand_values = flat - np.asarray(level)
+    hand_values[~np.isfinite(hand_values)] = np.nan
+    return np.maximum(hand_values, 0.0, where=np.isfinite(hand_values), out=hand_values)
 
 
 def build_validity_mask(
@@ -295,9 +519,10 @@ def build_validity_mask(
     shadow: np.ndarray,
     permanent_water: np.ndarray,
     nodata: np.ndarray,
-    slope_deg: np.ndarray,
+    slope_deg: np.ndarray | None,
     *,
-    slope_max_deg: float = 10.0,
+    slope_max_deg: float | None = 10.0,
+    outside_aoi: np.ndarray | None = None,
 ) -> np.ndarray:
     """Pack the exclusions into a single ``uint8`` flag band.
 
@@ -326,4 +551,57 @@ def build_validity_mask(
        IoU contributions will **not** sum to their joint contribution. Report the joint
        effect too, and do not claim additivity.
     """
-    raise NotImplementedError("Implement the validity mask. See docs/03 sections 5.4, 9.")
+    layers = {
+        ValidityFlag.LAYOVER: layover,
+        ValidityFlag.SHADOW: shadow,
+        ValidityFlag.PERMANENT_WATER: permanent_water,
+        ValidityFlag.NODATA: nodata,
+    }
+    shape = np.shape(layover)
+    mask = np.zeros(shape, dtype=np.uint8)
+    for flag, layer in layers.items():
+        layer = np.asarray(layer, dtype=bool)
+        if layer.shape != shape:
+            raise ValueError(f"{flag.name} layer shape {layer.shape} != {shape}")
+        mask |= np.where(layer, np.uint8(flag), np.uint8(0))
+    if outside_aoi is not None:
+        mask |= np.where(np.asarray(outside_aoi, dtype=bool), np.uint8(ValidityFlag.OUTSIDE_AOI), np.uint8(0))
+    # STEEP_SLOPE is optional: the stored training/metric VALIDITY band is built with
+    # slope_max_deg=None (docs/05 section 4.1 lists only layover, shadow, permanent water,
+    # nodata and out-of-AOI); the steep-slope exclusion belongs to the R4 product layer.
+    if slope_max_deg is not None and slope_deg is not None:
+        slope = np.asarray(slope_deg, dtype=np.float64)
+        steep = np.isfinite(slope) & (slope > slope_max_deg)
+        mask |= np.where(steep, np.uint8(ValidityFlag.STEEP_SLOPE), np.uint8(0))
+    return mask
+
+
+def validity_flag_counts(mask: np.ndarray) -> dict[str, int]:
+    """Per-cause pixel counts of a validity band (``P1-M2.4``, ``docs/09`` section 6).
+
+    Causes overlap (a shadowed pixel can also be steep), so the counts do not sum to the
+    number of invalid pixels; ``"INVALID"`` reports that union separately.
+    """
+    m = np.asarray(mask, dtype=np.uint8)
+    counts = {
+        flag.name: int(np.count_nonzero(m & np.uint8(flag)))
+        for flag in ValidityFlag if flag is not ValidityFlag.VALID
+    }
+    counts["INVALID"] = int(np.count_nonzero(m))
+    counts["TOTAL"] = int(m.size)
+    return counts
+
+
+def permanent_water_from_occurrence(
+    occurrence_percent: np.ndarray, threshold_percent: float = 80.0
+) -> np.ndarray:
+    """Permanent water from JRC Global Surface Water occurrence (``docs/05`` section 3.3).
+
+    ``occurrence >= threshold`` (default 80 %). The JRC layer is an independent source —
+    never Sentinel-2 SCL class 6 (``docs/02`` section 7.3). Values outside [0, 100]
+    (JRC nodata is 255) are treated as "not permanent water".
+    """
+    occ = np.asarray(occurrence_percent, dtype=np.float64)
+    if not 0.0 < threshold_percent <= 100.0:
+        raise ValueError("threshold_percent must lie in (0, 100]")
+    return np.isfinite(occ) & (occ >= threshold_percent) & (occ <= 100.0)

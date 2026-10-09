@@ -19,6 +19,13 @@
 # valuable number in your report.
 #
 # config.py permits split_strategy: "random_chip" ONLY when ablation_row == 13.
+#
+# Implementation (floodfusion.splits.random_chip_split with fixed_test_chips): the TEST
+# chips are identical to row 9's, so the 13-vs-9 gap can be tested with a PAIRED basin
+# bootstrap; train/val are drawn at random from every other chip — including chips from
+# the test basins and stride-128 windows overlapping test tiles, i.e. the naive pipeline —
+# subsampled to row 9's train/val sizes and positive-chip counts, with row 9's frozen
+# normalisation statistics. The only variable is where the training chips come from.
 extends: base.yaml
 name: "row13_fusion_random_split"
 ablation_row: 13
@@ -26,3 +33,4 @@ model:
   architecture: "fusion_crossattn"
 data:
   split_strategy: "random_chip" # THE ablated field — leaky BY DESIGN
+  split_file_name: "splits_random_chip.json"
