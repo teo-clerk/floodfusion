@@ -220,7 +220,7 @@ class TestEventShiftDecision:
         vague = _estimate([-1, 1], 4.2, grids=6)
         out = choose_event_shift({"optical": _estimate([1, 1], 0.3), "label": vague, "label_vs_optical": {}})
         assert out["label_source"] == "optical" and out["label_shift_px"] == [1, 1]
-        out = choose_event_shift({"optical": _estimate([0, 2], 0.9), "label": vague, "label_vs_optical": {}})
+        out = choose_event_shift({"optical": _estimate([0, 2], 1.5), "label": vague, "label_vs_optical": {}})
         assert out["label_source"] == "none" and out["label_shift_px"] == out["optical_shift_px"] == [0, 0]
 
     def test_labels_drawn_elsewhere_get_their_own_shift(self) -> None:
@@ -239,8 +239,8 @@ class TestEventShiftDecision:
         def source(label):
             return choose_event_shift({"optical": _estimate([0, 0], 9.0), "label": label})["label_source"]
 
-        assert source(_estimate([0, 2], 0.5)) == "label"                  # on the bound: a measurement
-        assert source(_estimate([0, 2], 0.51)) == "none"
+        assert source(_estimate([0, 2], 1.0)) == "label"                  # on the bound: a measurement
+        assert source(_estimate([0, 2], 1.01)) == "none"
         assert source(_estimate([0, 2], float("nan"))) == "none"          # NaN never passes
         assert source(_estimate([0, 2], 0.1, grids=11)) == "none"         # too few chips
 

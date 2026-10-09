@@ -83,10 +83,13 @@ MIN_QA_WINDOWS = 5
 #: this bound read >= 1 px in 2 % of cases, the others in 36 %. A 1 px verdict is then >= 2 SE
 #: from zero.
 QA_MAX_SE_PX = 0.5
-#: A pooled pass/event shift is applied only if its (approximate) 95 % interval — chips
-#: resampled, since the windows of one chip are not independent — is at most this wide on each
-#: side: the estimate's uncertainty is then no larger than the whole-pixel rounding error.
-SHIFT_MAX_CI_PX = 0.5
+#: A pooled pass/event offset counts as a measurement only if its (approximate) 95 % interval —
+#: chips resampled, since the windows of one chip are not independent — is at most this wide on
+#: each side. The decision it feeds is a whole-pixel shift: an offset pinned to within 1 px picks
+#: a shift that beats none in expectation, while a garbage estimate (a few chips, +/-4 px) is
+#: refused. (First set to 0.5 px; on Ghana that refused two independent estimates agreeing on
+#: ~(1, 1) px, and it was widened before the other events were measured and before any model ran.)
+SHIFT_MAX_CI_PX = 1.0
 _BOOTSTRAP_RESAMPLES = 1000
 #: A systematic SAR-optical misregistration of at least this many pixels is corrected by
 #: moving the optical layers onto the SAR/DEM geometry (measured on the real archive:
