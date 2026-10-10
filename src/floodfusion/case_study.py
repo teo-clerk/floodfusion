@@ -258,7 +258,13 @@ def _baseline(run_dir: Path, configs_dir: Path, overlays: Sequence[Path]) -> _Mo
     from floodfusion.config import load_config
 
     evaluation = json.loads((run_dir / "eval_test.json").read_text(encoding="utf-8"))
-    cfg = load_config(configs_dir / "row02_baseline_adaptive.yaml", overlays=overlays)
+    record = run_dir / "run.json"
+    if record.is_file():   # the run's own resolved configuration (row 2 or a v1.1 variant of it)
+        from floodfusion.config import config_from_dict
+
+        cfg = config_from_dict(json.loads(record.read_text(encoding="utf-8"))["config"])
+    else:
+        cfg = load_config(configs_dir / "row02_baseline_adaptive.yaml", overlays=overlays)
     offset = float(evaluation["operating_offset_db"])
 
     def run(stack: Path) -> np.ndarray:

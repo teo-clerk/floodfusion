@@ -20,7 +20,8 @@ SEED_PROTOCOL ?= auto
 
 .PHONY: help setup lock preflight test test-fast test-all test-gpu cov lint synth ingest splits \
         baseline train-p1 vram-budget ablation table predict demo clean \
-        s1f11 s1f11-download s1f11-ingest s1f11-splits s1f11-cv s1f11-table stress forli
+        s1f11 s1f11-download s1f11-ingest s1f11-splits s1f11-cv s1f11-table stress forli \
+        kurosiwo-data cems-data seasonal v11-splits v11-synthetic v11-runs v11-tables v11-cems
 
 help:  ## List targets
 	@grep -E '^[a-zA-Z0-9_-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -102,6 +103,63 @@ s1f11-table:  ## reports/sen1floods11_table.md from the run directories alone
 	$(PY) -m floodfusion.crossval table --data-root $(S1F11_ROOT) --runs-root $(S1F11_RUNS)
 
 s1f11: s1f11-download s1f11-ingest s1f11-splits s1f11-cv s1f11-table  ## The whole real-data benchmark
+
+# =============================================================================
+#  v1.1 (reports/protocol_v1_1.md): every number at the freeze SHA, one GPU job at a time.
+#  The v1.0 runs and reports stay as the v1.0 record; v1.1 writes runs/v11/ and reports/v11_*.
+# =============================================================================
+V11_RUNS ?= runs/v11
+KS_RAW ?= data/kurosiwo_raw
+KS_ROOT ?= data/kurosiwo
+KS_WATER ?= data/kurosiwo_water
+KS_OVERLAY ?= configs/overlays/kurosiwo.yaml
+CEMS_ROOT ?= data/cems_benchmark
+
+kurosiwo-data:  ## Kuro Siwo: pinned polygons -> chips (flood labels) -> the same chips with water labels
+	$(PY) -m floodfusion.data.kurosiwo download --raw $(KS_RAW)
+	$(PY) -m floodfusion.data.kurosiwo ingest --raw $(KS_RAW) --out $(KS_ROOT)
+	$(PY) -m floodfusion.data.kurosiwo relabel-water --src $(KS_ROOT) --dst $(KS_WATER) --raw $(KS_RAW)
+
+cems-data:  ## CEMS benchmark: eligibility census (metadata only) + product download + pass ingest
+	$(PY) -m floodfusion.cems_benchmark eligibility
+	$(PY) -m floodfusion.cems_benchmark prepare --out $(CEMS_ROOT)
+
+seasonal:  ## Seasonal Sentinel-1 references beside every Sen1Floods11, Kuro Siwo and CEMS stack
+	$(PY) -m floodfusion.data.seasonal --root $(S1F11_ROOT)
+	$(PY) -m floodfusion.data.seasonal --root $(KS_ROOT)
+	for d in $(CEMS_ROOT)/EMSR*_AOI*; do $(PY) -m floodfusion.data.seasonal --root $$d || exit 1; done
+
+v11-splits:  ## Kuro Siwo grouped five-fold + the all-groups model, for both label sets
+	$(PY) -m floodfusion.crossval splits --data-root $(KS_ROOT) --overlay $(KS_OVERLAY) --scheme kfold
+	$(PY) -m floodfusion.crossval splits --data-root $(KS_WATER) --overlay $(KS_OVERLAY) --scheme kfold
+
+v11-synthetic:  ## The synthetic grid and stress curves again, at the v1.1 SHA
+	$(PY) -m floodfusion.ablation --data-root $(DATA_ROOT) --runs-root $(V11_RUNS)/synthetic --overlay $(OVERLAY) \
+		--protocol full --out reports/v11_ablation_table.md
+	$(PY) -m floodfusion.stress --runs-root $(V11_RUNS)/synthetic --overlay $(OVERLAY) --work data/stress_v11 \
+		--assets assets/v11 --out reports/v11_stress.md
+
+v11-runs:  ## All v1.1 training and evaluation: Sen1Floods11, Kuro Siwo (flood, water labels)
+	$(PY) -m floodfusion.crossval run --data-root $(S1F11_ROOT) --overlay $(S1F11_OVERLAY) \
+		--runs-root $(V11_RUNS)/sen1floods11 --seed-protocol full --baseline-rows 1 2 3 18 19 \
+		--learned-rows 4 9 12 14 15 16 17
+	$(PY) -m floodfusion.crossval run --data-root $(KS_ROOT) --overlay $(KS_OVERLAY) --runs-root $(V11_RUNS)/kurosiwo \
+		--protocol kfold all --seed-protocol full --baseline-rows 1 2 3 18 19 --learned-rows 4 9 15 16 17
+	$(PY) -m floodfusion.crossval run --data-root $(KS_WATER) --overlay $(KS_OVERLAY) \
+		--runs-root $(V11_RUNS)/kurosiwo_water --protocol kfold all --seed-protocol full --baseline-rows \
+		--learned-rows 9
+
+v11-tables:  ## The v1.1 cross-validation reports
+	$(PY) -m floodfusion.crossval table --data-root $(S1F11_ROOT) --runs-root $(V11_RUNS)/sen1floods11 \
+		--preset sen1floods11 --out reports/v11_sen1floods11_table.md
+	$(PY) -m floodfusion.crossval table --data-root $(KS_ROOT) --runs-root $(V11_RUNS)/kurosiwo \
+		--preset kurosiwo --out reports/v11_kurosiwo_table.md
+	$(PY) -m floodfusion.crossval table --data-root $(KS_WATER) --runs-root $(V11_RUNS)/kurosiwo_water \
+		--preset kurosiwo_water --out reports/v11_kurosiwo_water_table.md
+
+v11-cems:  ## Every pre-registered model on the CEMS benchmark, and the P1-P4 report
+	$(PY) -m floodfusion.cems_scores score --case-root $(CEMS_ROOT)
+	$(PY) -m floodfusion.cems_scores report
 
 stress:  ## Single-factor stress curves + the gate figure on unseen synthetic landscapes
 	$(PY) -m floodfusion.stress --runs-root $(RUNS_ROOT) --overlay $(OVERLAY) --out reports/stress.md

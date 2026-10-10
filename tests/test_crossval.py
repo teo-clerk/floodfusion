@@ -317,3 +317,11 @@ def test_affordable_seed_protocol() -> None:
     assert seeds_for(4, [42, 43], "full") == [42, 43]
     with pytest.raises(ValueError):
         seeds_for(4, [42], "lavish")
+
+
+def test_variants_get_one_seed_and_train_only_in_cross_validation() -> None:
+    from floodfusion.crossval import CV_ONLY_ROWS, seeds_for
+
+    assert seeds_for(9, [42, 43, 44], "full") == [42, 43, 44]
+    assert all(seeds_for(r, [42, 43, 44], "full") == [42] for r in CV_ONLY_ROWS)
+    assert seeds_for(4, [42, 43, 44], "affordable") == [42]

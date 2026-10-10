@@ -267,10 +267,17 @@ def _config_name(row: int) -> str:
 REFERENCE_ROW = 9
 
 
+#: v1.1 variants (9b, 9c, 9r): descriptive ablations, one seed, cross-validation only
+#: (``reports/protocol_v1_1.md``) — never trained on the published split or the all-groups protocol.
+CV_ONLY_ROWS = frozenset({15, 16, 17})
+
+
 def seeds_for(row: int, seeds: Sequence[int], protocol: str) -> list[int]:
-    """Seeds a learned row is trained with: all of them for the reference row (or under 'full')."""
+    """Seeds a learned row is trained with: all for the reference row (or under 'full'); one for a variant."""
     if protocol not in ("affordable", "full"):
         raise ValueError(f"unknown seed protocol {protocol!r}")
+    if row in CV_ONLY_ROWS:
+        return list(seeds[:1])
     return list(seeds) if protocol == "full" or row == REFERENCE_ROW else list(seeds[:1])
 
 
@@ -288,6 +295,8 @@ def _run_fold(fold: Fold, args: argparse.Namespace, device: Any) -> None:
         if not _finished(out):
             run_baseline_row(cfg, args.data_root, out, attribution=row in (2, 19))
     for row in args.learned_rows:
+        if row in CV_ONLY_ROWS and fold.protocol in ("official", "all"):
+            continue
         for seed in seeds_for(row, args.seeds, args.seed_protocol):
             cfg = _fold_config(args.configs_dir, row, args.overlay, fold, seed)
             run_dir = run_dir_for(root, cfg.name, seed)
