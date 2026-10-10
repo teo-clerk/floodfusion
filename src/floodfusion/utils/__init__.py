@@ -1,11 +1,8 @@
 """Utilities: shape contracts and VRAM instrumentation.
 
-``shapes`` is **given to you complete and working**. It teaches an idiom — declarative
-tensor shape contracts with named dimensions — and typing it out yourself would waste
-your time. Use it everywhere.
-
-``vram`` is a skeleton: the analytic memory model is milestone ``P1-M4.1`` and is a
-learning target.
+``shapes``: declarative tensor shape contracts with named dimensions, used everywhere.
+``vram``: the analytic peak-memory model and its measured check (``P1-M4.1``).
+``latency``: inference timing.  ``env``: the provenance a run records.
 """
 
 from __future__ import annotations

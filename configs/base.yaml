@@ -4,8 +4,7 @@
 # =============================================================================
 #  This file holds the DEFAULTS. Each `rowNN_*.yaml` declares `extends: base.yaml`
 #  and overrides only the fields that define its row, so a diff between two row
-#  files shows exactly what the ablation varies — which is the pedagogical point.
-#  (Convention: 00_FOUNDATIONS/11_reproducibility_and_research_hygiene.md section 5.)
+#  files shows exactly what the ablation varies.
 #
 #  "Frozen" means the RESOLVED configuration is snapshotted into the run directory
 #  at launch, alongside the git SHA. The delta files are source; the snapshot is
@@ -18,7 +17,7 @@
 # =============================================================================
 
 name: "p01_base"
-# 0 == "not an ablation row". Rows 1-13 map onto MILESTONES.md section 6.
+# 0 == "not an ablation row". Rows 1-13 are the ablation grid (README, reports/ablation_table.md).
 ablation_row: 0
 output_dir: "runs"
 
@@ -70,6 +69,7 @@ data:
   chip_root: "chips"
   manifest_name: "manifest.parquet"
   split_file_name: "splits.json"
+  norm_stats_file: "norm_stats.json" # train-only statistics of that split (one per CV fold)
 
   chip_size: 256 # 2.56 km at 10 m
   train_stride: 128 # 50 % overlap — acceptable WITHIN a split only
@@ -90,6 +90,9 @@ data:
   pin_memory: true
   persistent_workers: true
   prefetch_factor: 4
+  # Every reported run reads real stacked GeoTIFFs. "auto"/"synthetic" exist only for
+  # unit tests; train/evaluate refuse them without an explicit --allow-synthetic.
+  chip_source: "raster"
 
 # -----------------------------------------------------------------------------
 # Architecture (docs/07)
@@ -136,6 +139,9 @@ baseline:
   use_optical_override: true
   speckle_filter: "refined_lee"
   speckle_window: 7
+  # Region growing from the SAR decision into pixels within this margin above the
+  # threshold surface that ALSO show >= half the required darkening (docs/06 4.2 step 7).
+  region_grow_margin_db: 1.5
 
 # -----------------------------------------------------------------------------
 # Objective (docs/08 section 2)
@@ -162,6 +168,10 @@ train:
   weight_decay: 1.0e-2 # excluded from norm and bias parameters
   warmup_epochs: 5 # attention logits are unstable early (docs/07 4.2)
   grad_clip_norm: 1.0
+  # Stop when validation macro IoU has not improved for this many epochs (docs/08 7.1:
+  # "60 epochs with early stopping on validation IoU"); 0 disables. Validation only —
+  # the test split is never consulted.
+  early_stopping_patience: 15
 
   # bfloat16 is MANDATED, not preferred. The soft-Dice reduction sums B*H*W terms
   # (524 288 at B=8, 256^2); a sum of order 1e5 OVERFLOWS fp16's 5-bit exponent,
@@ -171,6 +181,9 @@ train:
   channels_last: true # apply to BOTH model and inputs, or neither
   grad_checkpointing: false # unnecessary at 256^2; the lever at 512^2
   cudnn_benchmark: true # valid only because chip shapes are FIXED
+  # Deterministic kernels cost 2.9x throughput on this GPU (measured): seed everything, accept
+  # residual non-determinism and measure it with three seeds instead (docs/08 7.2).
+  deterministic: false
 
   seed: 42
 
@@ -185,3 +198,4 @@ eval:
   cost_ratio: 3.0
   n_bootstrap: 10000
   bootstrap_alpha: 0.05 # resampled over BASINS, never pixels (docs/09 3)
+  conformal_fnr: 0.1 # conformal risk control: E[per-chip FNR] <= 0.1 on exchangeable chips

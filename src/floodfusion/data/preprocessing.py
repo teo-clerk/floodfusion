@@ -29,19 +29,83 @@ References
 
 from __future__ import annotations
 
+import logging
+from collections.abc import Sequence
+
 import numpy as np
 
 __all__ = [
+    "DB_NODATA",
     "calibrate",
     "db_to_linear",
+    "equivalent_number_of_looks",
+    "interpolate_lut",
     "linear_to_db",
     "refined_lee",
     "remove_thermal_noise",
     "terrain_correct",
+    "thermal_noise_report",
 ]
 
+LOGGER = logging.getLogger(__name__)
 
-def calibrate(dn: np.ndarray, lut: np.ndarray, quantity: str = "gamma") -> np.ndarray:
+#: The nodata sentinel expressed in dB: int16 -32768 / db_scale 100 (docs/04 section 8.1).
+#: Far outside the physical range of gamma0 (~[-35, +10] dB), so it can never be mistaken
+#: for a measurement once it is routed into the validity mask.
+DB_NODATA: float = -327.68
+
+_CALIBRATION_QUANTITIES = {
+    "sigma": "sigmaNought", "sigmanought": "sigmaNought",
+    "beta": "betaNought", "betanought": "betaNought",
+    "gamma": "gamma",
+    "dn": "dn",
+}
+
+
+def interpolate_lut(
+    lut: np.ndarray,
+    shape: tuple[int, int],
+    *,
+    lut_lines: Sequence[float] | np.ndarray | None = None,
+    lut_pixels: Sequence[float] | np.ndarray | None = None,
+) -> np.ndarray:
+    """Bilinearly interpolate a coarse calibration/noise LUT to full raster resolution.
+
+    Sentinel-1 calibration and noise vectors are given at a sparse lattice of azimuth
+    lines x range pixels (``docs/04`` section 3.2). ``lut`` is ``(n_lines, n_pixels)``
+    sampled at ``lut_lines`` x ``lut_pixels``; the result is ``shape``. Bilinear and
+    separable, edge values held constant beyond the lattice. A LUT that already has the
+    raster's shape is returned unchanged.
+    """
+    lut = np.asarray(lut, dtype=np.float64)
+    if lut.shape == tuple(shape):
+        return lut
+    if lut_lines is None or lut_pixels is None:
+        raise ValueError(
+            f"LUT shape {lut.shape} differs from raster {shape}: pass lut_lines and "
+            "lut_pixels (the azimuth line / range pixel of every LUT sample)"
+        )
+    lines = np.asarray(lut_lines, dtype=np.float64)
+    pixels = np.asarray(lut_pixels, dtype=np.float64)
+    if lut.shape != (lines.size, pixels.size):
+        raise ValueError(f"LUT shape {lut.shape} != ({lines.size}, {pixels.size})")
+    cols = np.arange(shape[1], dtype=np.float64)
+    rows = np.arange(shape[0], dtype=np.float64)
+    along_range = np.stack([np.interp(cols, pixels, row) for row in lut])  # (n_lines, W)
+    out = np.empty(shape, dtype=np.float64)
+    for j in range(shape[1]):
+        out[:, j] = np.interp(rows, lines, along_range[:, j])
+    return out
+
+
+def calibrate(
+    dn: np.ndarray,
+    lut: np.ndarray,
+    quantity: str = "gamma",
+    *,
+    lut_lines: Sequence[float] | np.ndarray | None = None,
+    lut_pixels: Sequence[float] | np.ndarray | None = None,
+) -> np.ndarray:
     r"""Convert digital numbers to a calibrated backscatter quantity.
 
     .. math:: \text{value}(i,j) = \frac{|\mathrm{DN}(i,j)|^2}{A(i,j)^2}
@@ -74,18 +138,33 @@ def calibrate(dn: np.ndarray, lut: np.ndarray, quantity: str = "gamma") -> np.nd
     ``docs/03`` section 5, not the ellipsoid angle -- that distinction is exactly the
     difference between geocoding and radiometric terrain correction.
 
-    TODO(student)
-    -------------
-    1. Interpolate the LUT to full resolution.
-    2. Apply the formula. Assert the output is non-negative.
-    3. Compare a 256x256 window against a toolbox result and report the maximum absolute
-       dB difference (``docs/04`` exercise 1). Discrepancies are usually LUT
-       interpolation, then the missing square.
+    Implementation notes
+    --------------------
+    1. The LUT is interpolated to full resolution.
+    2. The formula is applied; a negative output raises, since it cannot be physical.
+    3. When this disagrees with a toolbox result, the usual causes are LUT interpolation,
+       then a missing square.
     """
-    raise NotImplementedError("Implement calibration. See docs/04 section 3.2.")
+    key = quantity.replace("_", "").lower()
+    if key not in _CALIBRATION_QUANTITIES:
+        raise ValueError(f"unknown calibration quantity {quantity!r}; use sigma, beta, gamma or dn")
+    dn = np.asarray(dn, dtype=np.float64)
+    a = interpolate_lut(lut, dn.shape, lut_lines=lut_lines, lut_pixels=lut_pixels)
+    if np.any(a <= 0.0):
+        raise ValueError("calibration LUT must be strictly positive")
+    value = np.abs(dn) ** 2 / a**2  # DN is an AMPLITUDE: square it (docs/04 3.2)
+    if np.any(value < 0.0):  # pragma: no cover - impossible by construction
+        raise AssertionError("calibrated power is negative")
+    return value
 
 
-def remove_thermal_noise(power: np.ndarray, noise_lut: np.ndarray) -> np.ndarray:
+def remove_thermal_noise(
+    power: np.ndarray,
+    noise_lut: np.ndarray,
+    *,
+    lut_lines: Sequence[float] | np.ndarray | None = None,
+    lut_pixels: Sequence[float] | np.ndarray | None = None,
+) -> np.ndarray:
     r"""Subtract the receiver noise floor, in linear power.
 
     .. math:: \sigma^0_{\text{corrected}} = \sigma^0_{\text{measured}} - \sigma^0_{\text{noise}}
@@ -108,13 +187,39 @@ def remove_thermal_noise(power: np.ndarray, noise_lut: np.ndarray) -> np.ndarray
     sub-swaths from the TOPSAR antenna pattern -- which otherwise appears as vertical
     banding that a CNN will happily learn as a feature.
 
-    TODO(student)
-    -------------
-    1. Interpolate the noise LUT to full resolution.
-    2. Subtract in linear power.
-    3. Return the corrected array **and** the count of non-positive pixels. Log it.
+    Implementation notes
+    --------------------
+    1. The noise LUT is interpolated to full resolution.
+    2. Subtraction happens in linear power.
+    3. The count of pixels pushed to non-positive values is logged.
     """
-    raise NotImplementedError("Implement noise removal. See docs/04 section 4.2.")
+    power = np.asarray(power, dtype=np.float64)
+    noise = interpolate_lut(noise_lut, power.shape, lut_lines=lut_lines, lut_pixels=lut_pixels)
+    corrected = power - noise
+    report = thermal_noise_report(corrected)
+    LOGGER.info(
+        "thermal noise removal: %d of %d pixels (%.2f %%) are at or below the noise floor",
+        report["non_positive"], report["total"], 100.0 * report["non_positive_fraction"],
+    )
+    return corrected
+
+
+def thermal_noise_report(corrected: np.ndarray) -> dict[str, float]:
+    """Count noise-limited pixels after denoising (``docs/04`` section 4.2, point 1).
+
+    The fraction is a direct measurement of how much of the scene is below the NESZ — a
+    large value over water in VH is expected and informative, and it is recorded rather
+    than hidden by silently clipping to a small positive constant.
+    """
+    corrected = np.asarray(corrected)
+    finite = np.isfinite(corrected)
+    non_positive = int(np.count_nonzero(finite & (corrected <= 0.0)))
+    total = int(np.count_nonzero(finite))
+    return {
+        "non_positive": non_positive,
+        "total": total,
+        "non_positive_fraction": non_positive / total if total else float("nan"),
+    }
 
 
 def linear_to_db(power: np.ndarray) -> np.ndarray:
@@ -134,17 +239,23 @@ def linear_to_db(power: np.ndarray) -> np.ndarray:
     is **not constant**, because it depends on the effective number of looks, which
     varies with your filter and window size. So it is a spatially varying bias.
 
-    TODO(student)
-    -------------
-    Implement, handling non-positive input explicitly (return the nodata sentinel, not
-    ``-inf``), and add the test asserting mean-of-window equals the linear-domain mean.
+    Implementation notes
+    --------------------
+    Non-positive input becomes the nodata sentinel, not ``-inf``.
     """
-    raise NotImplementedError("Implement the dB conversion. See docs/04 section 3.4.")
+    power = np.asarray(power, dtype=np.float64)
+    out = np.full(power.shape, DB_NODATA, dtype=np.float64)
+    ok = np.isfinite(power) & (power > 0.0)
+    out[ok] = 10.0 * np.log10(power[ok])
+    return out
 
 
 def db_to_linear(db: np.ndarray) -> np.ndarray:
     r"""Convert decibels to linear power: :math:`10^{(\cdot)/10}`."""
-    raise NotImplementedError("Implement the inverse conversion. See docs/04 section 3.4.")
+    db = np.asarray(db, dtype=np.float64)
+    out = np.power(10.0, db / 10.0)
+    out[~np.isfinite(db) | (db <= DB_NODATA)] = np.nan  # the sentinel is not a measurement
+    return out
 
 
 def refined_lee(intensity: np.ndarray, looks: float, window: int = 7) -> np.ndarray:
@@ -187,70 +298,131 @@ def refined_lee(intensity: np.ndarray, looks: float, window: int = 7) -> np.ndar
     :math:`\gamma^0` and let it learn its own spatial aggregation -- then *test* the
     assumption as an extra ablation row (``docs/04`` section 6.4).
 
-    TODO(student)
-    -------------
-    1. Operate on **linear intensity**, never dB.
-    2. Implement plain Lee first and plot :math:`W` across a synthetic edge.
-    3. Add the refinement; show the edge-band artefact disappears.
-    4. Report ENL in a homogeneous patch before and after -- that is the measurement that
-       tells you the effective :math:`L` your change-detection threshold should use.
+    Implementation notes
+    --------------------
+    1. Operates on **linear intensity**, never dB.
+    2. The refinement (edge-aligned half-windows) removes the edge-band artefact of plain Lee.
+    3. ENL measured in a homogeneous patch before and after filtering is the effective
+       :math:`L` a change-detection threshold should use.
     """
-    raise NotImplementedError("Implement Refined Lee. See docs/04 section 6.")
+    from scipy import ndimage
+
+    if window < 5 or window % 2 == 0:
+        raise ValueError("window must be an odd integer >= 5")
+    if looks <= 0:
+        raise ValueError("looks must be positive")
+    image = np.asarray(intensity, dtype=np.float64)
+    if image.ndim != 2:
+        raise ValueError("refined_lee expects a 2-D intensity array")
+    valid = np.isfinite(image) & (image > 0.0)
+    x = np.where(valid, image, 0.0)
+    w = valid.astype(np.float64)
+    half = window // 2
+
+    # 1. 3x3 array of sub-block means, sub-blocks centred at offsets {-step, 0, +step}.
+    sub = max(1, (window // 3) | 1)  # odd sub-block size: 3 for a 7x7 window
+    step = (window - sub) // 2
+    sum_sub = ndimage.uniform_filter(x, size=sub, mode="reflect")
+    cnt_sub = ndimage.uniform_filter(w, size=sub, mode="reflect")
+    mean_sub = np.divide(sum_sub, cnt_sub, out=np.zeros_like(sum_sub), where=cnt_sub > 0)
+    padded = np.pad(mean_sub, step, mode="reflect")
+    h, wd = image.shape
+
+    def block(a: int, b: int) -> np.ndarray:  # a, b in {0, 1, 2}
+        r0, c0 = a * step, b * step
+        return padded[r0:r0 + h, c0:c0 + wd]
+
+    m = [[block(a, b) for b in range(3)] for a in range(3)]
+    left = m[0][0] + m[1][0] + m[2][0]
+    right = m[0][2] + m[1][2] + m[2][2]
+    top = m[0][0] + m[0][1] + m[0][2]
+    bottom = m[2][0] + m[2][1] + m[2][2]
+    upper_right = m[0][1] + m[0][2] + m[1][2]
+    lower_left = m[1][0] + m[2][0] + m[2][1]
+    upper_left = m[0][0] + m[0][1] + m[1][0]
+    lower_right = m[1][2] + m[2][1] + m[2][2]
+
+    # 2. Edge direction = the strongest of four gradients of the 3x3 mean array.
+    pairs = (
+        (left, right),             # vertical edge   -> left / right half-window
+        (top, bottom),             # horizontal edge -> top / bottom
+        (upper_right, lower_left), # edge along the main diagonal
+        (upper_left, lower_right), # edge along the anti-diagonal
+    )
+    gradients = np.stack([np.abs(b - a) for a, b in pairs])
+    direction = np.argmax(gradients, axis=0)
+
+    # 3. The homogeneous side: the half whose sub-block mean is closer to the centre.
+    centre = m[1][1]
+    side = np.zeros(image.shape, dtype=np.int64)
+    for d, (a, b) in enumerate(pairs):
+        pick_b = np.abs(b / 3.0 - centre) < np.abs(a / 3.0 - centre)
+        side = np.where(direction == d, pick_b.astype(np.int64), side)
+    choice = 2 * direction + side  # 0..7
+
+    # 4. Local statistics inside each of the 8 oriented half-windows (incl. the centre line).
+    ii, jj = np.mgrid[0:window, 0:window]
+    masks = (
+        jj <= half, jj >= half,                  # left, right
+        ii <= half, ii >= half,                  # top, bottom
+        jj >= ii, jj <= ii,                      # upper-right, lower-left triangles
+        ii + jj <= 2 * half, ii + jj >= 2 * half,  # upper-left, lower-right triangles
+    )
+    mean = np.zeros_like(x)
+    var = np.zeros_like(x)
+    x2 = x * x
+    for k, mask in enumerate(masks):
+        kernel = mask.astype(np.float64)
+        n = ndimage.correlate(w, kernel, mode="reflect")
+        s1 = ndimage.correlate(x, kernel, mode="reflect")
+        s2 = ndimage.correlate(x2, kernel, mode="reflect")
+        mk = np.divide(s1, n, out=np.zeros_like(s1), where=n > 0)
+        vk = np.divide(s2, n, out=np.zeros_like(s2), where=n > 0) - mk**2
+        sel = choice == k
+        mean[sel] = mk[sel]
+        var[sel] = np.maximum(vk[sel], 0.0)
+
+    # 5. Lee MMSE weight with the oriented statistics, clamped to [0, 1].
+    cu2 = 1.0 / looks
+    ci2 = np.divide(var, mean**2, out=np.full_like(var, np.inf), where=mean > 0)
+    weight = np.clip(1.0 - cu2 / ci2, 0.0, 1.0)
+    out = mean + weight * (x - mean)
+    out[~valid] = image[~valid]  # nodata / non-positive pixels pass through untouched
+    return out
+
+
+def equivalent_number_of_looks(intensity: np.ndarray) -> float:
+    """ENL = (mean / std)^2 over a homogeneous patch of LINEAR intensity.
+
+    The measurement that sets the change-detection threshold: after filtering, the
+    effective L is no longer 4.4 (``docs/04`` section 6.4, ``docs/01`` section 10.2).
+    """
+    values = np.asarray(intensity, dtype=np.float64)
+    values = values[np.isfinite(values) & (values > 0.0)]
+    if values.size < 2:
+        raise ValueError("need at least two valid pixels")
+    std = values.std()
+    return float("inf") if std == 0.0 else float((values.mean() / std) ** 2)
 
 
 def terrain_correct(*args: object, **kwargs: object) -> np.ndarray:
     r"""Range-Doppler terrain correction, backward-geocoded onto the analysis grid.
 
-    Notes
-    -----
-    Sentinel-1 products are processed to **zero-Doppler** geometry. For a ground target
-    at ECEF position :math:`\mathbf{P}` and a satellite at :math:`\mathbf{S}(t)` with
-    velocity :math:`\mathbf{V}(t)`, the imaging time :math:`t^\star` satisfies
+    Implemented in :func:`floodfusion.data.geocoding.terrain_correct` (this name is kept
+    here because ``docs/04`` section 8 lists it as step 7-8 of the pre-processing chain);
+    see that module for the zero-Doppler solve, backward geocoding in linear power and the
+    area-based RTC of Small (2011):
 
-    .. math:: \mathbf{V}(t^\star)\cdot[\mathbf{P} - \mathbf{S}(t^\star)] = 0
-
-    -- geometrically, closest approach -- and the slant range is
-    :math:`R = \|\mathbf{P} - \mathbf{S}(t^\star)\|`.
-
-    **Backward geocoding**: iterate over the **output** grid, and for each cell solve for
-    :math:`(t^\star, R)` and interpolate the source image there::
-
-        FOR each cell g of the OUTPUT grid:
-            (lat, lon) <- inverse projection of g
-            h          <- DEM(lat, lon)
-            P          <- geodetic_to_ecef(lat, lon, h)
-            t*         <- solve V(t).(P - S(t)) = 0        # Newton / bisection
-            R          <- |P - S(t*)|
-            (line,pix) <- image coordinates from (t*, R)
-            output[g]  <- bilinear(image, line, pix)       # in LINEAR power
-
-    Forward projection -- pushing each input pixel to where it lands -- leaves holes
-    where ground-range sampling stretched and piles multiple inputs where it compressed.
-    Iterating over the output guarantees each cell is filled exactly once by exactly one
-    interpolation. Same argument as inverse warping in image processing.
-
-    **Geocoding is not radiometric terrain correction.** Geocoding moves pixels; it does
-    not change their values. RTC additionally fixes brightness: a slope facing the sensor
-    is foreshortened, so each pixel collects backscatter from more ground and is brighter
-    -- not because the surface scatters more. The modern area-based correction is
-
-    .. math:: \gamma^0_T = \sigma^0_E \cdot \frac{A_{\text{flat}}}{A_{\text{illuminated}}}
-
-    which handles several terrain facets contributing to one pixel, as the naive
-    :math:`1/\cos\theta_{\mathrm{loc}}` cannot.
+    .. math:: \gamma^0_T = \beta^0 \cdot \frac{A_\beta}{A_\gamma}
 
     **And the result is still untrustworthy in layover.** Where
     :math:`\theta_{\mathrm{loc}} \le 0`, returns from multiple distinct ground patches are
-    summed in a single range bin. No division by an area recovers information destroyed
-    in the receiver. Layover is not a radiometric error to correct; it is destroyed
-    information to mask. That is ``P1-M1``'s comprehension question.
+    summed in a single range bin; no division by an area recovers information destroyed in
+    the receiver.
 
-    TODO(student)
-    -------------
-    1. Solve the zero-Doppler condition by Newton's method on the orbit state vectors.
-    2. Backward-geocode onto the analysis grid, interpolating in **linear power**.
-    3. Apply area-based RTC using the DEM-derived illuminated area.
-    4. Validate by SAR simulation cross-correlation (``docs/05`` section 5.1): the peak
-       must lie at (0, 0) to within a fraction of a pixel.
+    Production ingest uses the pre-processed Planetary Computer ``sentinel-1-rtc``
+    collection (Route B, ``docs/04`` section 9), which already ran these steps.
     """
-    raise NotImplementedError("Implement terrain correction. See docs/04 section 5.")
+    from floodfusion.data.geocoding import terrain_correct as _terrain_correct
+
+    return _terrain_correct(*args, **kwargs)  # type: ignore[arg-type]

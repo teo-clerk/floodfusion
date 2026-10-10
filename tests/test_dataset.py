@@ -44,17 +44,6 @@ from floodfusion.data.dataset import (  # noqa: E402
     worker_init_fn,
 )
 
-EXPECT_UNIMPLEMENTED = True
-ALWAYS_PASS = frozenset({
-    "test_record_is_frozen",
-    "test_sentinel2_offset_changes_reflectance_by_more_than_the_signal",
-    "test_scl_water_class_is_not_an_input_channel",
-    "test_int16_db_quantisation_is_finer_than_speckle_noise",
-    "test_nodata_sentinel_lies_outside_the_physical_range",
-    "test_handles_are_cached_per_process",
-    "test_empty_records_rejected",
-    "test_length_matches_record_count",
-})
 
 CHIP = 32
 

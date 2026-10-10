@@ -1,0 +1,46 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: lint + offline tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e  # v6
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+      - name: Install the locked environment
+        run: uv sync --frozen --extra dev
+      - name: Lint
+        run: uv run --no-sync ruff check src tests notebooks
+      - name: Offline test suite with coverage (no network, no GPU)
+        run: >
+          uv run --no-sync pytest -m "not network and not gpu"
+          --cov=floodfusion --cov-branch --cov-report=term --cov-report=xml --cov-fail-under=80
+      - name: Coverage summary
+        if: always() && matrix.python-version == '3.12'
+        run: |
+          uv run --no-sync python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import xml.etree.ElementTree as ET
+          root = ET.parse("coverage.xml").getroot()
+          print(f"### Coverage: {100 * float(root.get('line-rate')):.1f} % lines, "
+                f"{100 * float(root.get('branch-rate')):.1f} % branches")
+          PY

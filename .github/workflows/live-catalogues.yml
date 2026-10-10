@@ -1,0 +1,26 @@
+name: live-catalogues
+
+# The data path talks to public services (Planetary Computer, CDSE STAC, the Sen1Floods11
+# bucket, the CEMS rapid-mapping API) whose schemas drift. This weekly run catches the drift
+# before a user does; it needs no credentials.
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  network:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e  # v6
+        with:
+          enable-cache: true
+          python-version: "3.12"
+      - run: uv sync --frozen --extra dev
+      - name: Live catalogue and archive tests
+        run: uv run --no-sync pytest -m network -v

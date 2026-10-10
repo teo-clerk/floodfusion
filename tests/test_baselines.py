@@ -23,16 +23,6 @@ from floodfusion.baselines import (
 )
 from floodfusion.config import BaselineConfig
 
-EXPECT_UNIMPLEMENTED = True
-ALWAYS_PASS = frozenset({
-    "test_ashman_threshold_convention",
-    "test_change_threshold_follows_from_speckle_statistics",
-    "test_row1_disables_every_exclusion",
-    "test_delta_min_must_be_positive",
-    "test_component_weight_bounds",
-    "test_unknown_threshold_mode_rejected",
-})
-
 
 class TestOtsu:
     def test_separates_a_clean_bimodal_histogram(self) -> None:

@@ -253,10 +253,17 @@ class TestScientificCoreRows:
 
 
 class TestReferencedFilenamesResolve:
-    """Filenames cited elsewhere in the repo must exist (task: config alignment)."""
+    """Filenames cited elsewhere in the repo must exist (task: config alignment).
+
+    Implementation note (test fix): the original resolved ``CONFIG_DIR.parent.parent``,
+    i.e. a directory *outside* this repository. In a clean clone that directory does
+    not exist, so a clean clone could never pass (``P1-M6.3``
+    requires exactly that). Both checks are rooted at the repository instead; the
+    assertions themselves are unchanged.
+    """
 
     def test_makefile_train_p1_config_exists(self) -> None:
-        makefile = (CONFIG_DIR.parent.parent / "Makefile").read_text(encoding="utf-8")
+        makefile = (CONFIG_DIR.parent / "Makefile").read_text(encoding="utf-8")
         assert "configs/row09_fusion_crossattn.yaml" in makefile
         assert (CONFIG_DIR / "row09_fusion_crossattn.yaml").is_file()
 
@@ -269,7 +276,7 @@ class TestReferencedFilenamesResolve:
     def test_no_stale_config_names_remain(self) -> None:
         """The pre-standardisation names must not survive anywhere."""
         stale = ["unet_fusion.yaml", "row09_fusion_reference.yaml", "fusion_bf16.yaml"]
-        root = CONFIG_DIR.parent.parent
+        root = CONFIG_DIR.parent  # repository root (see class docstring)
         for doc in list(root.glob("*.md")) + list((CONFIG_DIR.parent / "docs").glob("*.md")):
             text = doc.read_text(encoding="utf-8")
             for name in stale:

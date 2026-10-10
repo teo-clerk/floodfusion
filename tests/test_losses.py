@@ -30,10 +30,6 @@ from floodfusion.models.losses import (  # noqa: E402
     masked_mean,
 )
 
-#: Opt in to the auto-xfail hook in ``conftest.py``. Delete this line once
-#: ``floodfusion.models.losses`` is implemented, so regressions become failures.
-EXPECT_UNIMPLEMENTED = True
-
 
 # ---------------------------------------------------------------------------
 # masked_mean

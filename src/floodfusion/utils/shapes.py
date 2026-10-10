@@ -37,7 +37,8 @@ for debugging (see its docstring).
 
 from __future__ import annotations
 
-from typing import Any, Protocol, Sequence, runtime_checkable
+from collections.abc import Sequence
+from typing import Any, Protocol, runtime_checkable
 
 __all__ = ["ShapeError", "assert_shape", "check_finite", "named_dims"]
 

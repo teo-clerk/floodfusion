@@ -3,8 +3,6 @@ r"""Metrics under a ~2 % positive rate, and basin-level uncertainty.
 The specification for :mod:`floodfusion.metrics`. See ``docs/06`` section 2 and
 ``docs/09`` section 3.
 
-:class:`ConfusionMatrix` is given complete, so its tests pass on a fresh clone; the
-accumulation, curve and bootstrap functions are skeletons.
 """
 
 from __future__ import annotations
@@ -41,20 +39,6 @@ def _require_torch():
     and would take the fourteen torch-free tests below with it.
     """
     return pytest.importorskip("torch", reason="PyTorch is required for this test")
-
-
-EXPECT_UNIMPLEMENTED = True
-ALWAYS_PASS = frozenset({
-    "test_iou_definition",
-    "test_f1_definition",
-    "test_iou_f1_identity",
-    "test_f1_always_exceeds_iou",
-    "test_perfect_prediction",
-    "test_null_predictor_scores_zero_iou_despite_high_accuracy",
-    "test_empty_union_is_nan_not_zero",
-    "test_matrices_add",
-    "test_precision_collapses_under_imbalance",
-})
 
 
 class TestConfusionMatrix:

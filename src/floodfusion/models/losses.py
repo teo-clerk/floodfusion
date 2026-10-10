@@ -16,17 +16,35 @@ being asked about.
 References
 ----------
 ``docs/08_training_recipe_and_vram.md`` section 2 — the full derivations.
-``docs/10`` exercise A4 — derive these by hand.
 """
 
 from __future__ import annotations
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from floodfusion.config import LossConfig
+from floodfusion.utils.shapes import assert_shape, named_dims
 
-__all__ = ["FocalLoss", "SoftDiceLoss", "CompoundFocalDiceLoss", "masked_mean"]
+__all__ = ["CompoundFocalDiceLoss", "FocalLoss", "SoftDiceLoss", "masked_mean"]
+
+
+def _promote(x: torch.Tensor) -> torch.Tensor:
+    """Cast to at least float32 for numerically sensitive reductions (``docs/08`` 5.2).
+
+    bf16/fp16 inputs (e.g. logits produced under ``autocast``) are upcast; float64 is
+    preserved so ``torch.autograd.gradcheck`` keeps its precision.
+    """
+    return x.to(torch.promote_types(x.dtype, torch.float32))
+
+
+def _check_inputs(logits: torch.Tensor, target: torch.Tensor, valid: torch.Tensor) -> None:
+    if logits.shape != target.shape or logits.shape != valid.shape:
+        raise ValueError(
+            f"logits {tuple(logits.shape)}, target {tuple(target.shape)} and valid "
+            f"{tuple(valid.shape)} must share one shape"
+        )
 
 
 def masked_mean(values: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
@@ -55,14 +73,23 @@ def masked_mean(values: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
     summing :math:`5 \\times 10^{5}` terms in ``bfloat16`` accumulates real error
     (``docs/08`` section 5.2).
 
-    TODO(student)
-    -------------
-    1. Broadcast the mask and cast it to the values' dtype.
-    2. Sum in ``float32``.
-    3. Return ``0`` (as a tensor on the right device, preserving the graph) when the
-       mask is empty.
+    Implementation notes
+    --------------------
+    1. The mask is broadcast and cast to the values' dtype.
+    2. The sum is taken in ``float32``.
+    3. An empty mask gives ``0`` as a tensor on the right device, preserving the graph.
     """
-    raise NotImplementedError("Implement masked_mean. See docs/08 section 5.2.")
+    mask = mask.to(device=values.device)
+    if mask.dtype != torch.bool:
+        mask = mask.bool()
+    mask = torch.broadcast_to(mask, values.shape)
+    acc_dtype = torch.promote_types(values.dtype, torch.float32)
+    weights = mask.to(acc_dtype)
+    total = (values.to(acc_dtype) * weights).sum()
+    count = weights.sum()
+    # clamp_min keeps the empty case at 0/1 = 0 while preserving the graph: the
+    # gradient of an empty mean is exactly zero everywhere, never NaN.
+    return total / count.clamp_min(1.0)
 
 
 class FocalLoss(nn.Module):
@@ -89,8 +116,7 @@ class FocalLoss(nn.Module):
     suppressed by **100x**, and the gradient budget flows to flood boundaries,
     wind-roughened water and shadow.
 
-    **Gradient**, for :math:`y = 1` (derive the :math:`y=0` case yourself —
-    ``docs/10`` exercise A4b):
+    **Gradient**, for :math:`y = 1` (the :math:`y = 0` case is symmetric):
 
     .. math::
 
@@ -118,17 +144,16 @@ class FocalLoss(nn.Module):
     ``forward(logits, target, valid)`` with all of ``(B, 1, H, W)``; ``valid`` is
     ``bool``. Returns a scalar.
 
-    TODO(student)
-    -------------
-    1. Compute the per-pixel loss **from logits**, using
-       ``F.binary_cross_entropy_with_logits(..., reduction="none")`` for the
-       :math:`\log p_t` term rather than ``log(sigmoid(z))``, which overflows for
-       :math:`|z| \gtrsim 40`.
-    2. Form :math:`p_t` and :math:`\alpha_t` with ``torch.where``, not with Python
-       branching — the input is a batch, not a scalar.
-    3. Multiply by the modulating factor and reduce with :func:`masked_mean`.
-    4. Verify the analytic gradient against ``torch.autograd.gradcheck`` in
-       ``float64``. This is a required check in ``P1-M4.2``.
+    Implementation notes
+    --------------------
+    1. The per-pixel loss is computed **from logits**: the :math:`\log p_t` term comes from
+       ``F.binary_cross_entropy_with_logits(..., reduction="none")`` rather than
+       ``log(sigmoid(z))``, which overflows for :math:`|z| \gtrsim 40`.
+    2. :math:`p_t` and :math:`\alpha_t` use ``torch.where``, not Python branching — the
+       input is a batch, not a scalar.
+    3. The modulating factor is applied and the result reduced with :func:`masked_mean`.
+    4. The analytic gradient is checked against ``torch.autograd.gradcheck`` in
+       ``float64`` (``tests/test_losses.py``, ``P1-M4.2``).
     """
 
     def __init__(self, gamma: float = 2.0, alpha: float = 0.75) -> None:
@@ -139,15 +164,28 @@ class FocalLoss(nn.Module):
             raise ValueError("alpha must lie in [0, 1]")
         self.gamma = gamma
         self.alpha = alpha
-        raise NotImplementedError("Implement FocalLoss. See docs/08 section 2.3.")
+
+    def per_pixel(self, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        """Unreduced focal loss, computed from logits in at least float32."""
+        z = _promote(logits)
+        y = target.to(z.dtype)
+        bce = F.binary_cross_entropy_with_logits(z, y, reduction="none")  # = -log p_t
+        alpha_t = torch.where(y > 0.5, z.new_tensor(self.alpha), z.new_tensor(1.0 - self.alpha))
+        if self.gamma == 0.0:
+            return alpha_t * bce
+        # p_t = exp(-bce) exactly; 1 - p_t = -expm1(-bce) keeps full precision for easy
+        # examples where p_t -> 1 (a plain 1 - exp(-bce) would cancel catastrophically).
+        one_minus_pt = -torch.expm1(-bce)
+        return alpha_t * one_minus_pt.pow(self.gamma) * bce
 
     def forward(
         self,
         logits: torch.Tensor,
         target: torch.Tensor,
         valid: torch.Tensor,
-    ) -> torch.Tensor:  # noqa: D102
-        raise NotImplementedError
+    ) -> torch.Tensor:
+        _check_inputs(logits, target, valid)
+        return masked_mean(self.per_pixel(logits, target), valid)
 
 
 class SoftDiceLoss(nn.Module):
@@ -213,14 +251,14 @@ class SoftDiceLoss(nn.Module):
     --------------
     ``forward(logits, target, valid)`` with all of ``(B, 1, H, W)``. Returns a scalar.
 
-    TODO(student)
-    -------------
-    1. Apply ``sigmoid`` to the logits **here** — Dice needs probabilities, unlike
+    Implementation notes
+    --------------------
+    1. ``sigmoid`` is applied to the logits **here** — Dice needs probabilities, unlike
        focal, which is formulated on logits for stability.
-    2. Zero out invalid pixels **before** summing into :math:`A` and :math:`B`.
-    3. Accumulate in ``float32`` (``docs/08`` section 5.2).
-    4. Place ``smooth`` in both numerator and denominator. Then write the test that
-       fails if you place it in the denominator only.
+    2. Invalid pixels are zeroed **before** summing into :math:`A` and :math:`B`.
+    3. Accumulation is in ``float32`` (``docs/08`` section 5.2).
+    4. ``smooth`` sits in both numerator and denominator; ``tests/test_losses.py`` fails if
+       it is placed in the denominator only.
     """
 
     def __init__(self, smooth: float = 1.0) -> None:
@@ -231,15 +269,23 @@ class SoftDiceLoss(nn.Module):
                 "chip yields zero gradient. See docs/08 section 2.4."
             )
         self.smooth = smooth
-        raise NotImplementedError("Implement SoftDiceLoss. See docs/08 section 2.4.")
 
     def forward(
         self,
         logits: torch.Tensor,
         target: torch.Tensor,
         valid: torch.Tensor,
-    ) -> torch.Tensor:  # noqa: D102
-        raise NotImplementedError
+    ) -> torch.Tensor:
+        _check_inputs(logits, target, valid)
+        z = _promote(logits)
+        p = torch.sigmoid(z)
+        m = valid.to(z.dtype)
+        y = target.to(z.dtype) * m
+        # A and B over the WHOLE micro-batch, invalid pixels zeroed BEFORE summation.
+        a = (p * y).sum()
+        b = (p * m).sum() + y.sum()
+        dice = (2.0 * a + self.smooth) / (b + self.smooth)
+        return 1.0 - dice
 
 
 class CompoundFocalDiceLoss(nn.Module):
@@ -291,27 +337,41 @@ class CompoundFocalDiceLoss(nn.Module):
        the most common masking bug.
     4. Gradients are finite under ``autocast(bfloat16)``.
 
-    TODO(student)
-    -------------
-    1. Assert the three inputs share shape ``(B, 1, H, W)`` with
-       ``utils.shapes.assert_shape``, and that ``valid`` is ``bool``.
-    2. Compose the two terms with their configured weights.
-    3. Consider the warm-up of ``docs/08`` section 3: :math:`\beta = 0` for the first
-       few epochs, ramped in. Dice's gradient near random initialisation is nearly
-       uninformative. If you use it, expose it as a scheduled parameter and record it.
+    Implementation notes
+    --------------------
+    1. The three inputs must share shape ``(B, 1, H, W)`` (``utils.shapes.assert_shape``),
+       and ``valid`` must be ``bool``.
+    2. The two terms are composed with their configured weights.
+    3. Dice is weighted from the first step: the warm-up of ``docs/08`` section 3
+       (:math:`\beta = 0` for the first epochs) is not used.
     """
 
     def __init__(self, cfg: LossConfig) -> None:
         super().__init__()
         self.cfg = cfg
-        raise NotImplementedError(
-            "Implement the compound loss. See docs/08 section 2.5."
-        )
+        self.focal = FocalLoss(gamma=cfg.focal_gamma, alpha=cfg.focal_alpha)
+        self.dice = SoftDiceLoss(smooth=cfg.dice_smooth)
 
     def forward(
         self,
         logits: torch.Tensor,
         target: torch.Tensor,
         valid: torch.Tensor,
-    ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:  # noqa: D102
-        raise NotImplementedError
+    ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+        dims = named_dims()
+        assert_shape(logits, ("B", 1, "H", "W"), dims, name="logits")
+        assert_shape(target, ("B", 1, "H", "W"), dims, name="target")
+        assert_shape(valid, ("B", 1, "H", "W"), dims, name="valid")
+        if valid.dtype != torch.bool:
+            raise TypeError(f"valid must be a bool mask, got {valid.dtype}")
+        focal = self.focal(logits, target, valid)
+        if self.cfg.dice_weight == 0.0:
+            # Row 12: the Dice term is switched off by its WEIGHT. It is still reported
+            # (detached) so the logs keep the same columns across rows.
+            with torch.no_grad():
+                dice = self.dice(logits, target, valid)
+            total = self.cfg.focal_weight * focal
+        else:
+            dice = self.dice(logits, target, valid)
+            total = self.cfg.focal_weight * focal + self.cfg.dice_weight * dice
+        return total, {"focal": focal.detach(), "dice": dice.detach()}

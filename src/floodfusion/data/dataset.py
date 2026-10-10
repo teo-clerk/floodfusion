@@ -5,7 +5,8 @@ This is the module in which most of Project 01's silent bugs are possible, so re
 
 The contract
 ------------
-Every sample is a ``dict`` with fixed keys, dtypes and shapes. ``H = W = chip_size``.
+Every sample is a ``dict`` with fixed keys, dtypes and shapes. ``H = W = chip_size``
+(plus ``2 * context_px`` when evaluation reads context for overlap-and-crop).
 
 ============================ ==================== ============ ==============================
 key                          shape                dtype        meaning
@@ -17,6 +18,8 @@ key                          shape                dtype        meaning
 ``valid``                    ``(1, H, W)``        ``bool``     True where scored
 ``optical_quality``          ``(1, H, W)``        ``float32``  in [0, 1]; drives the gate
 ``optical_available``        ``()``               ``bool``     scalar; False -> use embedding
+``landcover``                ``(1, H, W)``        ``uint8``    WorldCover code (analysis only)
+``synthetic``                ``()``               ``bool``     True if rendered in memory
 ``chip_id``                  —                    ``str``      manifest primary key
 ``basin_id``                 —                    ``str``      split key
 ============================ ==================== ============ ==============================
@@ -29,25 +32,28 @@ Why ``optical`` is a tensor and never ``None``
 A ``None`` cannot be collated into a batch, and a batch mixing present and absent
 optical is the normal case (``docs/02`` section 6). So the dataset always returns a
 correctly shaped ``optical`` tensor and a separate boolean flag. **Where the flag is
-False the tensor contents are meaningless** and the model must substitute the learned
-missing-modality embedding (``docs/07`` section 7.2) rather than consume them.
+False the tensor contents are meaningless** and the model substitutes the learned
+missing-modality embedding (``docs/07`` section 7.2) rather than consuming them.
 
-Do not fill unavailable optical with zeros and rely on the model noticing: zero is a
-legitimate normalised reflectance, so "dark" and "absent" would be indistinguishable —
-and darkness is precisely the water signal.
-
-Two traps that this module exists to make you confront
-------------------------------------------------------
-1. **Fork safety.** ``rasterio`` dataset handles must be opened **inside the worker**,
-   never in the parent process. A ``DataLoader`` with ``num_workers > 0`` forks; a
-   handle opened before the fork is inherited with duplicated internal state and
-   produces corrupted reads or a deadlock — often only after twenty minutes and not
-   deterministically. See ``ENVIRONMENT_SETUP.md`` section 7.2. The pattern below caches
-   handles in a dict keyed by ``os.getpid()``.
-
+Two traps this module exists to make you confront
+-------------------------------------------------
+1. **Fork safety.** ``rasterio`` dataset handles are opened **inside the worker**, never
+   in the parent process. A ``DataLoader`` with ``num_workers > 0`` forks; a handle opened
+   before the fork is inherited with duplicated internal state and produces corrupted
+   reads or a deadlock. Handles are cached in a bounded LRU keyed by ``(os.getpid(),
+   path)``, so a forked worker misses the parent's cache and opens its own.
 2. **Per-chip normalisation.** Never subtract a chip's own mean. A flooded chip is dark,
-   and that is the signal. Use the frozen dataset-level statistics in
-   :class:`~floodfusion.config.NormalizationStats`. See ``docs/05`` section 7.1.
+   and that is the signal. :func:`floodfusion.data.encoding.normalise` applies the frozen
+   dataset-level statistics of :class:`~floodfusion.config.NormalizationStats`.
+
+Where the pixels come from
+--------------------------
+``DataConfig.chip_source``: ``raster`` reads the 16-band event stacks (every path is
+checked at construction, without opening a handle); ``synthetic`` renders each chip in
+memory with :func:`floodfusion.data.synthetic.chip.synthesize_chip`; ``auto`` reads the
+raster when the file exists and falls back to the renderer **only** when it does not —
+never on a read error — with a :class:`SyntheticChipWarning` once per process and a
+``synthetic`` flag on every sample, so simulated pixels can never pass unnoticed.
 
 References
 ----------
@@ -58,13 +64,18 @@ References
 
 from __future__ import annotations
 
+import logging
 import os
-from dataclasses import dataclass
+import random
+import warnings
+from collections import OrderedDict
+from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
-from typing import Any, Iterator, Mapping, Sequence
+from typing import Any
 
+import numpy as np
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, Sampler
 
 from floodfusion.config import (
     N_OPTICAL_CHANNELS,
@@ -74,109 +85,39 @@ from floodfusion.config import (
     GridConfig,
     NormalizationStats,
 )
+from floodfusion.data.encoding import N_CHIP_BANDS, decode_physical, normalise
+from floodfusion.data.records import ChipRecord, load_manifest
+from floodfusion.utils.shapes import assert_shape, named_dims
 
 __all__ = [
+    "BalancedChipSampler",
     "ChipRecord",
     "FloodChipDataset",
+    "SyntheticChipWarning",
     "build_dataloader",
+    "iter_batches_to_device",
     "load_manifest",
     "worker_init_fn",
 ]
 
+LOGGER = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Manifest
-# ---------------------------------------------------------------------------
-@dataclass(frozen=True)
-class ChipRecord:
-    """One row of the chip manifest.
+#: Upper bound on cached rasterio handles per process. Thousands of scene files with one
+#: handle each would exhaust the file-descriptor limit; a few dozen is ample when chips are
+#: windows of a handful of event stacks.
+MAX_OPEN_HANDLES = 32
 
-    Immutable by design: a dataset whose records mutate at runtime cannot be
-    reproduced. See ``docs/05`` section 9 for the full field list the manifest must
-    record for ``P1-M6.3``.
-
-    Attributes
-    ----------
-    chip_id
-        Primary key. Stable across regenerations of the dataset.
-    basin_id
-        The split key. Splits partition **basins**, never chips
-        (``docs/05`` section 6.4).
-    event_id
-        Flood event this chip belongs to.
-    raster_path
-        Path to the stacked 12-band chip raster, or to the parent scene if you read
-        windows from full scenes rather than pre-cut chips.
-    window
-        ``(col_off, row_off, width, height)`` for a windowed read. Present so that the
-        same manifest supports both a pre-cut-chip layout and a windowed-read layout;
-        pick one and be consistent.
-    positive_fraction
-        Fraction of valid pixels labelled flood. Used for sampling and stratification.
-    valid_fraction
-        Fraction of pixels that are valid. Chips below
-        ``DataConfig.min_valid_fraction`` are dropped.
-    optical_available
-        Whether a usable Sentinel-2 observation exists for this chip.
-    relative_orbit, orbit_state
-        Recorded so that ``tests/test_stac_query.py``'s pre/post matching invariant
-        (``docs/04`` section 7) can be re-checked at dataset level.
-    """
-
-    chip_id: str
-    basin_id: str
-    event_id: str
-    raster_path: Path
-    window: tuple[int, int, int, int]
-    positive_fraction: float
-    valid_fraction: float
-    optical_available: bool
-    relative_orbit: int
-    orbit_state: str
+#: Spatial tensors that every augmentation must transform identically.
+_SPATIAL_KEYS = ("sar", "optical", "terrain", "label", "valid", "optical_quality", "landcover")
 
 
-def load_manifest(path: Path | str) -> tuple[ChipRecord, ...]:
-    """Read the chip manifest written by :mod:`floodfusion.data.chipping`.
-
-    Parameters
-    ----------
-    path
-        Path to the manifest (Parquet or CSV).
-
-    Returns
-    -------
-    tuple[ChipRecord, ...]
-        Immutable sequence of records, in a **deterministic** order.
-
-    Raises
-    ------
-    FileNotFoundError
-        If ``path`` does not exist.
-    ValueError
-        If ``chip_id`` values are not unique, or a required column is missing.
-
-    Notes
-    -----
-    Sort by ``chip_id`` before returning. An order that depends on filesystem iteration
-    is not reproducible across machines, and it will silently change which chips land
-    in which batch — which changes your results in a way you cannot explain.
-
-    TODO(student)
-    -------------
-    1. Read the manifest into a dataframe.
-    2. Validate that every column of :class:`ChipRecord` is present, and raise naming
-       **all** missing columns rather than the first.
-    3. Assert ``chip_id`` uniqueness; a duplicate silently doubles a chip's weight.
-    4. Sort by ``chip_id`` and construct the frozen records.
-    """
-    raise NotImplementedError(
-        "Implement manifest loading. Required fields are listed in docs/05 section 9."
-    )
+class SyntheticChipWarning(RuntimeWarning):
+    """Emitted (once per process) when a chip is rendered instead of read from disk."""
 
 
-# ---------------------------------------------------------------------------
-# Dataset
-# ---------------------------------------------------------------------------
+_WARNED_PIDS: set[int] = set()
+
+
 class FloodChipDataset(Dataset[dict[str, Any]]):
     r"""Windowed-read dataset over co-registered flood chips.
 
@@ -190,36 +131,28 @@ class FloodChipDataset(Dataset[dict[str, Any]]):
     norm
         Frozen, training-split-derived normalisation statistics.
     data_cfg
-        Chipping and sampling configuration.
+        Chipping, sampling and pixel-source configuration.
     grid_cfg
         Grid constants, needed for the ``int16`` dB decoding and the nodata sentinel.
     training
         If ``True``, augmentation is applied. Augmentation is **never** applied at
         evaluation.
+    context_px
+        Extra pixels read on every side (boundless, nodata-filled at scene edges) so the
+        evaluator can predict with context and score only the central chip — the
+        overlap-and-crop edge handling of ``docs/05`` section 8.1. Zero for training.
 
     Notes
     -----
     **Augmentation policy** (``docs/05`` section 8.4). Flips and 90-degree rotations are
-    safe. Arbitrary rotation is **not**: SAR geometry has a look direction, so layover,
-    shadow and the local incidence angle channel are all azimuth-dependent, and rotating
-    the raster without rotating that semantics manufactures physically impossible
-    samples. Brightness or contrast jitter on the dB channels is **forbidden**: absolute
-    dB level is the signal.
+    applied — drawn once per sample and applied to every spatial tensor. Arbitrary
+    rotation is not: SAR geometry has a look direction, so layover, shadow and the local
+    incidence channel are azimuth-dependent. Brightness or contrast jitter on the dB
+    channels is **forbidden**: absolute dB level is the signal.
 
     **Modality dropout is not applied here.** It is architecture, not augmentation
-    (``docs/07`` section 7.1), and it belongs in the training loop so that the same
-    dataset can serve ablation rows 9, 10 and 11 unchanged.
-
-    Examples
-    --------
-    The shape contract, expressed as the test asserts it::
-
-        sample = dataset[0]
-        assert sample["sar"].shape     == (5, 256, 256)
-        assert sample["optical"].shape == (4, 256, 256)
-        assert sample["label"].dtype   == torch.float32
-        assert sample["valid"].dtype   == torch.bool
-        assert torch.isfinite(sample["sar"]).all()
+    (``docs/07`` section 7.1), and it lives in the training loop so the same dataset serves
+    ablation rows 9, 10 and 11 unchanged.
     """
 
     def __init__(
@@ -230,19 +163,30 @@ class FloodChipDataset(Dataset[dict[str, Any]]):
         grid_cfg: GridConfig,
         *,
         training: bool = False,
+        context_px: int = 0,
     ) -> None:
         self.records = tuple(records)
         self.norm = norm
         self.data_cfg = data_cfg
         self.grid_cfg = grid_cfg
         self.training = training
+        self.context_px = int(context_px)
 
         # Per-process handle cache. Keyed by PID so that a handle opened in the parent
         # is never reused in a forked worker -- see the module docstring, trap 1.
-        self._handles: dict[tuple[int, str], Any] = {}
+        self._handles: dict[tuple[int, str], Any] = OrderedDict()
 
         if not self.records:
             raise ValueError("FloodChipDataset constructed with zero records")
+        if self.context_px < 0:
+            raise ValueError("context_px must be non-negative")
+        if data_cfg.chip_source == "raster":
+            missing = sorted({str(r.raster_path) for r in self.records if not Path(r.raster_path).is_file()})
+            if missing:
+                raise FileNotFoundError(
+                    f"{len(missing)} raster(s) referenced by the manifest do not exist, e.g. "
+                    f"{missing[:3]} (chip_source='raster' never substitutes simulated pixels)"
+                )
 
     def __len__(self) -> int:
         return len(self.records)
@@ -251,169 +195,217 @@ class FloodChipDataset(Dataset[dict[str, Any]]):
     def _get_handle(self, path: Path) -> Any:
         """Return a ``rasterio`` dataset handle valid **in the calling process**.
 
-        Returns
-        -------
-        rasterio.DatasetReader
-            An open handle, cached per ``(pid, path)``.
-
-        Notes
-        -----
-        The PID in the cache key is the whole point. After a ``fork``, the child
-        inherits ``self._handles`` containing handles whose GDAL-internal state belongs
-        to the parent. Reusing one produces corrupted reads or a deadlock inside
-        ``libhdf5``/GDAL, typically non-deterministically and after a long delay. Keying
-        by PID means a forked worker misses the cache and opens its own handle, which is
-        correct and costs one ``open`` per worker per file.
-
-        TODO(student)
-        -------------
-        1. Build the key ``(os.getpid(), str(path))``.
-        2. On a miss, ``rasterio.open(path)`` and store it.
-        3. Return the handle.
-        4. Consider bounding the cache: with thousands of scene files, one handle each
-           will exhaust the file-descriptor limit. An LRU of a few dozen is ample.
+        The PID in the cache key is the whole point: after a ``fork`` the child inherits
+        ``self._handles``, but its PID differs, so it misses the cache and opens its own
+        handle (one ``open`` per worker per file). The cache is an LRU bounded by
+        :data:`MAX_OPEN_HANDLES`.
         """
-        raise NotImplementedError(
-            "Implement per-process handle caching. See ENVIRONMENT_SETUP.md section 7.2 "
-            "for the fork-safety failure this prevents."
-        )
+        import rasterio
+
+        key = (os.getpid(), str(path))
+        handle = self._handles.get(key)
+        if handle is not None:
+            self._handles.move_to_end(key)  # type: ignore[attr-defined]
+            return handle
+        handle = rasterio.open(path)
+        self._handles[key] = handle
+        while len(self._handles) > MAX_OPEN_HANDLES:
+            _, old = self._handles.popitem(last=False)  # type: ignore[call-arg]
+            if old is not None and not old.closed:
+                old.close()
+        return handle
+
+    def __getstate__(self) -> dict[str, Any]:
+        # Never pickle open handles into spawned workers.
+        state = dict(self.__dict__)
+        state["_handles"] = OrderedDict()
+        return state
 
     # -- reading ------------------------------------------------------------
-    def _read_window(self, record: ChipRecord) -> Any:
-        """Read the 12-band chip for ``record`` as a raw array.
+    def _use_synthetic(self, record: ChipRecord) -> bool:
+        source = self.data_cfg.chip_source
+        if source == "synthetic":
+            return True
+        if source == "raster":
+            return False
+        return not Path(record.raster_path).is_file()
+
+    def _read_window(self, record: ChipRecord) -> np.ndarray:
+        """Read the 16-band stack window for ``record`` as stored (``int16``).
 
         Returns
         -------
         numpy.ndarray
-            Shape ``(12, H, W)``, dtype ``int16`` as stored on disk.
-
-        Notes
-        -----
-        Use ``rasterio.windows.Window(col_off, row_off, width, height)`` and pass it as
-        the ``window=`` argument. Do **not** read the whole scene and slice: that
-        transfers the entire raster and defeats the internal tiling that makes a
-        windowed read cheap (``docs/04`` section 2.3).
-
-        Align read windows to the file's internal tile grid where you can. A window
-        straddling four internal tiles fetches four tiles.
-
-        TODO(student)
-        -------------
-        1. Construct the ``Window`` from ``record.window``.
-        2. Read all 12 bands in one call — one call reading 12 bands is far cheaper
-           than 12 calls reading one band.
-        3. Assert the returned shape is ``(12, height, width)``; a short read at a
-           scene edge returns a smaller array **without raising**, and that silently
-           produces a mis-sized chip. Use ``boundless=True`` with an explicit fill, or
-           reject the record.
+            ``(16, height + 2c, width + 2c)`` with ``c = context_px``. All bands are read
+            in **one** call, through ``rasterio.windows.Window`` — never the whole scene
+            and a slice (``docs/04`` section 2.3). The read is ``boundless`` with the
+            nodata sentinel as fill, so context windows at a scene edge are full-sized and
+            the padding is routed into the validity mask rather than silently shrinking
+            the chip.
         """
-        raise NotImplementedError(
-            "Implement the windowed read. See docs/04 section 2.3 for why windows and "
-            "not slices."
-        )
+        col, row, width, height = record.window
+        c = self.context_px
+        if self._use_synthetic(record):
+            pid = os.getpid()
+            if pid not in _WARNED_PIDS:
+                _WARNED_PIDS.add(pid)
+                warnings.warn(
+                    f"rendering chips in memory (chip_source={self.data_cfg.chip_source!r}); "
+                    f"e.g. {record.raster_path} is not read from disk",
+                    SyntheticChipWarning, stacklevel=3,
+                )
+            from floodfusion.data.synthetic.chip import synthesize_chip
 
-    def _decode_and_normalise(self, raw: Any) -> dict[str, torch.Tensor]:
-        r"""Decode ``int16`` storage and apply frozen normalisation.
+            raw = synthesize_chip(record, self.grid_cfg, self.norm, height=height + 2 * c, width=width + 2 * c)
+        else:
+            from rasterio.windows import Window
 
-        Parameters
-        ----------
-        raw
-            ``(12, H, W)`` ``int16`` array as stored.
+            src = self._get_handle(Path(record.raster_path))
+            if src.count < N_CHIP_BANDS:
+                raise ValueError(f"{record.raster_path}: expected {N_CHIP_BANDS} bands, found {src.count}")
+            raw = src.read(
+                indexes=list(range(1, N_CHIP_BANDS + 1)),
+                window=Window(col - c, row - c, width + 2 * c, height + 2 * c),
+                boundless=True,
+                fill_value=self.grid_cfg.nodata_int16,
+            )
+        expected = (N_CHIP_BANDS, height + 2 * c, width + 2 * c)
+        if raw.shape != expected:
+            raise ValueError(f"{record.chip_id}: short read {raw.shape}, expected {expected}")
+        return raw
 
-        Returns
-        -------
-        dict[str, torch.Tensor]
-            Keys ``sar``, ``optical``, ``terrain``, each ``float32``.
+    def _decode_and_normalise(self, raw: np.ndarray) -> dict[str, torch.Tensor]:
+        r"""Decode ``int16`` storage and apply the frozen normalisation.
 
-        Notes
-        -----
-        **Decoding.** dB channels are stored as :math:`\mathrm{round}(100 \cdot
-        \gamma^0_{\mathrm{dB}})` (``docs/04`` section 8.1), so divide by
-        ``grid_cfg.db_scale``. The nodata sentinel ``grid_cfg.nodata_int16`` must be
-        detected **before** the division and routed into the validity mask — a sentinel
-        that survives into the float array becomes :math:`-327.68` dB, which then
-        normalises to an enormous value and trains the model to detect scene borders.
-
-        **Sentinel-2 decoding** (``docs/05`` section 7.2)::
-
-            rho = (DN + BOA_ADD_OFFSET) / QUANTIFICATION_VALUE
-
-        Omitting ``BOA_ADD_OFFSET`` shifts every reflectance by 0.1, which is larger
-        than the water reflectances of 0.02--0.06 you are trying to measure.
-
-        **Normalisation** (``docs/05`` section 7.2), per modality, never per chip:
-
-        - SAR dB: z-score with the frozen per-channel ``sar_mean_db`` / ``sar_std_db``.
-        - Optical: fixed physical scaling, then clip to :math:`[0, 1]`.
-        - MNDWI: already in :math:`[-1, 1]`; leave it alone.
-        - Terrain: fixed physical scaling by ``slope_scale_deg``, ``hand_log_scale``,
-          ``incidence_scale_deg``.
-
-        Fill invalid positions with **zero after normalisation**, so they sit at the
-        dataset mean and contribute nothing once masked out of the loss.
-
-        TODO(student)
-        -------------
-        1. Build the nodata mask from ``raw`` before any arithmetic.
-        2. Decode each modality group per the rules above.
-        3. Apply the frozen statistics. Assert you have not used any statistic derived
-           from ``raw`` itself.
-        4. Convert to ``float32`` ``torch.Tensor`` and return the three groups.
-        5. Assert no ``NaN``/``Inf`` survives — ``utils.shapes.check_finite`` while
-           debugging.
+        The nodata sentinel is detected **before** any arithmetic and routed into the
+        validity mask; Sentinel-2 DN are converted with
+        :math:`\rho = (\mathrm{DN} + \texttt{BOA\_ADD\_OFFSET}) / \texttt{QUANTIFICATION\_VALUE}`;
+        SAR is z-scored with the frozen per-channel statistics, reflectance clipped to
+        [0, 1], MNDWI left in [-1, 1], terrain scaled by fixed physical constants; invalid
+        positions are zero after normalisation. No statistic derived from ``raw`` itself
+        is used anywhere (see :func:`floodfusion.data.encoding.normalise`).
         """
-        raise NotImplementedError(
-            "Implement decoding and normalisation. See docs/05 section 7 — and note "
-            "that per-chip standardisation is forbidden there."
-        )
+        physical = decode_physical(raw, self.grid_cfg, self.norm)
+        arrays = normalise(physical, self.norm)
+        out = {k: torch.from_numpy(np.ascontiguousarray(v)) for k, v in arrays.items()}
+        out["landcover"] = torch.from_numpy(physical.landcover[None].copy())
+        return out
 
-    def _augment(self, sample: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
-        """Apply geometric augmentation, training only.
-
-        Notes
-        -----
-        Permitted: horizontal flip, vertical flip, 90-degree rotations. These must be
-        applied **identically** to every spatial tensor in the sample — ``sar``,
-        ``optical``, ``terrain``, ``label``, ``valid``, ``optical_quality``. Augmenting
-        the image and forgetting the label is a bug that produces a model that trains to
-        a plateau and never improves, with no error message.
-
-        Forbidden, and why: arbitrary rotation (breaks SAR azimuth semantics), any
-        radiometric jitter on dB channels (destroys the absolute level that is the
-        signal). See ``docs/05`` section 8.4.
-
-        TODO(student)
-        -------------
-        1. Draw the transform once per sample.
-        2. Apply it to every spatial tensor in one place, so that adding a new tensor
-           to the sample cannot forget to augment it.
-        3. Add a test asserting that ``label`` and ``sar`` receive the same transform —
-           the cheapest insurance against the bug above.
-        """
-        raise NotImplementedError("Implement augmentation. See docs/05 section 8.4.")
+    def _augment(self, sample: dict[str, Any]) -> dict[str, Any]:
+        """Flips and 90-degree rotations, drawn once, applied to every spatial tensor."""
+        k = int(torch.randint(0, 4, ()).item())
+        flip_h = bool(torch.randint(0, 2, ()).item())
+        flip_v = bool(torch.randint(0, 2, ()).item())
+        for key in _SPATIAL_KEYS:
+            t = sample[key]
+            if k:
+                t = torch.rot90(t, k, dims=(-2, -1))
+            if flip_h:
+                t = torch.flip(t, dims=(-1,))
+            if flip_v:
+                t = torch.flip(t, dims=(-2,))
+            sample[key] = t.contiguous()
+        return sample
 
     def __getitem__(self, index: int) -> dict[str, Any]:
-        """Return one sample, obeying the contract in the module docstring.
+        """Return one sample, obeying the contract in the module docstring."""
+        record = self.records[index]
+        raw = self._read_window(record)
+        sample: dict[str, Any] = self._decode_and_normalise(raw)
+        quality = sample["optical_quality"]
+        available = bool(record.optical_available) and bool((quality > 0).any())
+        if not available:
+            sample["optical_quality"] = torch.zeros_like(quality)
+        sample["optical_available"] = torch.tensor(available)
+        sample["synthetic"] = torch.tensor(self._use_synthetic(record))
+        sample["chip_id"] = record.chip_id
+        sample["basin_id"] = record.basin_id
+        if self.training:
+            sample = self._augment(sample)
+        dims = named_dims()
+        assert_shape(sample["sar"], (N_SAR_CHANNELS, "H", "W"), dims, name="sar")
+        assert_shape(sample["optical"], (N_OPTICAL_CHANNELS, "H", "W"), dims, name="optical")
+        assert_shape(sample["terrain"], (N_TERRAIN_CHANNELS, "H", "W"), dims, name="terrain")
+        for key in ("label", "valid", "optical_quality", "landcover"):
+            assert_shape(sample[key], (1, "H", "W"), dims, name=key)
+        if sample["valid"].dtype != torch.bool or sample["label"].dtype != torch.float32:
+            raise TypeError("valid must be bool and label float32")
+        return sample
 
-        TODO(student)
-        -------------
-        1. ``record = self.records[index]``.
-        2. ``raw = self._read_window(record)``.
-        3. ``groups = self._decode_and_normalise(raw)``.
-        4. Build ``label`` ``(1, H, W)`` ``float32`` and ``valid`` ``(1, H, W)`` ``bool``
-           from the validity flags — valid iff the flag byte is exactly
-           :attr:`~floodfusion.config.ValidityFlag.VALID`.
-        5. Build ``optical_quality`` and the scalar ``optical_available`` from
-           ``record.optical_available`` and the cloud/shadow mask.
-        6. If ``self.training``, augment.
-        7. Assert every shape and dtype with ``utils.shapes.assert_shape`` before
-           returning. This assertion is cheap and has caught more bugs in this project
-           than any other single line.
-        """
-        raise NotImplementedError(
-            "Implement __getitem__. The contract is the table in this module's "
-            "docstring, and tests/test_dataset.py asserts it."
-        )
+
+# ---------------------------------------------------------------------------
+# Sampling
+# ---------------------------------------------------------------------------
+class BalancedChipSampler(Sampler[int]):
+    """Every positive chip each epoch, plus a fresh random draw of negatives.
+
+    Most chips contain no flood at all (``docs/05`` section 8.2), so most batches would
+    carry no positive gradient. Keeping every chip whose flood fraction exceeds
+    ``positive_fraction_threshold`` and subsampling the rest to
+    ``negative_to_positive_ratio`` per epoch fixes the chip-level imbalance — and **changes
+    the prior**: :meth:`training_prior` reports the expected positive *pixel* fraction the
+    model sees, which the evaluator uses for the prior correction of ``docs/05`` section 8.3
+    before any threshold is applied. Deterministic for a given ``seed`` and epoch.
+    """
+
+    def __init__(
+        self,
+        records: Sequence[ChipRecord],
+        *,
+        negative_to_positive_ratio: float,
+        positive_fraction_threshold: float,
+        seed: int = 0,
+    ) -> None:
+        self.records = tuple(records)
+        self.ratio = float(negative_to_positive_ratio)
+        self.positive = [i for i, r in enumerate(self.records) if r.positive_fraction > positive_fraction_threshold]
+        self.negative = [i for i, r in enumerate(self.records) if r.positive_fraction <= positive_fraction_threshold]
+        if not self.positive:
+            LOGGER.warning("BalancedChipSampler: no positive chips; sampling every chip uniformly")
+        self.seed = int(seed)
+        self.epoch = 0
+
+    def set_epoch(self, epoch: int) -> None:
+        self.epoch = int(epoch)
+
+    @property
+    def n_negative(self) -> int:
+        if not self.positive:
+            return len(self.negative)
+        return min(len(self.negative), int(round(self.ratio * len(self.positive))))
+
+    def __len__(self) -> int:
+        return len(self.positive) + self.n_negative
+
+    def __iter__(self) -> Iterator[int]:
+        rng = np.random.default_rng([self.seed, self.epoch])
+        negatives = rng.choice(self.negative, size=self.n_negative, replace=False).tolist() if self.n_negative else []
+        indices = self.positive + negatives
+        rng.shuffle(indices)
+        return iter(int(i) for i in indices)
+
+    def inclusion_probability(self) -> np.ndarray:
+        """Per-record probability of appearing in an epoch."""
+        p = np.zeros(len(self.records))
+        p[self.positive] = 1.0
+        if self.negative:
+            p[self.negative] = self.n_negative / len(self.negative)
+        return p
+
+    def training_prior(self) -> float:
+        """Expected flooded fraction of valid pixels under this sampling scheme."""
+        p = self.inclusion_probability()
+        valid = np.array([r.valid_fraction for r in self.records])
+        pos = np.array([r.positive_fraction for r in self.records])
+        denom = float((p * valid).sum())
+        return float((p * valid * pos).sum() / denom) if denom > 0 else float("nan")
+
+
+def natural_prior(records: Sequence[ChipRecord]) -> float:
+    """Flooded fraction of valid pixels with no resampling (the deployment prior)."""
+    valid = np.array([r.valid_fraction for r in records])
+    pos = np.array([r.positive_fraction for r in records])
+    return float((valid * pos).sum() / valid.sum()) if valid.sum() > 0 else float("nan")
 
 
 # ---------------------------------------------------------------------------
@@ -422,20 +414,15 @@ class FloodChipDataset(Dataset[dict[str, Any]]):
 def worker_init_fn(worker_id: int) -> None:
     """Seed each worker distinctly and reproducibly.
 
-    Notes
-    -----
-    Without this, every worker inherits the parent's RNG state and draws the **same**
-    augmentation sequence — so with ``num_workers=6`` you get six identical streams of
-    "random" flips. The effect is a quiet reduction in augmentation diversity that never
-    raises and is very hard to notice.
-
-    TODO(student)
-    -------------
-    1. Derive a per-worker seed from ``torch.initial_seed()`` (which PyTorch already
-       makes worker-distinct) modulo :math:`2^{32}`.
-    2. Seed ``numpy`` and the ``random`` module with it.
+    PyTorch already gives every worker a distinct ``torch.initial_seed()`` (base seed +
+    worker id); deriving the ``numpy`` and ``random`` seeds from it means six workers no
+    longer draw six identical "random" augmentation streams. Safe to call in the main
+    process too (``get_worker_info()`` is then ``None``; the seed is simply the process
+    seed).
     """
-    raise NotImplementedError("Implement worker seeding. See docs/08 section 7.2.")
+    seed = torch.initial_seed() % 2**32
+    np.random.seed(seed)  # noqa: NPY002 - seeds the GLOBAL legacy RNG third-party code may use
+    random.seed(seed)
 
 
 def build_dataloader(
@@ -445,37 +432,36 @@ def build_dataloader(
     batch_size: int,
     shuffle: bool,
     drop_last: bool,
+    sampler: Sampler[int] | None = None,
+    seed: int | None = None,
 ) -> DataLoader[dict[str, Any]]:
-    """Construct a ``DataLoader`` with the settings this project requires.
+    """Construct a ``DataLoader`` with the settings this project requires (``docs/08`` 6).
 
-    Notes
-    -----
-    The settings and their reasons (``docs/08`` section 6):
-
-    ``num_workers``
-        4--8. On this machine the dataloader is frequently the bottleneck, not the GPU.
-        Measure; do not guess.
-    ``pin_memory=True``
-        Page-locked staging buffers enable asynchronous host-to-device DMA. Only
-        effective if the transfer also passes ``non_blocking=True``. Costs
-        ``num_workers * prefetch_factor * batch_bytes`` of unswappable host RAM — around
-        2.4 GB at the reference settings, which is a reason to store chips as ``int16``.
-    ``persistent_workers=True``
-        Avoids re-forking every epoch, which is both slow and a repeated opportunity for
-        the fork-safety trap.
-    ``drop_last=True``
-        Keeps batch shapes fixed, which is what makes ``cudnn.benchmark = True`` a win
-        rather than a repeated retuning cost.
-
-    TODO(student)
-    -------------
-    1. Construct the ``DataLoader`` with the above and ``worker_init_fn``.
-    2. Confirm ``persistent_workers`` is only set when ``num_workers > 0``; PyTorch
-       raises otherwise.
-    3. Time one epoch against a synthetic in-memory dataset to determine whether you
-       are input-bound (``docs/08`` section 6).
+    ``persistent_workers`` and ``prefetch_factor`` are passed only when
+    ``num_workers > 0`` (PyTorch rejects them otherwise); ``pin_memory`` only when CUDA
+    exists (page-locked memory without a GPU is pure cost); ``drop_last`` keeps batch
+    shapes fixed so ``cudnn.benchmark`` stays a win. A seeded generator makes the shuffle
+    order reproducible.
     """
-    raise NotImplementedError("Implement the DataLoader. See docs/08 section 6.")
+    if batch_size < 1:
+        raise ValueError("batch_size must be >= 1")
+    if sampler is not None and shuffle:
+        raise ValueError("pass either a sampler or shuffle=True, not both")
+    kwargs: dict[str, Any] = dict(
+        batch_size=batch_size,
+        shuffle=shuffle,
+        drop_last=drop_last,
+        sampler=sampler,
+        num_workers=data_cfg.num_workers,
+        worker_init_fn=worker_init_fn,
+        pin_memory=bool(data_cfg.pin_memory and torch.cuda.is_available()),
+    )
+    if seed is not None:
+        kwargs["generator"] = torch.Generator().manual_seed(int(seed))
+    if data_cfg.num_workers > 0:
+        kwargs["persistent_workers"] = data_cfg.persistent_workers
+        kwargs["prefetch_factor"] = data_cfg.prefetch_factor
+    return DataLoader(dataset, **kwargs)
 
 
 def iter_batches_to_device(
@@ -484,24 +470,18 @@ def iter_batches_to_device(
     *,
     channels_last: bool = True,
 ) -> Iterator[Mapping[str, Any]]:
-    """Yield batches moved to ``device``, optionally in ``channels_last`` layout.
+    """Yield batches moved to ``device``, 4-D float tensors in ``channels_last``.
 
-    Notes
-    -----
-    Use ``.to(device, non_blocking=True)``, which only overlaps with compute when the
-    loader was built with ``pin_memory=True``.
-
-    Apply ``channels_last`` to **both** model and inputs or to neither. Half-applied, it
-    inserts layout conversions on every forward and is slower than not applying it at
-    all (``docs/08`` section 5.5).
-
-    Move only tensors: ``chip_id`` and ``basin_id`` are strings and must be passed
-    through untouched.
-
-    TODO(student)
-    -------------
-    1. Iterate the loader.
-    2. Move tensor values; pass non-tensors through.
-    3. Convert 4-D float tensors to ``torch.channels_last`` when requested.
+    ``non_blocking=True`` overlaps the copy with compute only when the loader pins memory.
+    Apply ``channels_last`` to **both** model and inputs or to neither (``docs/08`` 5.5).
+    Strings (``chip_id``, ``basin_id``) pass through untouched.
     """
-    raise NotImplementedError("Implement device transfer. See docs/08 sections 5.5, 6.")
+    for batch in loader:
+        moved: dict[str, Any] = {}
+        for key, value in batch.items():
+            if isinstance(value, torch.Tensor):
+                value = value.to(device, non_blocking=True)
+                if channels_last and value.dim() == 4 and value.is_floating_point():
+                    value = value.contiguous(memory_format=torch.channels_last)
+            moved[key] = value
+        yield moved

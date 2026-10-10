@@ -38,18 +38,6 @@ from floodfusion.models.fusion_module import (  # noqa: E402
     reference_attention,
 )
 
-#: Opt in to the auto-xfail hook in ``conftest.py``. Delete once implemented.
-EXPECT_UNIMPLEMENTED = True
-
-#: Pure-mathematics checks that exercise no skeleton. They must pass from the first
-#: run, so they are exempted from the auto-xfail and stay meaningful as real tests.
-ALWAYS_PASS = frozenset(
-    {
-        "test_scaling_keeps_logit_variance_at_unity",
-        "test_unscaled_attention_saturates_the_softmax",
-        "test_head_dim_respects_the_flash_constraint",
-    }
-)
 
 B, C_S, C_O, HW = 2, 64, 64, 8  # small; distinct sizes so a transpose is detectable
 

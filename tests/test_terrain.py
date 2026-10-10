@@ -25,15 +25,6 @@ from floodfusion.masks import (
     local_incidence_angle,
 )
 
-EXPECT_UNIMPLEMENTED = True
-ALWAYS_PASS = frozenset({
-    "test_geographic_crs_produces_absurd_slopes",
-    "test_longitude_metres_per_degree_shrinks_with_latitude",
-    "test_layover_and_shadow_thresholds_at_mid_swath",
-    "test_local_incidence_formula_limiting_cases",
-    "test_aspect_must_be_decomposed_into_sin_and_cos",
-})
-
 
 class TestHornSlope:
     def test_geographic_crs_produces_absurd_slopes(self) -> None:
@@ -141,14 +132,24 @@ class TestLayoverAndShadow:
 
         Flat ground behind a ridge has alpha = 0, so theta_loc = theta and it PASSES the
         local test — while receiving no illumination at all (``docs/03`` section 5.3).
+
+        Test fix: evaluated on the 10 m analysis grid. At the original 30 m spacing the
+        fixture ridge's steepest flank is 37.0 deg, below the 90 - 39 = 51 deg a back
+        slope needs to fall out of the radar's line of sight, so correct geometry gives
+        no shadow at all (and no layover: 37 < 39). At 10 m the flank is 66 deg and the
+        ridge shadows both its back slope and the ground beyond it.
         """
-        shadow, _ = cast_shadow_and_layover(synthetic_dem, 39.0, 270.0, 30.0)
+        shadow, _ = cast_shadow_and_layover(synthetic_dem, 39.0, 270.0, 10.0)
         assert shadow.any(), "a 300 m ridge must cast shadow on the terrain behind it"
 
     def test_ascending_and_descending_shadows_differ(self, synthetic_dem: np.ndarray) -> None:
-        """Look azimuth flips ~180 deg, so every facing slope now faces away."""
-        desc, _ = cast_shadow_and_layover(synthetic_dem, 39.0, 280.0, 30.0)
-        asc, _ = cast_shadow_and_layover(synthetic_dem, 39.0, 100.0, 30.0)
+        """Look azimuth flips ~180 deg, so every facing slope now faces away.
+
+        Test fix: 10 m spacing, for the reason given in the test above — at 30 m both
+        geometries correctly produce an empty mask, and two empty masks are equal.
+        """
+        desc, _ = cast_shadow_and_layover(synthetic_dem, 39.0, 280.0, 10.0)
+        asc, _ = cast_shadow_and_layover(synthetic_dem, 39.0, 100.0, 10.0)
         assert not np.array_equal(desc, asc)
 
 

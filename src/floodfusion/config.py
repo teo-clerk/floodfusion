@@ -18,10 +18,13 @@ References
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import hashlib
+import json
+from collections.abc import Mapping, Sequence
+from dataclasses import asdict, dataclass, field, fields
 from enum import IntEnum
 from pathlib import Path
-from typing import ClassVar, Final
+from typing import Any, ClassVar, Final
 
 
 # ---------------------------------------------------------------------------
@@ -180,6 +183,8 @@ class DataConfig:
     chip_root: Path = Path("chips")
     manifest_name: str = "manifest.parquet"
     split_file_name: str = "splits.json"
+    #: Train-only normalisation statistics of that split (one per cross-validation fold).
+    norm_stats_file: str = "norm_stats.json"
 
     chip_size: int = 256
     train_stride: int = 128  # 50 % overlap; acceptable WITHIN a split only
@@ -208,8 +213,18 @@ class DataConfig:
     persistent_workers: bool = True
     prefetch_factor: int = 4
 
+    #: Where chip pixels come from. ``raster`` reads the stacked GeoTIFFs and fails loudly
+    #: if one is missing; ``synthetic`` renders every chip in memory from the physics
+    #: simulator (offline smoke tests); ``auto`` reads the raster when the file exists and
+    #: falls back to the in-memory simulator only when it does not, with a warning.
+    #: ``configs/base.yaml`` pins ``raster`` so no reported run can silently train on
+    #: simulated pixels; the dataclass default exists for unit tests and notebooks.
+    chip_source: str = "auto"
+
+    CHIP_SOURCES: ClassVar[frozenset[str]] = frozenset({"auto", "raster", "synthetic"})
+
     def __post_init__(self) -> None:
-        allowed = {"leave_one_basin_out", "random_chip"}
+        allowed = {"leave_one_basin_out", "random_chip", "published"}
         if self.split_strategy not in allowed:
             raise ValueError(
                 f"split_strategy must be one of {sorted(allowed)}, "
@@ -218,6 +233,16 @@ class DataConfig:
             )
         if self.basin_buffer_m < 0.0:
             raise ValueError("basin_buffer_m must be non-negative")
+        if self.chip_source not in self.CHIP_SOURCES:
+            raise ValueError(
+                f"chip_source must be one of {sorted(self.CHIP_SOURCES)}, "
+                f"got {self.chip_source!r}"
+            )
+        if self.chip_size % 16 != 0:
+            raise ValueError(
+                "chip_size must be a multiple of 16: the encoder halves resolution four "
+                f"times; got {self.chip_size}"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -268,6 +293,8 @@ class ModelConfig:
             "fusion_early",  # row 7
             "fusion_late",  # row 8
             "fusion_crossattn",  # rows 9-13 (the reference design)
+            "terramind_tiny",  # comparison: TerraMind-1.0 foundation model (optional extra)
+            "terramind_small",
         }
     )
 
@@ -332,6 +359,8 @@ class TrainConfig:
     weight_decay: float = 1.0e-2  # excluded from norm and bias parameters
     warmup_epochs: int = 5
     grad_clip_norm: float = 1.0
+    #: Epochs without a new best validation macro IoU before stopping; 0 disables.
+    early_stopping_patience: int = 0
 
     #: bf16, never fp16: the soft-Dice reduction sums ~5e5 terms and overflows fp16's
     #: 5-bit exponent (``docs/08`` section 5.1).
@@ -339,6 +368,10 @@ class TrainConfig:
     channels_last: bool = True
     grad_checkpointing: bool = False  # needed at 512, not at 256
     cudnn_benchmark: bool = True  # only valid because chip shapes are FIXED
+    #: ``torch.use_deterministic_algorithms(True, warn_only=True)`` (docs/08 7.2). Measured on the
+    #: RTX 4060 Laptop: 2.9x slower per chip for the reference model. The docs' defensible
+    #: position is to seed everything, accept residual non-determinism and run three seeds.
+    deterministic: bool = False
 
     seed: int = 42
 
@@ -358,6 +391,8 @@ class TrainConfig:
             raise ValueError("micro_batch_size and grad_accum_steps must be >= 1")
         if self.warmup_epochs >= self.epochs:
             raise ValueError("warmup_epochs must be smaller than epochs")
+        if self.early_stopping_patience < 0:
+            raise ValueError("early_stopping_patience must be >= 0 (0 disables)")
 
     @property
     def effective_batch_size(self) -> int:
@@ -411,6 +446,11 @@ class BaselineConfig:
     #: Speckle filtering is unavoidable for a per-pixel threshold at L = 4.4.
     speckle_filter: str = "refined_lee"
     speckle_window: int = 7
+    #: Region growing (docs/06 section 4.2 step 7): from the SAR decision, grow into
+    #: connected pixels within this many dB above the threshold surface that also show
+    #: at least half the required darkening. Recovers boundary pixels lost to speckle
+    #: without admitting permanently dark surfaces. Not applied to row 1.
+    region_grow_margin_db: float = 1.5
 
     THRESHOLD_MODES: ClassVar[frozenset[str]] = frozenset({"global_otsu", "tile_adaptive"})
 
@@ -427,6 +467,8 @@ class BaselineConfig:
             )
         if not 0.0 < self.min_component_weight < 0.5:
             raise ValueError("min_component_weight must lie in (0, 0.5)")
+        if self.region_grow_margin_db < 0.0:
+            raise ValueError("region_grow_margin_db must be non-negative")
 
 
 @dataclass(frozen=True)
@@ -448,6 +490,9 @@ class EvalConfig:
     #: matrices rather than storing probability maps is what keeps evaluation inside
     #: the VRAM budget (``docs/08`` section 7.3).
     pr_thresholds: tuple[float, ...] = tuple(i / 200.0 for i in range(1, 200))
+    #: Conformal risk control target: expected per-chip false-negative rate <= this on
+    #: chips exchangeable with the validation chips (recall >= 1 - alpha, in expectation).
+    conformal_fnr: float = 0.1
 
     @property
     def decision_threshold(self) -> float:
@@ -497,44 +542,195 @@ class ExperimentConfig:
 # ---------------------------------------------------------------------------
 # Loading
 # ---------------------------------------------------------------------------
-def load_config(path: Path | str) -> ExperimentConfig:
-    """Load an :class:`ExperimentConfig` from a YAML file.
+#: YAML section name -> dataclass. The schema of every file under ``configs/``.
+SECTION_TYPES: Final[dict[str, type]] = {
+    "sensor": SensorConstants,
+    "grid": GridConfig,
+    "norm": NormalizationStats,
+    "data": DataConfig,
+    "model": ModelConfig,
+    "baseline": BaselineConfig,
+    "loss": LossConfig,
+    "train": TrainConfig,
+    "eval": EvalConfig,
+}
+#: Top-level scalar keys permitted in a config file.
+SCALAR_KEYS: Final[frozenset[str]] = frozenset({"name", "ablation_row", "output_dir"})
+#: Fields stored as ``Path`` objects (YAML carries them as strings).
+_PATH_FIELDS: Final[dict[str, frozenset[str]]] = {"data": frozenset({"chip_root"})}
+_MAX_EXTENDS_DEPTH: Final[int] = 8
 
-    Given to you — this is API plumbing, not a learning target.
+
+def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """Recursively merge ``override`` into a copy of ``base`` (override wins)."""
+    out = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(out.get(key), dict):
+            out[key] = _deep_merge(out[key], value)
+        else:
+            out[key] = value
+    return out
+
+
+def _read_yaml_chain(path: Path, depth: int = 0) -> dict[str, Any]:
+    """Resolve an ``extends:`` chain (paths relative to the extending file)."""
+    import yaml
+
+    if depth > _MAX_EXTENDS_DEPTH:
+        raise ValueError(f"extends chain deeper than {_MAX_EXTENDS_DEPTH} at {path}; cycle?")
+    if not path.is_file():
+        raise FileNotFoundError(f"config file not found: {path}")
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    if not isinstance(raw, dict):
+        raise ValueError(f"{path}: top level must be a mapping, got {type(raw).__name__}")
+    parent = raw.pop("extends", None)
+    if parent is None:
+        return raw
+    return _deep_merge(_read_yaml_chain(path.parent / str(parent), depth + 1), raw)
+
+
+def _apply_override(raw: dict[str, Any], assignment: str) -> dict[str, Any]:
+    """Apply one ``section.field=value`` override; the value is parsed as YAML."""
+    import yaml
+
+    if "=" not in assignment:
+        raise ValueError(f"override {assignment!r} must look like section.field=value")
+    dotted, _, text = assignment.partition("=")
+    keys = [k.strip() for k in dotted.strip().split(".") if k.strip()]
+    if not keys:
+        raise ValueError(f"override {assignment!r} names no key")
+    patch: Any = yaml.safe_load(text)
+    for key in reversed(keys):
+        patch = {key: patch}
+    return _deep_merge(raw, patch)
+
+
+def resolve_config_dict(
+    path: Path | str,
+    *,
+    overlays: Sequence[Path | str] = (),
+    overrides: Sequence[str] = (),
+) -> dict[str, Any]:
+    """Resolve ``extends``, then overlays (partial YAML files), then ``a.b=v`` overrides.
+
+    The returned mapping is exactly what :func:`config_from_dict` instantiates and what a
+    run directory snapshots as ``config_resolved.yaml`` (``P1-M6.3``).
+    """
+    import yaml
+
+    raw = _read_yaml_chain(Path(path))
+    for overlay in overlays:
+        overlay_path = Path(overlay)
+        if not overlay_path.is_file():
+            raise FileNotFoundError(f"overlay not found: {overlay_path}")
+        patch = yaml.safe_load(overlay_path.read_text(encoding="utf-8")) or {}
+        if not isinstance(patch, dict):
+            raise ValueError(f"{overlay_path}: an overlay must be a mapping")
+        if "extends" in patch:
+            raise ValueError(f"{overlay_path}: overlays cannot use 'extends'")
+        raw = _deep_merge(raw, patch)
+    for assignment in overrides:
+        raw = _apply_override(raw, assignment)
+    return raw
+
+
+def config_from_dict(raw: Mapping[str, Any]) -> ExperimentConfig:
+    """Instantiate an :class:`ExperimentConfig`, rejecting **every** unknown key at once."""
+    problems: list[str] = []
+    unknown_top = sorted(set(raw) - SCALAR_KEYS - set(SECTION_TYPES))
+    if unknown_top:
+        problems.append(f"unknown top-level keys {unknown_top}")
+    for section, cls in SECTION_TYPES.items():
+        values = raw.get(section, {}) or {}
+        if not isinstance(values, Mapping):
+            problems.append(f"[{section}] must be a mapping")
+            continue
+        known = {f.name for f in fields(cls)}
+        extra = sorted(set(values) - known)
+        if extra:
+            problems.append(f"[{section}] unknown fields {extra}")
+    if problems:
+        raise ValueError("invalid configuration: " + "; ".join(problems))
+
+    sections: dict[str, Any] = {}
+    for section, cls in SECTION_TYPES.items():
+        values = {
+            k: (tuple(v) if isinstance(v, list) else v)
+            for k, v in dict(raw.get(section, {}) or {}).items()
+        }
+        for key in _PATH_FIELDS.get(section, frozenset()):
+            if key in values and values[key] is not None:
+                values[key] = Path(values[key])
+        sections[section] = cls(**values)
+    scalars = {k: raw[k] for k in SCALAR_KEYS if k in raw}
+    if "output_dir" in scalars:
+        scalars["output_dir"] = Path(scalars["output_dir"])
+    return ExperimentConfig(**scalars, **sections)
+
+
+def config_to_dict(cfg: ExperimentConfig) -> dict[str, Any]:
+    """Plain, YAML/JSON-serialisable view of a config (tuples -> lists, Path -> str)."""
+
+    def plain(value: Any) -> Any:
+        if isinstance(value, Path):
+            return str(value)
+        if isinstance(value, tuple | list):
+            return [plain(v) for v in value]
+        if isinstance(value, dict):
+            return {k: plain(v) for k, v in value.items()}
+        return value
+
+    return {k: plain(v) for k, v in asdict(cfg).items()}
+
+
+def config_sha256(raw: Mapping[str, Any]) -> str:
+    """SHA-256 of the canonical JSON of a resolved config mapping.
+
+    Canonical (sorted keys, no whitespace) so two semantically identical resolutions —
+    e.g. one with and one without a redundant overlay — hash identically.
+    """
+    canonical = json.dumps(raw, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def load_config(
+    path: Path | str,
+    *,
+    overlays: Sequence[Path | str] = (),
+    overrides: Sequence[str] = (),
+) -> ExperimentConfig:
+    """Load an :class:`ExperimentConfig` from a YAML file.
 
     Parameters
     ----------
     path
-        Path to a YAML file under ``configs/``.
+        Path to a YAML file under ``configs/``. Its ``extends:`` chain is resolved
+        relative to the file, then deep-merged (child wins).
+    overlays
+        Partial YAML mappings deep-merged on top, in order — e.g.
+        ``configs/overlays/synthetic_demo.yaml``. Overlays may not ``extend``.
+    overrides
+        ``section.field=value`` strings applied last; values are parsed as YAML, so
+        ``train.epochs=3`` yields an ``int``.
 
     Returns
     -------
     ExperimentConfig
-        A fully populated, frozen configuration.
+        A fully populated, frozen configuration. Use :func:`resolve_config_dict` and
+        :func:`config_sha256` to record exactly what was loaded.
 
     Raises
     ------
     FileNotFoundError
-        If ``path`` does not exist.
+        If ``path`` or an overlay does not exist.
     ValueError
-        If the YAML contains keys that do not correspond to config fields, or if any
-        ``__post_init__`` validation fails.
+        If the YAML contains keys that do not correspond to config fields (all of them are
+        listed, not just the first), or if any ``__post_init__`` validation fails.
 
     Notes
     -----
     Unknown keys are an **error**, not a warning. A silently ignored typo in a config
     key is a reproducibility failure: the run proceeds with a default you did not
     intend and the log records a value you never used.
-
-    TODO(student)
-    -------------
-    1. Read the YAML with ``yaml.safe_load`` (never ``yaml.load``).
-    2. Recursively construct the nested dataclasses, converting ``Path``-typed fields.
-    3. Raise ``ValueError`` listing every unknown key, not just the first.
-    4. Record the SHA-256 of the raw file bytes on the returned object's ``name`` or in
-       a sidecar, so ``P1-M6.3`` can prove which config produced which result.
     """
-    raise NotImplementedError(
-        "Implement config loading. See docs/05 section 9 for the fields that must be "
-        "recorded for reproducibility."
-    )
+    return config_from_dict(resolve_config_dict(path, overlays=overlays, overrides=overrides))

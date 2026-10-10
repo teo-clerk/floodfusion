@@ -1,0 +1,1110 @@
+{
+  "protocol": {
+    "protocol": "full",
+    "requested": "full",
+    "first_run_minutes": 5.064954921099949,
+    "projected_full_grid_minutes": 106.6704495363653,
+    "budget_minutes": 75.0,
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "rule": "every learned row x every seed if the projected full grid fits the budget; otherwise docs/09 section 2.2: row 9 x every seed, other rows x first seed"
+  },
+  "rows": {
+    "1": {
+      "key": "1",
+      "n_seeds": 1,
+      "seeds": [],
+      "n_basins": 3,
+      "iou": 0.6229012924282015,
+      "ci": [
+        0.5532185693329882,
+        0.6760926074387191
+      ],
+      "cloud_free_iou": null,
+      "cloud_free_chips": null,
+      "cloud_free_sha": null,
+      "f1": 0.7663785915730994,
+      "seed_mean": 0.6229012924282015,
+      "seed_sd": null,
+      "peak_vram_gib": null,
+      "train_h": null,
+      "latency_ms": 29.999641367186967,
+      "latency_device": "cpu",
+      "pooled_iou": 0.6218168696181305,
+      "raw_tau": null,
+      "val_selected": null,
+      "oracle": null,
+      "ap": 0.6624416276700997,
+      "ece_raw": null,
+      "ece_cal": null,
+      "calibration": [
+        "\u2014"
+      ],
+      "vram_error": null,
+      "trained": false,
+      "baseline": true,
+      "per_basin": {
+        "E1_lowland_po_B0": {
+          "tp": 25645,
+          "fp": 14062,
+          "fn": 6649,
+          "tn": 1643893,
+          "iou": 0.5532185693329882
+        },
+        "E1_lowland_po_B1": {
+          "tp": 34407,
+          "fp": 3679,
+          "fn": 15726,
+          "tn": 660659,
+          "iou": 0.6393927005128968
+        },
+        "E4_hilly_forest_B0": {
+          "tp": 27830,
+          "fp": 4211,
+          "fn": 9122,
+          "tn": 1133506,
+          "iou": 0.6760926074387192
+        }
+      }
+    },
+    "2": {
+      "key": "2",
+      "n_seeds": 1,
+      "seeds": [],
+      "n_basins": 3,
+      "iou": 0.5949181069369543,
+      "ci": [
+        0.43903051219703504,
+        0.6775019319938176
+      ],
+      "cloud_free_iou": null,
+      "cloud_free_chips": null,
+      "cloud_free_sha": null,
+      "f1": 0.7396817039965167,
+      "seed_mean": 0.5949181069369543,
+      "seed_sd": null,
+      "peak_vram_gib": null,
+      "train_h": null,
+      "latency_ms": 28.713480613705674,
+      "latency_device": "cpu",
+      "pooled_iou": 0.5799160738450843,
+      "raw_tau": null,
+      "val_selected": null,
+      "oracle": null,
+      "ap": 0.639676653314582,
+      "ece_raw": null,
+      "ece_cal": null,
+      "calibration": [
+        "\u2014"
+      ],
+      "vram_error": null,
+      "trained": false,
+      "baseline": true,
+      "per_basin": {
+        "E1_lowland_po_B0": {
+          "tp": 27986,
+          "fp": 31451,
+          "fn": 4308,
+          "tn": 1626504,
+          "iou": 0.43903051219703504
+        },
+        "E1_lowland_po_B1": {
+          "tp": 37381,
+          "fp": 5808,
+          "fn": 12752,
+          "tn": 658530,
+          "iou": 0.6682218766200103
+        },
+        "E4_hilly_forest_B0": {
+          "tp": 28054,
+          "fp": 4456,
+          "fn": 8898,
+          "tn": 1133261,
+          "iou": 0.6775019319938176
+        }
+      }
+    },
+    "3": {
+      "key": "3",
+      "n_seeds": 1,
+      "seeds": [],
+      "n_basins": 3,
+      "iou": 0.6060823638394908,
+      "ci": [
+        0.41399788843920465,
+        0.726291550211816
+      ],
+      "cloud_free_iou": null,
+      "cloud_free_chips": null,
+      "cloud_free_sha": null,
+      "f1": 0.7450308948985871,
+      "seed_mean": 0.6060823638394908,
+      "seed_sd": null,
+      "peak_vram_gib": null,
+      "train_h": null,
+      "latency_ms": 21.035490088445783,
+      "latency_device": "cpu",
+      "pooled_iou": 0.5867486379647515,
+      "raw_tau": null,
+      "val_selected": null,
+      "oracle": null,
+      "ap": 0.6900595544044617,
+      "ece_raw": null,
+      "ece_cal": null,
+      "calibration": [
+        "\u2014"
+      ],
+      "vram_error": null,
+      "trained": false,
+      "baseline": true,
+      "per_basin": {
+        "E1_lowland_po_B0": {
+          "tp": 28233,
+          "fp": 35902,
+          "fn": 4061,
+          "tn": 1622053,
+          "iou": 0.41399788843920465
+        },
+        "E1_lowland_po_B1": {
+          "tp": 41318,
+          "fp": 6756,
+          "fn": 8815,
+          "tn": 657582,
+          "iou": 0.726291550211816
+        },
+        "E4_hilly_forest_B0": {
+          "tp": 28561,
+          "fp": 5176,
+          "fn": 8391,
+          "tn": 1132541,
+          "iou": 0.6779576528674516
+        }
+      }
+    },
+    "4": {
+      "key": "4",
+      "n_seeds": 3,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "n_basins": 3,
+      "iou": 0.675652163500945,
+      "ci": [
+        0.6338303194164169,
+        0.7181894228088113
+      ],
+      "cloud_free_iou": 0.8378203303823873,
+      "cloud_free_chips": 7,
+      "cloud_free_sha": "ba0bf509406aa57e3d94a01976d5fd4af1e47973424daffa0400e2244a00db0c",
+      "f1": 0.8059305737596958,
+      "seed_mean": 0.6756512170402388,
+      "seed_sd": 0.0030408154920391365,
+      "peak_vram_gib": 1.7155942916870117,
+      "train_h": 0.05610835540268589,
+      "latency_ms": 4.179891497187782,
+      "latency_device": "cuda",
+      "pooled_iou": 0.668335391177461,
+      "raw_tau": 0.539055340510043,
+      "val_selected": 0.7086033249741854,
+      "oracle": 0.7100582885656666,
+      "ap": 0.7801577388467745,
+      "ece_raw": 0.031614722770333004,
+      "ece_cal": 0.011769966224722409,
+      "calibration": [
+        "platt"
+      ],
+      "vram_error": -0.1292050604981089,
+      "trained": true,
+      "baseline": false,
+      "per_basin": {
+        "E1_lowland_po_B0": {
+          "tp": 86699,
+          "fp": 31573,
+          "fn": 10183,
+          "tn": 4942292,
+          "iou": 0.674936748277607
+        },
+        "E1_lowland_po_B1": {
+          "tp": 97054,
+          "fp": 2724,
+          "fn": 53345,
+          "tn": 1990290,
+          "iou": 0.6338303194164169
+        },
+        "E4_hilly_forest_B0": {
+          "tp": 84997,
+          "fp": 7493,
+          "fn": 25859,
+          "tn": 3405658,
+          "iou": 0.7181894228088113
+        }
+      }
+    },
+    "5": {
+      "key": "5",
+      "n_seeds": 3,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "n_basins": 3,
+      "iou": 0.6911617912053339,
+      "ci": [
+        0.6692589292011002,
+        0.7259187199141243
+      ],
+      "cloud_free_iou": 0.7886571240936736,
+      "cloud_free_chips": 7,
+      "cloud_free_sha": "ba0bf509406aa57e3d94a01976d5fd4af1e47973424daffa0400e2244a00db0c",
+      "f1": 0.8171279448917637,
+      "seed_mean": 0.6912479824666761,
+      "seed_sd": 0.01673800155641706,
+      "peak_vram_gib": 1.6992850303649902,
+      "train_h": 0.042478976845739924,
+      "latency_ms": 4.164376005064696,
+      "latency_device": "cuda",
+      "pooled_iou": 0.6710798387456675,
+      "raw_tau": 0.4644371589218354,
+      "val_selected": 0.7079595033458813,
+      "oracle": 0.7105193373109192,
+      "ap": 0.8213331762637847,
+      "ece_raw": 0.03445019968980268,
+      "ece_cal": 0.008370159869768768,
+      "calibration": [
+        "platt"
+      ],
+      "vram_error": -0.13283745675310887,
+      "trained": true,
+      "baseline": false,
+      "per_basin": {
+        "E1_lowland_po_B0": {
+          "tp": 90763,
+          "fp": 36926,
+          "fn": 6119,
+          "tn": 4936939,
+          "iou": 0.6783077245007773
+        },
+        "E1_lowland_po_B1": {
+          "tp": 104389,
+          "fp": 5578,
+          "fn": 46010,
+          "tn": 1987436,
+          "iou": 0.6692589292011002
+        },
+        "E4_hilly_forest_B0": {
+          "tp": 86560,
+          "fp": 8386,
+          "fn": 24296,
+          "tn": 3404765,
+          "iou": 0.7259187199141243
+        }
+      }
+    },
+    "6": {
+      "key": "6",
+      "n_seeds": 3,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "n_basins": 2,
+      "iou": 0.7743655024630134,
+      "ci": [
+        0.7108220165845451,
+        0.8379089883414818
+      ],
+      "cloud_free_iou": 0.7757084190247956,
+      "cloud_free_chips": 7,
+      "cloud_free_sha": "ba0bf509406aa57e3d94a01976d5fd4af1e47973424daffa0400e2244a00db0c",
+      "f1": 0.8713890783290803,
+      "seed_mean": 0.7757084190247956,
+      "seed_sd": 0.019164281208692454,
+      "peak_vram_gib": 0.9396018981933594,
+      "train_h": 0.017854685875370504,
+      "latency_ms": 4.14927200472448,
+      "latency_device": "cuda",
+      "pooled_iou": 0.6917948020138794,
+      "raw_tau": 0.17842436064152578,
+      "val_selected": 0.7627951422182683,
+      "oracle": 0.7808204326877989,
+      "ap": 0.8916242464540196,
+      "ece_raw": 0.04275920044549566,
+      "ece_cal": 0.013799294722399276,
+      "calibration": [
+        "platt"
+      ],
+      "vram_error": -0.13422902110553814,
+      "trained": true,
+      "baseline": false,
+      "per_basin": {
+        "E1_lowland_po_B1": {
+          "tp": 8912,
+          "fp": 1408,
+          "fn": 316,
+          "tn": 575348,
+          "iou": 0.8379089883414818
+        },
+        "E4_hilly_forest_B0": {
+          "tp": 23659,
+          "fp": 2834,
+          "fn": 6791,
+          "tn": 748540,
+          "iou": 0.7108220165845451
+        }
+      }
+    },
+    "7": {
+      "key": "7",
+      "n_seeds": 3,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "n_basins": 3,
+      "iou": 0.6849328066782124,
+      "ci": [
+        0.6433577810895412,
+        0.7242368107189078
+      ],
+      "cloud_free_iou": 0.830656789665583,
+      "cloud_free_chips": 7,
+      "cloud_free_sha": "ba0bf509406aa57e3d94a01976d5fd4af1e47973424daffa0400e2244a00db0c",
+      "f1": 0.812550951936429,
+      "seed_mean": 0.6850992137469344,
+      "seed_sd": 0.007655359507571166,
+      "peak_vram_gib": 0.9610414505004883,
+      "train_h": 0.03489582859148127,
+      "latency_ms": 4.237550499965437,
+      "latency_device": "cuda",
+      "pooled_iou": 0.6767495591901258,
+      "raw_tau": 0.47666643726420804,
+      "val_selected": 0.7062857073666938,
+      "oracle": 0.7107433687315566,
+      "ap": 0.8153090316300847,
+      "ece_raw": 0.03339609612221372,
+      "ece_cal": 0.00793124916156006,
+      "calibration": [
+        "platt"
+      ],
+      "vram_error": -0.15498519699975713,
+      "trained": true,
+      "baseline": false,
+      "per_basin": {
+        "E1_lowland_po_B0": {
+          "tp": 88606,
+          "fp": 32055,
+          "fn": 8276,
+          "tn": 4941810,
+          "iou": 0.687203828226188
+        },
+        "E1_lowland_po_B1": {
+          "tp": 98859,
+          "fp": 3262,
+          "fn": 51540,
+          "tn": 1989752,
+          "iou": 0.6433577810895412
+        },
+        "E4_hilly_forest_B0": {
+          "tp": 85620,
+          "fp": 7365,
+          "fn": 25236,
+          "tn": 3405786,
+          "iou": 0.7242368107189078
+        }
+      }
+    },
+    "8": {
+      "key": "8",
+      "n_seeds": 3,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "n_basins": 3,
+      "iou": 0.6537922440253718,
+      "ci": [
+        0.6290421039428022,
+        0.6710477075348741
+      ],
+      "cloud_free_iou": 0.7923803651541338,
+      "cloud_free_chips": 7,
+      "cloud_free_sha": "ba0bf509406aa57e3d94a01976d5fd4af1e47973424daffa0400e2244a00db0c",
+      "f1": 0.7905149223818936,
+      "seed_mean": 0.6539318212176348,
+      "seed_sd": 0.017681404561439608,
+      "peak_vram_gib": 1.7000460624694824,
+      "train_h": 0.04757871549926036,
+      "latency_ms": 9.309422006481327,
+      "latency_device": "cuda",
+      "pooled_iou": 0.6474672994475299,
+      "raw_tau": 0.37620739153022104,
+      "val_selected": 0.6695460209096892,
+      "oracle": 0.6734278508889352,
+      "ap": 0.7970746732043548,
+      "ece_raw": 0.03614398189885246,
+      "ece_cal": 0.008930897469608463,
+      "calibration": [
+        "platt"
+      ],
+      "vram_error": -0.04511524640868956,
+      "trained": true,
+      "baseline": false,
+      "per_basin": {
+        "E1_lowland_po_B0": {
+          "tp": 90921,
+          "fp": 40609,
+          "fn": 5961,
+          "tn": 4933256,
+          "iou": 0.6612869205984392
+        },
+        "E1_lowland_po_B1": {
+          "tp": 104003,
+          "fp": 4587,
+          "fn": 46396,
+          "tn": 1988427,
+          "iou": 0.6710477075348741
+        },
+        "E4_hilly_forest_B0": {
+          "tp": 75224,
+          "fp": 8729,
+          "fn": 35632,
+          "tn": 3404422,
+          "iou": 0.6290421039428022
+        }
+      }
+    },
+    "9": {
+      "key": "9",
+      "n_seeds": 3,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "n_basins": 3,
+      "iou": 0.6756771318505432,
+      "ci": [
+        0.644991452547011,
+        0.6947676639083387
+      ],
+      "cloud_free_iou": 0.8144586776482036,
+      "cloud_free_chips": 7,
+      "cloud_free_sha": "ba0bf509406aa57e3d94a01976d5fd4af1e47973424daffa0400e2244a00db0c",
+      "f1": 0.8062467692393037,
+      "seed_mean": 0.6756056372385513,
+      "seed_sd": 0.023942468116530585,
+      "peak_vram_gib": 1.380237102508545,
+      "train_h": 0.04789803188620378,
+      "latency_ms": 6.307615498371888,
+      "latency_device": "cuda",
+      "pooled_iou": 0.6822737975109318,
+      "raw_tau": 0.5353101193845038,
+      "val_selected": 0.6993232016153961,
+      "oracle": 0.701794415793341,
+      "ap": 0.7996764505839072,
+      "ece_raw": 0.03109236163780249,
+      "ece_cal": 0.007601056981821237,
+      "calibration": [
+        "platt"
+      ],
+      "vram_error": -0.07767155690918832,
+      "trained": true,
+      "baseline": false,
+      "per_basin": {
+        "E1_lowland_po_B0": {
+          "tp": 89221,
+          "fp": 32937,
+          "fn": 7661,
+          "tn": 4940928,
+          "iou": 0.6872722790962802
+        },
+        "E1_lowland_po_B1": {
+          "tp": 99230,
+          "fp": 3448,
+          "fn": 51169,
+          "tn": 1989566,
+          "iou": 0.644991452547011
+        },
+        "E4_hilly_forest_B0": {
+          "tp": 81861,
+          "fp": 6969,
+          "fn": 28995,
+          "tn": 3406182,
+          "iou": 0.6947676639083387
+        }
+      }
+    },
+    "10": {
+      "key": "10",
+      "n_seeds": 3,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "n_basins": 3,
+      "iou": 0.6827456917150014,
+      "ci": [
+        0.6534746898876697,
+        0.704247585241817
+      ],
+      "cloud_free_iou": 0.8092983347944981,
+      "cloud_free_chips": 7,
+      "cloud_free_sha": "ba0bf509406aa57e3d94a01976d5fd4af1e47973424daffa0400e2244a00db0c",
+      "f1": 0.8112720055636694,
+      "seed_mean": 0.6827641088611225,
+      "seed_sd": 0.020266326768393877,
+      "peak_vram_gib": 1.382068157196045,
+      "train_h": 0.04512011927166626,
+      "latency_ms": 6.307615498371888,
+      "latency_device": "cuda",
+      "pooled_iou": 0.6851286161477158,
+      "raw_tau": 0.5152040891459413,
+      "val_selected": 0.71513834117019,
+      "oracle": 0.7175641965225793,
+      "ap": 0.8168965999315773,
+      "ece_raw": 0.03330554088808869,
+      "ece_cal": 0.007592803966288063,
+      "calibration": [
+        "platt"
+      ],
+      "vram_error": -0.0798731340291922,
+      "trained": true,
+      "baseline": false,
+      "per_basin": {
+        "E1_lowland_po_B0": {
+          "tp": 88997,
+          "fp": 32003,
+          "fn": 7885,
+          "tn": 4941862,
+          "iou": 0.6905148000155177
+        },
+        "E1_lowland_po_B1": {
+          "tp": 100409,
+          "fp": 3255,
+          "fn": 49990,
+          "tn": 1989759,
+          "iou": 0.6534746898876697
+        },
+        "E4_hilly_forest_B0": {
+          "tp": 82535,
+          "fp": 6340,
+          "fn": 28321,
+          "tn": 3406811,
+          "iou": 0.7042475852418171
+        }
+      }
+    },
+    "row10_fusion_no_modality_dropout__eval_sar_only": {
+      "key": "row10_fusion_no_modality_dropout__eval_sar_only",
+      "n_seeds": 3,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "n_basins": 3,
+      "iou": 0.6628915125478064,
+      "ci": [
+        0.6297244234794046,
+        0.6907599551318003
+      ],
+      "cloud_free_iou": 0.7838166364412037,
+      "cloud_free_chips": 7,
+      "cloud_free_sha": "ba0bf509406aa57e3d94a01976d5fd4af1e47973424daffa0400e2244a00db0c",
+      "f1": 0.7969981804846732,
+      "seed_mean": 0.6628759832237223,
+      "seed_sd": 0.019823173178783397,
+      "peak_vram_gib": null,
+      "train_h": null,
+      "latency_ms": 4.577690997393802,
+      "latency_device": "cuda",
+      "pooled_iou": 0.6536623243471443,
+      "raw_tau": 0.5262940021496373,
+      "val_selected": 0.6972095919116836,
+      "oracle": 0.7007285814818632,
+      "ap": 0.7938268330559509,
+      "ece_raw": 0.03248767298162723,
+      "ece_cal": 0.008092515096416123,
+      "calibration": [
+        "platt"
+      ],
+      "vram_error": null,
+      "trained": false,
+      "baseline": false,
+      "per_basin": {
+        "E1_lowland_po_B0": {
+          "tp": 88677,
+          "fp": 31494,
+          "fn": 8205,
+          "tn": 4942371,
+          "iou": 0.6907599551318003
+        },
+        "E1_lowland_po_B1": {
+          "tp": 97186,
+          "fp": 3932,
+          "fn": 53213,
+          "tn": 1989082,
+          "iou": 0.6297244234794046
+        },
+        "E4_hilly_forest_B0": {
+          "tp": 78654,
+          "fp": 6856,
+          "fn": 32202,
+          "tn": 3406295,
+          "iou": 0.6681901590322142
+        }
+      }
+    },
+    "11": {
+      "key": "11",
+      "n_seeds": 3,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "n_basins": 3,
+      "iou": 0.6737346400769555,
+      "ci": [
+        0.6445146239871078,
+        0.6894179131069237
+      ],
+      "cloud_free_iou": 0.812644290182638,
+      "cloud_free_chips": 7,
+      "cloud_free_sha": "ba0bf509406aa57e3d94a01976d5fd4af1e47973424daffa0400e2244a00db0c",
+      "f1": 0.8048834037150664,
+      "seed_mean": 0.6736636467273008,
+      "seed_sd": 0.022311349580130216,
+      "peak_vram_gib": null,
+      "train_h": null,
+      "latency_ms": 4.577690997393802,
+      "latency_device": "cuda",
+      "pooled_iou": 0.6797291844146527,
+      "raw_tau": 0.5364542228063486,
+      "val_selected": 0.6983568990964709,
+      "oracle": 0.7007947318294184,
+      "ap": 0.7978907065551607,
+      "ece_raw": 0.030984828928428437,
+      "ece_cal": 0.007625674935310796,
+      "calibration": [
+        "platt"
+      ],
+      "vram_error": null,
+      "trained": false,
+      "baseline": false,
+      "per_basin": {
+        "E1_lowland_po_B0": {
+          "tp": 89247,
+          "fp": 32975,
+          "fn": 7635,
+          "tn": 4940890,
+          "iou": 0.6872713831368351
+        },
+        "E1_lowland_po_B1": {
+          "tp": 99185,
+          "fp": 3492,
+          "fn": 51214,
+          "tn": 1989522,
+          "iou": 0.6445146239871078
+        },
+        "E4_hilly_forest_B0": {
+          "tp": 81261,
+          "fp": 7013,
+          "fn": 29595,
+          "tn": 3406138,
+          "iou": 0.6894179131069238
+        }
+      }
+    },
+    "12": {
+      "key": "12",
+      "n_seeds": 3,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "n_basins": 3,
+      "iou": 0.739695098198557,
+      "ci": [
+        0.678405837858106,
+        0.7988339645206298
+      ],
+      "cloud_free_iou": 0.855864201981411,
+      "cloud_free_chips": 7,
+      "cloud_free_sha": "ba0bf509406aa57e3d94a01976d5fd4af1e47973424daffa0400e2244a00db0c",
+      "f1": 0.8494514223872427,
+      "seed_mean": 0.7401466674629315,
+      "seed_sd": 0.006238156935753028,
+      "peak_vram_gib": 1.3798785209655762,
+      "train_h": 0.047747189711758606,
+      "latency_ms": 6.307615498371888,
+      "latency_device": "cuda",
+      "pooled_iou": 0.7333392789458429,
+      "raw_tau": 0.5338221855771904,
+      "val_selected": 0.7430601602140198,
+      "oracle": 0.7491055256219318,
+      "ap": 0.8288101402849887,
+      "ece_raw": 0.032895115378214226,
+      "ece_cal": 0.0064329391130817015,
+      "calibration": [
+        "platt"
+      ],
+      "vram_error": -0.07797361682636027,
+      "trained": true,
+      "baseline": false,
+      "per_basin": {
+        "E1_lowland_po_B0": {
+          "tp": 94082,
+          "fp": 41799,
+          "fn": 2800,
+          "tn": 4932066,
+          "iou": 0.678405837858106
+        },
+        "E1_lowland_po_B1": {
+          "tp": 118334,
+          "fp": 9114,
+          "fn": 32065,
+          "tn": 1983900,
+          "iou": 0.7418454922169353
+        },
+        "E4_hilly_forest_B0": {
+          "tp": 96186,
+          "fp": 9552,
+          "fn": 14670,
+          "tn": 3403599,
+          "iou": 0.7988339645206298
+        }
+      }
+    },
+    "13": {
+      "key": "13",
+      "n_seeds": 3,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "n_basins": 3,
+      "iou": 0.7233163693118838,
+      "ci": [
+        0.7107829388090563,
+        0.735121311687681
+      ],
+      "cloud_free_iou": 0.8564904485701416,
+      "cloud_free_chips": 7,
+      "cloud_free_sha": "ba0bf509406aa57e3d94a01976d5fd4af1e47973424daffa0400e2244a00db0c",
+      "f1": 0.8394082792842786,
+      "seed_mean": 0.7233992714842823,
+      "seed_sd": 0.010180401504399307,
+      "peak_vram_gib": 1.3780627250671387,
+      "train_h": 0.05007606571814837,
+      "latency_ms": 6.307615498371888,
+      "latency_device": "cuda",
+      "pooled_iou": 0.7278785522031856,
+      "raw_tau": 0.6154648962603372,
+      "val_selected": 0.7525911627828629,
+      "oracle": 0.7705567477970687,
+      "ap": 0.8596846152954076,
+      "ece_raw": 0.03022115166516952,
+      "ece_cal": 0.009200138102998393,
+      "calibration": [
+        "platt"
+      ],
+      "vram_error": -0.07756392112487322,
+      "trained": true,
+      "baseline": false,
+      "per_basin": {
+        "E1_lowland_po_B0": {
+          "tp": 90836,
+          "fp": 26684,
+          "fn": 6046,
+          "tn": 4947181,
+          "iou": 0.735121311687681
+        },
+        "E1_lowland_po_B1": {
+          "tp": 108968,
+          "fp": 2908,
+          "fn": 41431,
+          "tn": 1990106,
+          "iou": 0.7107829388090563
+        },
+        "E4_hilly_forest_B0": {
+          "tp": 86645,
+          "fp": 8812,
+          "fn": 24211,
+          "tn": 3404339,
+          "iou": 0.7240448574389143
+        }
+      }
+    }
+  },
+  "gaps": {
+    "2-1": {
+      "comparable": true,
+      "delta": -0.02798318549124712,
+      "ci": [
+        -0.11418805713595315,
+        0.028829176107113552
+      ],
+      "basins_b_better": 2,
+      "n_basins": 3,
+      "per_basin_delta": {
+        "E1_lowland_po_B0": -0.11418805713595315,
+        "E1_lowland_po_B1": 0.028829176107113552,
+        "E4_hilly_forest_B0": 0.0014093245550983458
+      },
+      "p_value": 1.0,
+      "seeds": [],
+      "resolvable": null,
+      "p_holm": null
+    },
+    "4-2": {
+      "comparable": true,
+      "delta": 0.08073405656399069,
+      "ci": [
+        -0.03439155720359344,
+        0.23590623608057204
+      ],
+      "basins_b_better": 2,
+      "n_basins": 3,
+      "per_basin_delta": {
+        "E1_lowland_po_B0": 0.23590623608057193,
+        "E1_lowland_po_B1": -0.03439155720359344,
+        "E4_hilly_forest_B0": 0.040687490814993676
+      },
+      "p_value": 0.5,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "resolvable": null,
+      "p_holm": null
+    },
+    "5-4": {
+      "comparable": true,
+      "delta": 0.015509627704388906,
+      "ci": [
+        0.0033709762231701745,
+        0.03542860978468332
+      ],
+      "basins_b_better": 3,
+      "n_basins": 3,
+      "per_basin_delta": {
+        "E1_lowland_po_B0": 0.0033709762231702856,
+        "E1_lowland_po_B1": 0.03542860978468332,
+        "E4_hilly_forest_B0": 0.007729297105313004
+      },
+      "p_value": 0.25,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "resolvable": null,
+      "p_holm": null
+    },
+    "9-7": {
+      "comparable": true,
+      "delta": -0.009255674827669202,
+      "ci": [
+        -0.029469146810569113,
+        0.001633671457469732
+      ],
+      "basins_b_better": 2,
+      "n_basins": 3,
+      "per_basin_delta": {
+        "E1_lowland_po_B0": 6.845087009221817e-05,
+        "E1_lowland_po_B1": 0.001633671457469732,
+        "E4_hilly_forest_B0": -0.029469146810569113
+      },
+      "p_value": 1.0,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "resolvable": null,
+      "p_holm": null
+    },
+    "9-8": {
+      "comparable": true,
+      "delta": 0.021884887825171395,
+      "ci": [
+        -0.026056254987863126,
+        0.06572555996553642
+      ],
+      "basins_b_better": 2,
+      "n_basins": 3,
+      "per_basin_delta": {
+        "E1_lowland_po_B0": 0.025985358497841005,
+        "E1_lowland_po_B1": -0.026056254987863126,
+        "E4_hilly_forest_B0": 0.06572555996553642
+      },
+      "p_value": 0.75,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "resolvable": null,
+      "p_holm": null
+    },
+    "9-11": {
+      "comparable": true,
+      "delta": 0.00194249177358774,
+      "ci": [
+        8.959594449686747e-07,
+        0.005349750801414976
+      ],
+      "basins_b_better": 3,
+      "n_basins": 3,
+      "per_basin_delta": {
+        "E1_lowland_po_B0": 8.95959445079697e-07,
+        "E1_lowland_po_B1": 0.0004768285599031641,
+        "E4_hilly_forest_B0": 0.005349750801414865
+      },
+      "p_value": 0.25,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "resolvable": null,
+      "p_holm": null
+    },
+    "9-10": {
+      "comparable": true,
+      "delta": -0.0070685598644582015,
+      "ci": [
+        -0.009479921333478303,
+        -0.0032425209192376014
+      ],
+      "basins_b_better": 0,
+      "n_basins": 3,
+      "per_basin_delta": {
+        "E1_lowland_po_B0": -0.0032425209192374904,
+        "E1_lowland_po_B1": -0.0084832373406587,
+        "E4_hilly_forest_B0": -0.009479921333478414
+      },
+      "p_value": 0.25,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "resolvable": null,
+      "p_holm": null
+    },
+    "9-12": {
+      "comparable": true,
+      "delta": -0.06401796634801382,
+      "ci": [
+        -0.10406630061229116,
+        0.008866441238174039
+      ],
+      "basins_b_better": 1,
+      "n_basins": 3,
+      "per_basin_delta": {
+        "E1_lowland_po_B0": 0.00886644123817415,
+        "E1_lowland_po_B1": -0.09685403966992434,
+        "E4_hilly_forest_B0": -0.10406630061229116
+      },
+      "p_value": 0.5,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "resolvable": null,
+      "p_holm": null
+    },
+    "13-9": {
+      "comparable": true,
+      "delta": 0.04763923746134058,
+      "ci": [
+        0.029277193530575674,
+        0.06579148626204534
+      ],
+      "basins_b_better": 3,
+      "n_basins": 3,
+      "per_basin_delta": {
+        "E1_lowland_po_B0": 0.04784903259140083,
+        "E1_lowland_po_B1": 0.06579148626204534,
+        "E4_hilly_forest_B0": 0.029277193530575674
+      },
+      "p_value": 0.25,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "resolvable": null,
+      "p_holm": null
+    },
+    "11-4": {
+      "comparable": true,
+      "delta": -0.0019175234239895422,
+      "ci": [
+        -0.028771509701887577,
+        0.012334634859228033
+      ],
+      "basins_b_better": 2,
+      "n_basins": 3,
+      "per_basin_delta": {
+        "E1_lowland_po_B0": 0.012334634859228144,
+        "E1_lowland_po_B1": 0.010684304570690917,
+        "E4_hilly_forest_B0": -0.028771509701887465
+      },
+      "p_value": 1.0,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "resolvable": null,
+      "p_holm": null
+    },
+    "9-2": {
+      "comparable": true,
+      "delta": 0.08075902491358888,
+      "ci": [
+        -0.023230424072999356,
+        0.24824176689924504
+      ],
+      "basins_b_better": 2,
+      "n_basins": 3,
+      "per_basin_delta": {
+        "E1_lowland_po_B0": 0.24824176689924515,
+        "E1_lowland_po_B1": -0.023230424072999356,
+        "E4_hilly_forest_B0": 0.017265731914521076
+      },
+      "p_value": 0.75,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "resolvable": null,
+      "p_holm": null
+    }
+  },
+  "git": {
+    "git_sha": "588d66c4363f694430765d45028b67aefe9415ff",
+    "git_branch": "feat/floodfusion-implementation",
+    "git_dirty": false,
+    "reproducibility_problems": []
+  },
+  "synthetic": true
+}
