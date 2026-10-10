@@ -51,6 +51,8 @@ service-account*.json
 # under reports/ are committed as the reproducibility record (P1-M4, P1-M5).
 /reports/figures/
 /reports/products/
+# The explainer site is built from site/ and reports/ by scripts/build_site.py.
+/_site/
 
 # --- Editors / OS ------------------------------------------------------------
 .idea/

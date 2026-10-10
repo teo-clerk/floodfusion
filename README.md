@@ -11,6 +11,10 @@ EMS's own delineations of the 2023 Emilia-Romagna floods.
 ![uv](https://img.shields.io/badge/env-uv%20locked-purple)
 ![data](https://img.shields.io/badge/data-open%2C%20no%20credentials-brightgreen)
 
+**[Interactive explainer](https://teo-clerk.github.io/floodfusion/)**: the project on one page, with the
+radar physics, the pipeline, every result as an interactive chart, a drag-to-compare map against
+Copernicus EMS, and the limits.
+
 ![EMSR664 Forlì: zero-shot Sentinel-1 flood map vs the Copernicus EMS delineation](assets/forli_hero.png)
 
 *Forlì, 23 May 2023: the cross-attention model, zero-shot with Sentinel-2 on 9 of 16 tiles (centre), against
@@ -38,8 +42,9 @@ scored by a model that never saw it ([full table](reports/sen1floods11_table.md)
   alone costs, never more.
 - **The IBM/ESA foundation model**, frozen, lands 0.05 IoU below the fusion model (behind on 7 of 10 events; not
   significant).
-- **The published within-event split barely flatters these models**: at most +0.015 IoU at τ*, none
-  significant, against +0.048 for the synthetic leakage row.
+- **The published within-event split barely flatters the trained models**: at most +0.015 IoU at τ* for
+  the SAR U-Net, the fusion model and TerraMind, against +0.048 for the synthetic leakage row. The fusion
+  model run without optical gains up to +0.091. None of these gaps is significant.
 - **Conformal recall control holds on average but not per flood**: the mean per-chip miss rate is 0.08–0.10 at
   α = 0.1, but it holds on only 5–8 of 10 new floods. Events are not exchangeable.
 - **Physics rules built on backscatter change fail on these labels**: in 8 of 10 events the labelled water did
@@ -160,6 +165,7 @@ make demo SEED_PROTOCOL=full       # synthetic benchmark -> 13-row ablation, 3 s
 make stress                        # single-factor stress curves + the fusion gate figure
 make s1f11 S1F11_LEARNED="4 9 14"  # Sen1Floods11 re-ingested, leave-one-event-out + published split (~9 h)
 make forli                         # EMSR664 Forlì: every Sentinel-1 pass vs every CEMS delineation
+uv run python scripts/build_site.py  # the interactive explainer, from the reports -> _site/index.html
 ```
 
 The TerraMind comparison (row 14) needs the optional extra: `uv sync --extra dev --extra fm`.

@@ -1,0 +1,685 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>floodfusion, explained</title>
+  <meta name="description" content="An interactive explainer of floodfusion: flood maps from Sentinel-1 radar, fused with Sentinel-2 where the sky is clear, tested on ten real floods and against Copernicus EMS.">
+  <meta name="color-scheme" content="light dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b6e99'/%3E%3Cpath d='M4 20c4-4 8 4 12 0s8 4 12 0v8H4z' fill='%23fff'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <a class="brand" href="#top">flood<span>fusion</span></a>
+    <nav class="topnav" aria-label="Sections">
+      <a href="#problem">Problem</a>
+      <a href="#pipeline">Pipeline</a>
+      <a href="#fusion">Fusion</a>
+      <a href="#floods">Ten floods</a>
+      <a href="#forli">Forlì</a>
+      <a href="#stress">Synthetic</a>
+      <a href="#lessons">Lessons</a>
+      <a href="#reproduce">Reproduce</a>
+    </nav>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="theme-toggle" type="button" aria-label="Switch between light and dark theme">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/></svg>
+      </button>
+      <a class="btn btn-small" href="https://github.com/teo-clerk/floodfusion">GitHub</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <p class="wrap notice" id="no-data" hidden>The page's data is missing. Build it with
+    <code>uv run python scripts/build_site.py</code> and open <code>_site/index.html</code>.</p>
+
+  <!-- ============================================================ HERO -->
+  <section class="hero" id="top">
+    <div class="wrap">
+      <div class="hero-grid">
+        <div>
+          <p class="eyebrow">Sentinel-1 · Sentinel-2 · Copernicus EMS</p>
+          <h1>Flood maps from radar that a duty officer can act on at 3 a.m.</h1>
+          <p class="lede">floodfusion maps floods from Sentinel-1 radar, which sees through cloud, and adds
+            Sentinel-2 only where the sky is clear. This page explains how it works and what it achieved.
+            Its charts and results are generated from the reports in the repository.</p>
+          <div class="hero-actions">
+            <a class="btn" href="#floods">See the results</a>
+            <a class="btn btn-ghost" href="#pipeline">How it works</a>
+          </div>
+        </div>
+        <figure class="hero-figure">
+          <img src="assets/forli_fusion.png" width="397" height="414" fetchpriority="high"
+               alt="Radar image of farmland near Forlì with the flooded fields mapped in red by floodfusion">
+          <figcaption>Forlì, <span data-bind="forliOptDate"></span>. Red: the flood floodfusion mapped from
+            Sentinel-1 and Sentinel-2, zero-shot. <a href="#forli">Compare with Copernicus EMS</a></figcaption>
+        </figure>
+      </div>
+      <div class="stats">
+        <div class="stat">
+          <p class="stat-value"><span data-bind="fusionIoU"></span></p>
+          <p class="stat-label"><a class="term" href="#g-iou">IoU</a> on <span data-bind="nEvents"></span> real
+            floods, each scored by a model that never saw it (SAR-only U-Net: <span data-bind="sarIoU"></span>)</p>
+        </div>
+        <div class="stat">
+          <p class="stat-value"><span data-bind="fusionWins"></span></p>
+          <p class="stat-label">floods where fusion beats the SAR-only model
+            (<a class="term" href="#g-holm">Holm</a>-adjusted p = <span data-bind="fusionHolm"></span>)</p>
+        </div>
+        <div class="stat">
+          <p class="stat-value"><span data-bind="forliGain"></span></p>
+          <p class="stat-label">IoU added by Sentinel-2, scored against Copernicus EMS's own map of the 2023
+            Forlì flood</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ PROBLEM -->
+  <section class="section" id="problem">
+    <div class="wrap">
+      <p class="kicker">1 · The problem</p>
+      <h2>Why mapping floods from space is hard</h2>
+      <div class="cards three">
+        <article class="card">
+          <h3>Floods come with clouds</h3>
+          <p>Optical satellites such as Sentinel-2 see water clearly, but not through cloud, and the storm
+            that floods a valley usually clouds it too. Sentinel-1's C-band radar sees through cloud, day
+            and night. So the map has to stand on radar.</p>
+        </article>
+        <article class="card">
+          <h3>Radar is ambiguous</h3>
+          <p>Calm water is dark to radar, but so are tarmac, dry sand and terrain hidden from the
+            satellite. Wind can make water bright. Flooded forests and streets get <em>brighter</em>. Try
+            the explorer below.</p>
+        </article>
+        <article class="card">
+          <h3>Benchmarks flatter models</h3>
+          <p>When chips of the same flood sit in both training and test, a model is graded on a flood it
+            has already seen. Here every flood is scored by a model trained only on the others.</p>
+        </article>
+      </div>
+
+      <div class="panel explorer">
+        <div class="panel-head">
+          <h3>How dark is it to radar?</h3>
+          <p class="muted">Pick a surface to see where it falls on Sentinel-1's VV backscatter scale, and
+            how floodfusion handles it.</p>
+        </div>
+        <div class="chip-row" role="radiogroup" aria-label="Surface type" id="surface-buttons">
+          <button type="button" role="radio" class="chip" data-surface="calm" data-min="-25" data-max="-18">Calm flood water</button>
+          <button type="button" role="radio" class="chip" data-surface="wind" data-min="-18" data-max="-10">Wind-roughened water</button>
+          <button type="button" role="radio" class="chip" data-surface="shadow" data-min="-27" data-max="-22">Radar shadow</button>
+          <button type="button" role="radio" class="chip" data-surface="tarmac" data-min="-22" data-max="-15">Tarmac, dry sand</button>
+          <button type="button" role="radio" class="chip" data-surface="fields" data-min="-15" data-max="-7">Fields, grassland</button>
+          <button type="button" role="radio" class="chip" data-surface="forest" data-min="-6" data-max="0">Flooded forest</button>
+          <button type="button" role="radio" class="chip" data-surface="urban" data-min="-5" data-max="5">Dense urban</button>
+        </div>
+        <div class="db-scale" aria-hidden="true">
+          <div class="db-bar"><div class="db-range" id="db-range"></div></div>
+          <div class="db-ticks" id="db-ticks"></div>
+        </div>
+        <div class="surface-info" aria-live="polite">
+          <div data-info="calm">
+            <h4>Calm flood water</h4>
+            <p><b>Why:</b> smooth water reflects the radar pulse away from the satellite, like a mirror, so
+              almost nothing comes back.</p>
+            <p><b>What floodfusion does:</b> this is the signal it looks for: dark in VV and VH, and darker
+              than the image from before the flood.</p>
+          </div>
+          <div data-info="wind" hidden>
+            <h4>Wind-roughened water</h4>
+            <p><b>Why:</b> wind raises centimetre-scale waves (<a class="term" href="#g-bragg">Bragg</a>
+              waves) that scatter energy back to the satellite, so open water brightens towards the level of
+              land.</p>
+            <p><b>What floodfusion does:</b> nothing can fully undo it. The <a href="#stress">stress test</a>
+              shows a fixed threshold collapsing with wind while the learned models degrade gracefully.</p>
+          </div>
+          <div data-info="shadow" hidden>
+            <h4>Radar shadow</h4>
+            <p><b>Why:</b> slopes facing away from a side-looking radar receive no signal at all. They are
+              dark, but at the noise floor, not because they are wet.</p>
+            <p><b>What floodfusion does:</b> computes shadow and layover from the Copernicus DEM along the
+              radar's look direction, and excludes those pixels from the map.</p>
+          </div>
+          <div data-info="tarmac" hidden>
+            <h4>Tarmac and dry sand</h4>
+            <p><b>Why:</b> they are smooth at the radar's wavelength, so they behave like calm water. They are
+              the classic false alarm.</p>
+            <p><b>What floodfusion does:</b> compares with the image from before the flood. A runway is dark
+              before and after; a flood is dark only after.</p>
+          </div>
+          <div data-info="fields" hidden>
+            <h4>Fields and grassland</h4>
+            <p><b>Why:</b> rough vegetation scatters in every direction, so a moderate share comes back.
+              Harvest and ploughing change it between two dates.</p>
+            <p><b>What floodfusion does:</b> a field ploughed between the two images can look like change. The
+              stress test measures this "harvest" effect, and zero-shot at Forlì the learned SAR-only path
+              over-maps fields.</p>
+          </div>
+          <div data-info="forest" hidden>
+            <h4>Flooded forest</h4>
+            <p><b>Why:</b> water under trees forms a corner reflector with the trunks (a "double bounce"),
+              so the pixel gets brighter, not darker. Dense canopy also hides the ground from C-band radar.</p>
+            <p><b>What floodfusion does:</b> flags dense forest as "not observed" rather than mapping it as
+              dry. L-band radar (NISAR, ROSE-L) is the long-term answer.</p>
+          </div>
+          <div data-info="urban" hidden>
+            <h4>Dense urban</h4>
+            <p><b>Why:</b> walls and streets form corner reflectors everywhere, and flooding a street makes
+              them brighter still.</p>
+            <p><b>What floodfusion does:</b> flags dense built-up areas from ESA WorldCover. They are
+              excluded, not mapped.</p>
+          </div>
+        </div>
+        <p class="footnote">Typical Sentinel-1 VV values in dB, approximate: they shift with incidence angle,
+          moisture and season. The noise floor sits near −22 dB.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ PIPELINE -->
+  <section class="section alt" id="pipeline">
+    <div class="wrap">
+      <p class="kicker">2 · The pipeline</p>
+      <h2>From satellite archive to flood map</h2>
+      <p class="section-lede">Seven steps, all on public data, with no account or API key needed. Pick a step.</p>
+      <div class="stepper" role="tablist" aria-label="Pipeline steps" id="pipeline-tabs">
+        <button type="button" role="tab" id="step-tab-1" aria-controls="step-1"><span>1</span>Find the images</button>
+        <button type="button" role="tab" id="step-tab-2" aria-controls="step-2"><span>2</span>One grid</button>
+        <button type="button" role="tab" id="step-tab-3" aria-controls="step-3"><span>3</span>Terrain physics</button>
+        <button type="button" role="tab" id="step-tab-4" aria-controls="step-4"><span>4</span>Check alignment</button>
+        <button type="button" role="tab" id="step-tab-5" aria-controls="step-5"><span>5</span>The model</button>
+        <button type="button" role="tab" id="step-tab-6" aria-controls="step-6"><span>6</span>Calibrate &amp; decide</button>
+        <button type="button" role="tab" id="step-tab-7" aria-controls="step-7"><span>7</span>Ship a product</button>
+      </div>
+      <div class="step-panels">
+        <div class="step-panel" role="tabpanel" id="step-1" aria-labelledby="step-tab-1">
+          <h3>Find matching images</h3>
+          <p>Search Microsoft Planetary Computer's public <a class="term" href="#g-stac">STAC</a> catalogue
+            for the Sentinel-1 image just after the flood and one from before it, <b>from the same relative
+            orbit</b>, so both images see the ground from the same angle. Sentinel-2 comes from the closest
+            date, plus the Copernicus DEM, JRC permanent water and ESA WorldCover.</p>
+          <p class="why"><b>Why it matters:</b> two images from different orbits differ because of geometry,
+            not water. Comparing them would invent change.</p>
+          <p class="code-links">Code: <a href="https://github.com/teo-clerk/floodfusion/blob/main/src/floodfusion/data/stac.py">data/stac.py</a>
+            · <a href="https://github.com/teo-clerk/floodfusion/blob/main/src/floodfusion/data/sources.py">data/sources.py</a></p>
+        </div>
+        <div class="step-panel" role="tabpanel" id="step-2" aria-labelledby="step-tab-2" hidden>
+          <h3>Put every layer on one grid</h3>
+          <p>Radar backscatter (<a class="term" href="#g-rtc">RTC γ⁰</a>, VV and VH, before and after),
+            optical reflectance (green, near-infrared, shortwave-infrared) with its cloud mask, elevation,
+            permanent water and land cover are all resampled onto one 10 m UTM grid. <b>Optical moves onto
+            the radar geometry, never the reverse.</b></p>
+          <p class="why"><b>What the real data showed:</b> Sentinel-2 images processed in 2016–2019 sit 1–3
+            pixels (10–30 m) away from the radar. The benchmark's labels follow Sentinel-2, so they were
+            corrected per flood (<a href="#registration">see below</a>).</p>
+          <p class="code-links">Code: <a href="https://github.com/teo-clerk/floodfusion/blob/main/src/floodfusion/data/assembly.py">data/assembly.py</a>
+            · <a href="https://github.com/teo-clerk/floodfusion/blob/main/src/floodfusion/data/geocoding.py">data/geocoding.py</a></p>
+        </div>
+        <div class="step-panel" role="tabpanel" id="step-3" aria-labelledby="step-tab-3" hidden>
+          <h3>Compute the terrain physics</h3>
+          <ul>
+            <li><b>Slope</b> and the <b>local incidence angle</b> from the DEM.</li>
+            <li><b>Radar shadow and layover</b>, by sweeping rays along the radar's look direction.</li>
+            <li><a class="term" href="#g-hand">HAND</a>, the height above the nearest drainage: water rarely
+              sits 30 m above the nearest river.</li>
+            <li>A Range–Doppler geocoder with area-based terrain correction reproduces ESA's own geolocation
+              tie points to 0.1 pixel.</li>
+          </ul>
+          <p class="why"><b>Why it matters:</b> these layers tell the model, and the exclusion mask, where
+            darkness means water and where it means geometry.</p>
+          <p class="code-links">Code: <a href="https://github.com/teo-clerk/floodfusion/blob/main/src/floodfusion/masks.py">masks.py</a></p>
+        </div>
+        <div class="step-panel" role="tabpanel" id="step-4" aria-labelledby="step-tab-4" hidden>
+          <h3>Check the alignment, and know when you can't</h3>
+          <p>The pipeline measures the shift between the before and after radar images, and between radar
+            and optical, in many small windows. A check counts only when its standard error is at most
+            0.5 pixel; otherwise it reports <b>"not measurable"</b> instead of a false alarm.</p>
+          <p class="why"><b>Why it matters:</b> on the flat Po plain the first version of this check
+            "failed" on noise. The threshold is calibrated on same-orbit image pairs, which must agree.</p>
+          <p class="code-links">Code: <a href="https://github.com/teo-clerk/floodfusion/blob/main/src/floodfusion/data/coregistration.py">data/coregistration.py</a></p>
+        </div>
+        <div class="step-panel" role="tabpanel" id="step-5" aria-labelledby="step-tab-5" hidden>
+          <h3>Run the model</h3>
+          <p>Two encoders: one for radar (VV and VH before and after, their change, slope, HAND, local
+            incidence) and one for optical (green, NIR, SWIR, a water index, and a per-pixel quality from the
+            cloud mask). They meet in <b>cross-attention with a per-pixel gate</b>, and a U-Net decoder
+            outputs a flood probability for every pixel.</p>
+          <p class="why"><b>Why it matters:</b> the gate makes radar-only operation a guarantee, not a hope.
+            <a href="#fusion">See the fusion section.</a></p>
+          <p class="code-links">Code: <a href="https://github.com/teo-clerk/floodfusion/blob/main/src/floodfusion/models/fusion_module.py">models/fusion_module.py</a>
+            · <a href="https://github.com/teo-clerk/floodfusion/blob/main/src/floodfusion/models/segmenter.py">models/segmenter.py</a></p>
+        </div>
+        <div class="step-panel" role="tabpanel" id="step-6" aria-labelledby="step-tab-6" hidden>
+          <h3>Calibrate, then pick the threshold from a cost</h3>
+          <p>Probabilities are <a class="term" href="#g-calibration">calibrated</a> on validation floods.
+            The threshold then follows from a stated cost: if missing a flooded pixel costs <i>r</i> times a
+            false alarm, flag a pixel when its probability exceeds <b>τ* = 1 / (1 + r)</b>.</p>
+          <div class="tau-demo">
+            <label for="tau-r">Cost ratio r = <output id="tau-r-out">3</output></label>
+            <input type="range" id="tau-r" min="0.25" max="9" step="0.25" value="3">
+            <p>A miss costs <b><span id="tau-r-text">3</span>×</b> a false alarm → flag when p &gt;
+              <b id="tau-value">0.25</b></p>
+          </div>
+          <p class="why">The reports use r = 3 (τ* = 0.25). A <a class="term" href="#g-conformal">conformal</a>
+            threshold can instead bound the expected share of flood each chip misses.</p>
+          <p class="code-links">Code: <a href="https://github.com/teo-clerk/floodfusion/blob/main/src/floodfusion/calibration.py">calibration.py</a></p>
+        </div>
+        <div class="step-panel" role="tabpanel" id="step-7" aria-labelledby="step-tab-7" hidden>
+          <h3>Ship an operational product</h3>
+          <p>Seven <a class="term" href="#g-cog">Cloud-Optimized GeoTIFFs</a> shaped like the Copernicus
+            Global Flood Monitoring product: observed flood extent, observed water, reference water, the
+            exclusion mask, a 0–100 likelihood, advisory flags and the full flag field. A STAC Item links
+            every input scene, the git commit and the model's checksum.</p>
+          <p class="why"><b>Why it matters:</b> a map is only useful with an honest statement of where it
+            must not be trusted.</p>
+          <p class="code-links">Code: <a href="https://github.com/teo-clerk/floodfusion/blob/main/src/floodfusion/products.py">products.py</a></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ FUSION -->
+  <section class="section" id="fusion">
+    <div class="wrap">
+      <p class="kicker">3 · The fusion idea</p>
+      <h2>Radar first, optical as a gated bonus</h2>
+      <div class="split">
+        <div>
+          <p>The radar features <i>F</i><sub>s</sub> pass straight through. Optical can only
+            <em>add</em> to them, through attention, scaled by a gate <i>g</i> between 0 and 1 that the
+            network predicts for every pixel:</p>
+          <p class="equation" id="gate-equation">F = F<sub>s</sub> + g · Attn(Q<sub>optical</sub>, K<sub>SAR</sub>, V<sub>SAR</sub>)</p>
+          <ul class="ticks">
+            <li><b>At g = 0 the network is the SAR-only network, bit for bit.</b> Losing optical cannot make
+              the map worse than radar alone.</li>
+            <li>Attention reads only radar features (keys and values), so optical decides <em>where to
+              look</em>, never what the radar measured.</li>
+            <li>Missing optical is a learned embedding, never zeros, and training randomly drops optical
+              (modality dropout) so the radar-only case is practised.</li>
+          </ul>
+        </div>
+        <div class="panel gate-panel">
+          <svg id="gate-diagram" viewBox="0 0 500 236" role="img" aria-labelledby="gate-diagram-title">
+            <title id="gate-diagram-title">Diagram of the gated fusion: the optical attention path is scaled by the gate g and added to the radar features.</title>
+          </svg>
+          <label class="slider-label" for="gate-slider">Gate g = <output id="gate-out">0.12</output></label>
+          <input type="range" id="gate-slider" min="0" max="1" step="0.01" value="0.12">
+          <div class="gate-track" aria-hidden="true"><span id="gate-measured"></span></div>
+          <p class="footnote" id="gate-note"></p>
+        </div>
+      </div>
+      <div class="callout honest">
+        <h3>What the gate actually learned</h3>
+        <p>On the synthetic benchmark the gate barely moved from where it started (<span data-bind="gateStart"></span>):
+          its mean over clear pixels is <span data-bind="gateClearRange"></span>, and it is slightly
+          <em>more</em> open under cloud. There, the network learned that radar suffices: fusion and the
+          SAR-only U-Net tie. What the design guarantees still holds: on ten real floods the fusion model with
+          optical removed scores <span data-bind="noOptIoU"></span>, against <span data-bind="sarIoU"></span>
+          for the SAR-only U-Net. With optical, it scores <span data-bind="fusionIoU"></span>, so optical clearly
+          contributes on real data. How the gate behaves there is the next measurement.</p>
+        <figure class="wide-figure">
+          <a href="assets/gate_map.png"><img src="assets/gate_map.png" width="1400" height="313" loading="lazy"
+               alt="Five panels for one synthetic chip: the optical image, its quality mask, the learned gate, the radar image and the prediction. The gate is brightest along the edge of the cloud mask."></a>
+          <figcaption>One synthetic chip: optical image, its quality mask (white = clear), the learned gate,
+            radar, and the prediction. The gate opens mostly along the edge of the cloud mask, not over clear
+            ground. <a href="https://github.com/teo-clerk/floodfusion/blob/main/reports/gate_diagnostic.md">Gate diagnostic</a></figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ TEN FLOODS -->
+  <section class="section alt" id="floods">
+    <div class="wrap">
+      <p class="kicker">4 · Real data</p>
+      <h2>Ten real floods, each held out</h2>
+      <p class="section-lede">Sen1Floods11 (Bonafilia et al., 2020) provides hand-drawn flood labels for 11
+        events on five continents. floodfusion keeps the labels and re-fetches every input itself.
+        <a class="term" href="#g-loeo">Leave-one-event-out</a>: each flood is scored by a model built without
+        it (eight floods to train, one to validate). Paraguay is dropped because its radar image is missing from
+        the archive.</p>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>IoU per flood</h3>
+          <p class="muted">Toggle models. Higher is better; 1 is a perfect match with the hand labels. Hover a
+            dot for its value.</p>
+        </div>
+        <div class="chip-row" id="flood-models" aria-label="Models shown"></div>
+        <div class="chart" id="flood-chart"></div>
+        <p class="footnote">Dots for the fusion model and its optical-removed run are means over three seeds. The
+          head-to-head tests below pair matched seeds, so their counts of wins can differ slightly from the dots.</p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>All ten floods together</h3>
+          <p class="muted">IoU at the calibrated threshold τ*, with a 95 % interval over floods, and
+            <a class="term" href="#g-ap">AP</a>, which needs no threshold.</p>
+        </div>
+        <div class="table-wrap"><table class="data-table" id="flood-table"></table></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Head to head, flood by flood</h3>
+          <p class="muted">The difference in IoU between two models (B − A) with its 95 % paired interval.
+            Verdicts use an exact <a class="term" href="#g-signflip">sign-flip test</a> over the ten floods,
+            <a class="term" href="#g-holm">Holm</a>-adjusted across the table.</p>
+        </div>
+        <ul class="gap-list" id="flood-gaps"></ul>
+        <p class="footnote">† Sen1Floods11's labels were drawn mostly on the Sentinel-2 image that the model
+          also sees, so gaps involving optical partly measure agreement with the annotators. The Forlì case
+          below is the independent check.<br>‡ TerraMind's encoder saw global Sentinel-1 and Sentinel-2 data in
+          pre-training, so "never saw the flood" holds for its decoder only. It follows IBM's recipe, developed on
+          Sen1Floods11's official split, and ran one seed.</p>
+      </div>
+
+      <div class="cards two">
+        <article class="panel">
+          <h3>Does the published split flatter models?</h3>
+          <p>The official test chips come from the same floods as the training chips. Each flood's official
+            test chips are scored twice: by the model trained on the official split, and by the model that
+            never saw the flood. The difference also includes training-set size and calibration, so it is a
+            <em>protocol gap</em>, not pure leakage.</p>
+          <div class="table-wrap"><table class="data-table compact" id="protocol-table"></table></div>
+          <p class="footnote" id="protocol-note"></p>
+        </article>
+        <article class="panel">
+          <h3>Does the recall guarantee carry to a new flood?</h3>
+          <p>A <a class="term" href="#g-conformal">conformal</a> threshold guarantees that, on average, a chip
+            misses at most α = 10 % of its flood, but only for chips <em>like</em> the calibration chips. Each
+            bar is one held-out flood's mean miss rate.</p>
+          <label class="select-label" for="conformal-run">Model and seed</label>
+          <select id="conformal-run"></select>
+          <div class="chart" id="conformal-chart"></div>
+          <p class="footnote" id="conformal-note"></p>
+        </article>
+      </div>
+
+      <h3 class="sub" id="registration">Two things the real data revealed</h3>
+      <div class="cards two">
+        <article class="panel">
+          <h4>The labels follow Sentinel-2, not the radar</h4>
+          <p>Each flood's labels and optical image were moved onto the radar by one whole-pixel shift,
+            measured from the labels' own water edges where that estimate is precise. It is two integers per
+            flood, fixed before any model ran and the same for every model, and it is disclosed and checked
+            independently.</p>
+          <div class="arrow-grid" id="registration-grid"></div>
+          <p class="footnote">Arrows: the direction and distance each flood's labels were moved (north is up;
+            rings at 1, 2 and 3 px, 1 px = 10 m). Blue: measured from the labels; orange: from Sentinel-2.
+            Mekong and Somalia stayed unregistered; Bolivia and Pakistan remain uncertain. Details in the
+            <a href="https://github.com/teo-clerk/floodfusion/blob/main/DATA_CARD.md">data card</a> and the
+            <a href="https://github.com/teo-clerk/floodfusion/blob/main/reports/sen1floods11_registration.md">registration report</a>.</p>
+        </article>
+        <article class="panel">
+          <h4>The labels mark water, not change</h4>
+          <p>Median change in VV backscatter on labelled flood pixels, against a same-orbit image up to 60 days
+            earlier. Real floods usually darken by several dB. In <b><span data-bind="noDropEvents"></span> of
+            <span data-bind="nEvents"></span></b> events the labelled water did not darken by even 1 dB: much of
+            it was already there.</p>
+          <div class="chart" id="change-chart"></div>
+          <p class="footnote">This is why change-based rules (the physics baseline) score poorly on this
+            benchmark while amplitude-based ones do not.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ FORLI -->
+  <section class="section" id="forli">
+    <div class="wrap">
+      <p class="kicker">5 · Independent check</p>
+      <h2>Forlì, May 2023: against Copernicus EMS's own maps</h2>
+      <p class="section-lede">The Emilia-Romagna floods triggered Copernicus EMS activation
+        <span data-bind="activation"></span>. CEMS mapped the Forlì area <span data-bind="nProducts"></span> times with commercial radar
+        satellites at 3 m. floodfusion ran <a class="term" href="#g-zeroshot">zero-shot</a> (trained only on
+        Sen1Floods11) on every Sentinel-1 pass, and was scored on the <span data-bind="commonKm2"></span> km²
+        that every full pass and every CEMS map observed.</p>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Drag to compare</h3>
+          <p class="muted"><span data-bind="forliOptDate"></span>: the fusion model, with Sentinel-2 on
+            <span data-bind="forliOptTiles"></span> tiles, against CEMS's <span data-bind="forliRefSensor"></span>
+            delineation of <span data-bind="forliRefDay"></span>.</p>
+        </div>
+        <div class="segmented" role="radiogroup" aria-label="Layers to compare" id="swipe-modes">
+          <button type="button" role="radio" data-left="fusion" data-right="cems">floodfusion ↔ CEMS</button>
+          <button type="button" role="radio" data-left="vv" data-right="fusion">Radar ↔ floodfusion</button>
+          <button type="button" role="radio" data-left="vv" data-right="cems">Radar ↔ CEMS</button>
+        </div>
+        <div class="swipe" id="swipe">
+          <img id="swipe-left" alt="" draggable="false">
+          <img id="swipe-right" alt="" draggable="false">
+          <div class="swipe-handle" id="swipe-handle" aria-hidden="true"><span></span></div>
+          <span class="swipe-tag swipe-tag-left" id="swipe-tag-left"></span>
+          <span class="swipe-tag swipe-tag-right" id="swipe-tag-right"></span>
+          <input type="range" id="swipe-range" min="0" max="100" value="50" step="0.5" aria-label="Divider position">
+        </div>
+        <p class="footnote"><span class="key key-fusion"></span> floodfusion's flood map at τ* ·
+          <span class="key key-cems"></span> CEMS delineation · yellow line: edge of the region CEMS observed ·
+          background: Sentinel-1 VV, where dark means smooth, usually water. CEMS products © European Union,
+          Copernicus Emergency Management Service.</p>
+      </div>
+
+      <div class="cards two">
+        <article class="panel">
+          <h3>Flooded area over time</h3>
+          <p class="muted">On the common region. CEMS maps in blue; floodfusion's passes as points.</p>
+          <div class="chip-row" id="recession-models" aria-label="Models shown"></div>
+          <div class="chart" id="recession-chart"></div>
+        </article>
+        <article class="panel">
+          <h3>Every pass against every CEMS map</h3>
+          <p class="muted">IoU at τ*. The outlined cell is the CEMS map nearest in time. Maps made days apart
+            disagree even with each other, because the flood receded between acquisitions.</p>
+          <div class="segmented small" role="radiogroup" aria-label="Model" id="matrix-model"></div>
+          <div class="segmented small" role="radiogroup" aria-label="Scored region" id="matrix-region">
+            <button type="button" role="radio" data-region="common">Common region</button>
+            <button type="button" role="radio" data-region="own">Each pass's own coverage</button>
+          </div>
+          <div class="table-wrap"><table class="data-table matrix" id="forli-matrix"></table></div>
+        </article>
+      </div>
+
+      <div class="callout">
+        <h3>What Forlì shows</h3>
+        <ul>
+          <li><b>Optical's value survives an independent reference.</b> On <span data-bind="forliOptDay"></span>,
+            with Sentinel-2 on <span data-bind="forliOptTiles"></span> tiles, fusion scores <span data-bind="forliFusionOpt"></span> against
+            <span data-bind="forliNoOptOpt"></span> for the same model without optical. Its flooded area,
+            <span data-bind="forliAreaFusion"></span> km², matches CEMS's latest map
+            (<span data-bind="forliAreaCems"></span> km²); without optical, it maps
+            <span data-bind="forliAreaNoOpt"></span> km².</li>
+          <li><b>Without optical, the simple physics rule wins here.</b> On <span data-bind="forliSarDay"></span>
+            (no Sentinel-2), the physics
+            baseline scores <span data-bind="forliBaseSar"></span> against <span data-bind="forliFusionSar"></span>.
+            Zero-shot on the Po plain, the learned radar path over-maps fields. It is not yet a drop-in
+            radar-only product for a new region.</li>
+          <li><b>None of the CEMS maps came from Sentinel-1.</b> Comparing them compares two products made at
+            two instants by different sensors, so a perfect score is impossible.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ SYNTHETIC -->
+  <section class="section alt" id="stress">
+    <div class="wrap">
+      <p class="kicker">6 · Controlled experiments</p>
+      <h2>Turning one knob at a time (synthetic data)</h2>
+      <p class="section-lede">Real floods mix every difficulty at once. A physics-based synthetic benchmark
+        varies one factor at a time on <span data-bind="nLandscapes"></span> landscapes no model trained on. These numbers validate the
+        pipeline; they are not accuracy claims.</p>
+
+      <div class="panel">
+        <div class="segmented" role="radiogroup" aria-label="Stress factor" id="stress-factors"></div>
+        <div class="chart" id="stress-chart"></div>
+        <div class="stress-controls">
+          <label for="stress-slider" id="stress-slider-label">Value</label>
+          <input type="range" id="stress-slider" min="0" max="5" step="1" value="0">
+          <label class="check"><input type="checkbox" id="stress-band"> Show the range over the five landscapes</label>
+        </div>
+        <div class="stress-readout" id="stress-readout"></div>
+        <p class="stress-insight" id="stress-insight"></p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>The 13-row ablation</h3>
+          <p class="muted">Each row removes or swaps one ingredient. <span data-bind="nSeedsSynth"></span> seeds
+            per learned row and <span data-bind="nBasinsSynth"></span> test basins, so the intervals are indicative
+            and no row gets a significance verdict. Click a row.</p>
+        </div>
+        <div class="chart" id="ablation-chart"></div>
+        <div class="ablation-detail" id="ablation-detail" aria-live="polite"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ LESSONS -->
+  <section class="section" id="lessons">
+    <div class="wrap">
+      <p class="kicker">7 · What we learned</p>
+      <h2>Findings, including the uncomfortable ones</h2>
+      <div class="cards three">
+        <article class="card lesson good">
+          <h3>Optical pays off where the sky is clear</h3>
+          <p>+<span data-bind="fusionGain"></span> IoU over the SAR-only U-Net on all <span data-bind="nEvents"></span>
+            held-out floods, and +<span data-bind="forliGainPlain"></span> against an independent Copernicus EMS
+            map.</p>
+        </article>
+        <article class="card lesson good">
+          <h3>Losing optical costs nothing extra</h3>
+          <p>With optical removed, the fusion model performs like the SAR-only model, as the gate's design
+            guarantees: cloud costs what radar alone costs, never more.</p>
+        </article>
+        <article class="card lesson good">
+          <h3>A foundation model, frozen, is close</h3>
+          <p>IBM/ESA's TerraMind-1.0-small with a trained decoder scores <span data-bind="tmIoU"></span>, behind
+            the fusion model on <span data-bind="tmWins"></span> floods, but the difference is not significant. Its
+            encoder saw global Sentinel-1/2 data in pre-training.</p>
+        </article>
+        <article class="card lesson warn">
+          <h3>Benchmark geometry needed fixing</h3>
+          <p>Sentinel-2 from 2016–2019 sits 1–3 px off the radar, and the labels follow it. Left uncorrected,
+            this penalises every radar model. The fix uses the labels, which is disclosed and checked
+            independently.</p>
+        </article>
+        <article class="card lesson warn">
+          <h3>Zero-shot radar over-maps fields</h3>
+          <p>At Forlì without optical, the learned radar path loses to the physics baseline. Next steps:
+            regional fine-tuning and a seasonal reference image.</p>
+        </article>
+        <article class="card lesson warn">
+          <h3>The gate barely trained</h3>
+          <p>On synthetic data it stayed near its starting value. The guarantee holds, but the intended "open
+            where clear" behaviour has not been shown yet.</p>
+        </article>
+        <article class="card lesson warn">
+          <h3>Guarantees don't travel between floods</h3>
+          <p>Conformal recall control holds on average, but on only <span data-bind="conformalRange"></span> of
+            <span data-bind="nEvents"></span> new floods. Floods are not exchangeable.</p>
+        </article>
+        <article class="card lesson">
+          <h3>The published split barely flatters</h3>
+          <p>Scored on the same chips, the within-flood protocol adds at most <span data-bind="protocolTrained"></span>
+            IoU for the trained models, none of it significant. Smaller than expected, and reported as measured.</p>
+        </article>
+        <article class="card lesson">
+          <h3>Archives have gaps</h3>
+          <p>One event's radar image is missing from the archive, so the event was dropped. Another lacks
+            its geometry annotation, so an orbit model replaces it, validated to within 0.74° of incidence.</p>
+        </article>
+      </div>
+
+      <div class="panel">
+        <h3>Where the map must not be used</h3>
+        <ul class="ticks two-col">
+          <li><b>Dense canopy and dense urban areas:</b> "dry" there means "not seen". They are flagged, not
+            mapped.</li>
+          <li><b>Radar shadow and layover</b> carry no information and are excluded.</li>
+          <li><b>Strong wind</b> can hide open water.</li>
+          <li><b>One instant:</b> the map is a snapshot at the acquisition time. It gives no depth and no damage
+            assessment.</li>
+        </ul>
+        <p class="muted">More in the <a href="https://github.com/teo-clerk/floodfusion/blob/main/MODEL_CARD.md">model card</a>
+          and the <a href="https://github.com/teo-clerk/floodfusion/blob/main/DATA_CARD.md">data card</a>.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ REPRODUCE -->
+  <section class="section alt" id="reproduce">
+    <div class="wrap">
+      <p class="kicker">8 · Reproduce</p>
+      <h2>Every number regenerates from a commit</h2>
+      <p class="section-lede">No account or API key is needed. Each report records the git commit it was made
+        at, and the table builders refuse runs made with different code, data or test sets.</p>
+      <div class="code-block">
+        <button class="copy-btn" type="button" data-copy="reproduce-code">Copy</button>
+<pre id="reproduce-code"><code>git clone https://github.com/teo-clerk/floodfusion && cd floodfusion
+make setup && make preflight       # uv-locked environment, environment checks
+make test                          # offline test suite (CPU)
+make demo SEED_PROTOCOL=full       # synthetic benchmark: 13-row ablation, 3 seeds (~1.5 h)
+make stress                        # single-factor stress curves and the gate figure
+make s1f11 S1F11_LEARNED="4 9 14"  # Sen1Floods11 leave-one-event-out (~9 h on an 8 GB GPU)
+make forli                         # EMSR664 Forlì: every Sentinel-1 pass vs every CEMS map</code></pre>
+      </div>
+      <p class="muted">Sen1Floods11 declares no licence, so its labels are downloaded by each user and never
+        redistributed, and neither are weights trained on them.</p>
+    </div>
+  </section>
+
+  <!-- ============================================================ GLOSSARY -->
+  <section class="section" id="glossary">
+    <div class="wrap">
+      <p class="kicker">Glossary</p>
+      <h2>Terms used on this page</h2>
+      <dl class="glossary">
+        <div id="g-iou"><dt>IoU (intersection over union)</dt><dd>Pixels both the map and the reference call flood, divided by pixels either calls flood. 1 is a perfect match; it ignores the dry pixels both agree on.</dd></div>
+        <div id="g-ap"><dt>AP (average precision)</dt><dd>Area under the precision–recall curve. It scores the ranking of probabilities and needs no threshold.</dd></div>
+        <div id="g-calibration"><dt>Calibration</dt><dd>Adjusting the model's scores (prior correction, temperature, Platt scaling) on validation floods so that a 0.3 means roughly a 30 % chance of flood. Only then does a cost-based threshold mean anything.</dd></div>
+        <div id="g-loeo"><dt>Leave-one-event-out</dt><dd>Test on one flood, validate on another, train on the rest, and repeat for every flood. No flood is ever both trained and tested on.</dd></div>
+        <div id="g-signflip"><dt>Sign-flip test</dt><dd>An exact permutation test: if two models were equally good, each flood's difference would be equally likely to be positive or negative. With 10 floods the smallest possible p is 2 / 2¹⁰ ≈ 0.002.</dd></div>
+        <div id="g-holm"><dt>Holm adjustment</dt><dd>Corrects p-values when many comparisons are tested at once, so the chance of any false "significant" stays at 5 %.</dd></div>
+        <div id="g-conformal"><dt>Conformal risk control</dt><dd>Chooses a threshold on calibration chips so that the expected miss rate on a new, similar chip is at most α. "Similar" (exchangeable) is the catch.</dd></div>
+        <div id="g-rtc"><dt>RTC γ⁰ (radiometrically terrain-corrected backscatter)</dt><dd>Radar brightness corrected for the area each pixel covers on sloped terrain, in decibels (dB). VV and VH are the transmit/receive polarisations.</dd></div>
+        <div id="g-bragg"><dt>Bragg waves</dt><dd>Centimetre-scale ripples that resonate with C-band radar's ~5.5 cm wavelength and send energy back to the satellite, brightening wind-blown water.</dd></div>
+        <div id="g-hand"><dt>HAND (height above nearest drainage)</dt><dd>How far a pixel sits above the stream it drains to, computed from the DEM. Low HAND is where water collects.</dd></div>
+        <div id="g-stac"><dt>STAC</dt><dd>SpatioTemporal Asset Catalog: a standard way to search and describe satellite images. floodfusion both searches STAC catalogues and writes a STAC Item for its product.</dd></div>
+        <div id="g-cog"><dt>COG (Cloud-Optimized GeoTIFF)</dt><dd>A GeoTIFF laid out so that a viewer can stream just the part it needs over HTTP.</dd></div>
+        <div id="g-zeroshot"><dt>Zero-shot</dt><dd>Applied to a region and event the model never saw in training, with no fine-tuning.</dd></div>
+        <div id="g-cems"><dt>Copernicus EMS</dt><dd>The Copernicus Emergency Management Service, whose rapid-mapping service delineates floods for civil protection within hours of an activation.</dd></div>
+      </dl>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    <p>floodfusion <span data-bind="version"></span> · MIT licence ·
+      <a href="https://github.com/teo-clerk/floodfusion">github.com/teo-clerk/floodfusion</a></p>
+    <p class="muted">Contains modified Copernicus Sentinel data, processed by Microsoft Planetary Computer.
+      Copernicus EMS products © European Union, Copernicus Emergency Management Service. Copernicus DEM ©
+      DLR e.V. 2010–2014 and © Airbus Defence and Space GmbH 2014–2018, provided under COPERNICUS by the
+      European Union and ESA. JRC Global Surface Water: EC JRC / Google. ESA WorldCover 2021. Sen1Floods11:
+      Bonafilia et al., 2020. TerraMind: IBM and ESA. Developed with AI assistance (Claude Code); the design
+      decisions, verification and results were reviewed by the author.</p>
+  </div>
+</footer>
+
+<div class="tooltip" id="tooltip" role="tooltip" hidden></div>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

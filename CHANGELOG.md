@@ -2,6 +2,17 @@
 
 All notable changes; the format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+- **Interactive explainer** (`site/`, published to GitHub Pages by `.github/workflows/pages.yml`).
+  `scripts/build_site.py` reads the results from the committed reports instead of copying them into the
+  page.
+
+### Fixed
+- The README's protocol-gap sentence now separates the trained models (at most +0.015 IoU at τ*) from the
+  fusion model run without optical (up to +0.091). None of these gaps is significant.
+
 ## [1.0.0] — 2026-10
 
 First public release.
