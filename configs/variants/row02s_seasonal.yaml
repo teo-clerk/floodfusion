@@ -1,0 +1,9 @@
+# v1.1 baseline variant 2s (descriptive, reports/protocol_v1_1.md): row 2e with the change term
+# against the seasonal reference (median of same-orbit passes within 30 days of the same date a year
+# earlier, floodfusion.data.seasonal) instead of the latest pass before the event, which can itself
+# be flooded. Events without a seasonal reference keep the recent one (counted in the report).
+extends: row02e_event_fallback.yaml
+name: "row02s_seasonal"
+ablation_row: 0
+baseline:
+  reference: "seasonal"

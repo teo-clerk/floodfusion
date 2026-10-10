@@ -1,0 +1,2069 @@
+{
+  "rule": {
+    "window_h": 24.0,
+    "min_coverage": 0.5,
+    "reference_gap_days": 7,
+    "pre_event_window_days": 60,
+    "related_lookback_days": 60,
+    "requires_package": true,
+    "codes": [
+      "EMSR656",
+      "EMSR898"
+    ]
+  },
+  "n_activations": 233,
+  "n_flood_activations": 86,
+  "eligible_activations": [
+    "EMSR657",
+    "EMSR664",
+    "EMSR668",
+    "EMSR683",
+    "EMSR692",
+    "EMSR705",
+    "EMSR706",
+    "EMSR708",
+    "EMSR711",
+    "EMSR712",
+    "EMSR718",
+    "EMSR722",
+    "EMSR725",
+    "EMSR728",
+    "EMSR754",
+    "EMSR755",
+    "EMSR756",
+    "EMSR759",
+    "EMSR761",
+    "EMSR763",
+    "EMSR766",
+    "EMSR768",
+    "EMSR771",
+    "EMSR773",
+    "EMSR775",
+    "EMSR783",
+    "EMSR788",
+    "EMSR789",
+    "EMSR796",
+    "EMSR797",
+    "EMSR838",
+    "EMSR841",
+    "EMSR843",
+    "EMSR844",
+    "EMSR848",
+    "EMSR850",
+    "EMSR854",
+    "EMSR856",
+    "EMSR857",
+    "EMSR861",
+    "EMSR864",
+    "EMSR866",
+    "EMSR868",
+    "EMSR871"
+  ],
+  "pairs": [
+    {
+      "activation": "EMSR657",
+      "aoi": 1,
+      "product": "EMSR657_AOI01_DEL_MONIT06",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed"
+      ],
+      "product_time": "2023-04-08T16:22:00+00:00",
+      "pass_time": "2023-04-08T15:55:58.068044+00:00",
+      "relative_orbit": 160,
+      "orbit_state": "ascending",
+      "offset_h": -0.43,
+      "coverage": 0.979,
+      "reference_before": "2023-03-23",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR664",
+      "aoi": 1,
+      "product": "EMSR664_AOI01_DEL_MONIT03",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed"
+      ],
+      "product_time": "2023-05-21T16:50:00+00:00",
+      "pass_time": "2023-05-22T05:19:58.610817+00:00",
+      "relative_orbit": 95,
+      "orbit_state": "descending",
+      "offset_h": 12.5,
+      "coverage": 1.0,
+      "reference_before": "2023-04-25",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR668",
+      "aoi": 3,
+      "product": "EMSR668_AOI03_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "RADARSAT-2"
+      ],
+      "product_time": "2023-05-25T05:27:00+00:00",
+      "pass_time": "2023-05-25T05:40:07.829581+00:00",
+      "relative_orbit": 139,
+      "orbit_state": "descending",
+      "offset_h": 0.22,
+      "coverage": 1.0,
+      "reference_before": "2023-05-15",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR668",
+      "aoi": 5,
+      "product": "EMSR668_AOI05_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "RADARSAT-2"
+      ],
+      "product_time": "2023-05-24T15:47:00+00:00",
+      "pass_time": "2023-05-24T04:56:09.585306+00:00",
+      "relative_orbit": 124,
+      "orbit_state": "descending",
+      "offset_h": -10.85,
+      "coverage": 1.0,
+      "reference_before": "2023-05-15",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR683",
+      "aoi": 1,
+      "product": "EMSR683_AOI01_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "RADARSAT-2"
+      ],
+      "product_time": "2023-08-11T05:51:00+00:00",
+      "pass_time": "2023-08-10T17:03:29.046695+00:00",
+      "relative_orbit": 44,
+      "orbit_state": "ascending",
+      "offset_h": -12.79,
+      "coverage": 0.972,
+      "reference_before": "2023-08-01",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR683",
+      "aoi": 2,
+      "product": "EMSR683_AOI02_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "PAZ"
+      ],
+      "product_time": "2023-08-10T05:23:00+00:00",
+      "pass_time": "2023-08-10T05:47:56.591615+00:00",
+      "relative_orbit": 37,
+      "orbit_state": "descending",
+      "offset_h": 0.42,
+      "coverage": 1.0,
+      "reference_before": "2023-08-01",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR683",
+      "aoi": 3,
+      "product": "EMSR683_AOI03_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "TerraSAR-X"
+      ],
+      "product_time": "2023-08-10T05:50:00+00:00",
+      "pass_time": "2023-08-10T05:47:56.591615+00:00",
+      "relative_orbit": 37,
+      "orbit_state": "descending",
+      "offset_h": -0.03,
+      "coverage": 1.0,
+      "reference_before": "2023-08-01",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR683",
+      "aoi": 4,
+      "product": "EMSR683_AOI04_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "TerraSAR-X"
+      ],
+      "product_time": "2023-08-09T16:56:00+00:00",
+      "pass_time": "2023-08-10T05:47:56.591615+00:00",
+      "relative_orbit": 37,
+      "orbit_state": "descending",
+      "offset_h": 12.87,
+      "coverage": 1.0,
+      "reference_before": "2023-08-01",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR683",
+      "aoi": 5,
+      "product": "EMSR683_AOI05_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed"
+      ],
+      "product_time": "2023-08-09T17:16:00+00:00",
+      "pass_time": "2023-08-10T05:48:21.591427+00:00",
+      "relative_orbit": 37,
+      "orbit_state": "descending",
+      "offset_h": 12.54,
+      "coverage": 1.0,
+      "reference_before": "2023-08-01",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR683",
+      "aoi": 6,
+      "product": "EMSR683_AOI06_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "RADARSAT-2"
+      ],
+      "product_time": "2023-08-11T05:54:00+00:00",
+      "pass_time": "2023-08-10T17:03:29.046695+00:00",
+      "relative_orbit": 44,
+      "orbit_state": "ascending",
+      "offset_h": -12.84,
+      "coverage": 1.0,
+      "reference_before": "2023-08-01",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR683",
+      "aoi": 7,
+      "product": "EMSR683_AOI07_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "PAZ"
+      ],
+      "product_time": "2023-08-10T05:23:00+00:00",
+      "pass_time": "2023-08-10T05:48:21.591427+00:00",
+      "relative_orbit": 37,
+      "orbit_state": "descending",
+      "offset_h": 0.42,
+      "coverage": 1.0,
+      "reference_before": "2023-08-01",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR683",
+      "aoi": 8,
+      "product": "EMSR683_AOI08_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "TerraSAR-X"
+      ],
+      "product_time": "2023-08-11T05:33:00+00:00",
+      "pass_time": "2023-08-10T17:03:29.046695+00:00",
+      "relative_orbit": 44,
+      "orbit_state": "ascending",
+      "offset_h": -12.49,
+      "coverage": 1.0,
+      "reference_before": "2023-08-01",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR683",
+      "aoi": 11,
+      "product": "EMSR683_AOI11_DEL_PRODUCT",
+      "stratum": "optical",
+      "sensors": [
+        "WorldView-3"
+      ],
+      "product_time": "2023-08-22T11:11:00+00:00",
+      "pass_time": "2023-08-22T05:47:57.909089+00:00",
+      "relative_orbit": 37,
+      "orbit_state": "descending",
+      "offset_h": -5.38,
+      "coverage": 1.0,
+      "reference_before": "2023-08-01",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR683",
+      "aoi": 12,
+      "product": "EMSR683_AOI12_DEL_PRODUCT",
+      "stratum": "optical",
+      "sensors": [
+        "Pleiades"
+      ],
+      "product_time": "2023-08-17T11:40:00+00:00",
+      "pass_time": "2023-08-17T16:55:20.409700+00:00",
+      "relative_orbit": 146,
+      "orbit_state": "ascending",
+      "offset_h": 5.26,
+      "coverage": 1.0,
+      "reference_before": "2023-08-01",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR683",
+      "aoi": 13,
+      "product": "EMSR683_AOI13_DEL_PRODUCT",
+      "stratum": "optical",
+      "sensors": [
+        "Pleiades"
+      ],
+      "product_time": "2023-08-17T10:40:00+00:00",
+      "pass_time": "2023-08-17T05:39:47.829500+00:00",
+      "relative_orbit": 139,
+      "orbit_state": "descending",
+      "offset_h": -5.0,
+      "coverage": 1.0,
+      "reference_before": "2023-08-01",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR683",
+      "aoi": 14,
+      "product": "EMSR683_AOI14_DEL_PRODUCT",
+      "stratum": "optical",
+      "sensors": [
+        "Pleiades"
+      ],
+      "product_time": "2023-08-17T10:52:00+00:00",
+      "pass_time": "2023-08-17T05:39:47.829500+00:00",
+      "relative_orbit": 139,
+      "orbit_state": "descending",
+      "offset_h": -5.2,
+      "coverage": 1.0,
+      "reference_before": "2023-08-01",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR683",
+      "aoi": 15,
+      "product": "EMSR683_AOI15_DEL_PRODUCT",
+      "stratum": "optical",
+      "sensors": [
+        "Pleiades"
+      ],
+      "product_time": "2023-08-17T10:52:00+00:00",
+      "pass_time": "2023-08-17T05:39:47.829500+00:00",
+      "relative_orbit": 139,
+      "orbit_state": "descending",
+      "offset_h": -5.2,
+      "coverage": 1.0,
+      "reference_before": "2023-08-01",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR683",
+      "aoi": 16,
+      "product": "EMSR683_AOI16_DEL_PRODUCT",
+      "stratum": "optical",
+      "sensors": [
+        "Pleiades Neo"
+      ],
+      "product_time": "2023-08-17T10:35:00+00:00",
+      "pass_time": "2023-08-17T05:39:47.829500+00:00",
+      "relative_orbit": 139,
+      "orbit_state": "descending",
+      "offset_h": -4.92,
+      "coverage": 1.0,
+      "reference_before": "2023-08-01",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR683",
+      "aoi": 17,
+      "product": "EMSR683_AOI17_DEL_PRODUCT",
+      "stratum": "optical",
+      "sensors": [
+        "Pleiades Neo"
+      ],
+      "product_time": "2023-08-17T10:35:00+00:00",
+      "pass_time": "2023-08-17T05:39:47.829500+00:00",
+      "relative_orbit": 139,
+      "orbit_state": "descending",
+      "offset_h": -4.92,
+      "coverage": 1.0,
+      "reference_before": "2023-08-01",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR683",
+      "aoi": 18,
+      "product": "EMSR683_AOI18_DEL_PRODUCT",
+      "stratum": "optical",
+      "sensors": [
+        "Pleiades"
+      ],
+      "product_time": "2023-08-17T10:52:00+00:00",
+      "pass_time": "2023-08-17T05:39:47.829500+00:00",
+      "relative_orbit": 139,
+      "orbit_state": "descending",
+      "offset_h": -5.2,
+      "coverage": 1.0,
+      "reference_before": "2023-08-01",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR683",
+      "aoi": 20,
+      "product": "EMSR683_AOI20_DEL_PRODUCT",
+      "stratum": "optical",
+      "sensors": [
+        "GeoEye-1"
+      ],
+      "product_time": "2023-08-22T10:43:00+00:00",
+      "pass_time": "2023-08-22T05:48:22.908838+00:00",
+      "relative_orbit": 37,
+      "orbit_state": "descending",
+      "offset_h": -4.91,
+      "coverage": 1.0,
+      "reference_before": "2023-08-01",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR683",
+      "aoi": 21,
+      "product": "EMSR683_AOI21_DEL_PRODUCT",
+      "stratum": "optical",
+      "sensors": [
+        "GeoEye-1"
+      ],
+      "product_time": "2023-08-22T10:43:00+00:00",
+      "pass_time": "2023-08-22T05:48:22.908838+00:00",
+      "relative_orbit": 37,
+      "orbit_state": "descending",
+      "offset_h": -4.91,
+      "coverage": 1.0,
+      "reference_before": "2023-08-01",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR683",
+      "aoi": 22,
+      "product": "EMSR683_AOI22_DEL_PRODUCT",
+      "stratum": "optical",
+      "sensors": [
+        "WorldView-3"
+      ],
+      "product_time": "2023-08-22T11:12:00+00:00",
+      "pass_time": "2023-08-22T05:48:22.908838+00:00",
+      "relative_orbit": 37,
+      "orbit_state": "descending",
+      "offset_h": -5.39,
+      "coverage": 1.0,
+      "reference_before": "2023-08-01",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR683",
+      "aoi": 23,
+      "product": "EMSR683_AOI23_DEL_PRODUCT",
+      "stratum": "optical",
+      "sensors": [
+        "WorldView-2"
+      ],
+      "product_time": "2023-08-22T11:04:00+00:00",
+      "pass_time": "2023-08-22T05:48:22.908838+00:00",
+      "relative_orbit": 37,
+      "orbit_state": "descending",
+      "offset_h": -5.26,
+      "coverage": 1.0,
+      "reference_before": "2023-08-01",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR692",
+      "aoi": 2,
+      "product": "EMSR692_AOI02_DEL_MONIT05",
+      "stratum": "optical",
+      "sensors": [
+        "WorldView-2"
+      ],
+      "product_time": "2023-09-19T09:34:00+00:00",
+      "pass_time": "2023-09-19T16:24:25.096077+00:00",
+      "relative_orbit": 102,
+      "orbit_state": "ascending",
+      "offset_h": 6.84,
+      "coverage": 0.997,
+      "reference_before": "2023-08-29",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR692",
+      "aoi": 3,
+      "product": "EMSR692_AOI03_DEL_MONIT05",
+      "stratum": "optical",
+      "sensors": [
+        "WorldView-2"
+      ],
+      "product_time": "2023-09-19T09:30:00+00:00",
+      "pass_time": "2023-09-19T16:24:25.096077+00:00",
+      "relative_orbit": 102,
+      "orbit_state": "ascending",
+      "offset_h": 6.91,
+      "coverage": 0.992,
+      "reference_before": "2023-08-29",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR692",
+      "aoi": 4,
+      "product": "EMSR692_AOI04_DEL_MONIT04",
+      "stratum": "optical",
+      "sensors": [
+        "WorldView-2"
+      ],
+      "product_time": "2023-09-19T09:33:00+00:00",
+      "pass_time": "2023-09-19T16:24:25.096077+00:00",
+      "relative_orbit": 102,
+      "orbit_state": "ascending",
+      "offset_h": 6.86,
+      "coverage": 0.99,
+      "reference_before": "2023-08-29",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR692",
+      "aoi": 5,
+      "product": "EMSR692_AOI05_DEL_MONIT05",
+      "stratum": "optical",
+      "sensors": [
+        "WorldView-2"
+      ],
+      "product_time": "2023-09-18T10:08:00+00:00",
+      "pass_time": "2023-09-18T04:40:00.107734+00:00",
+      "relative_orbit": 80,
+      "orbit_state": "descending",
+      "offset_h": -5.47,
+      "coverage": 1.0,
+      "reference_before": "2023-08-29",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR705",
+      "aoi": 1,
+      "product": "EMSR705_AOI01_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed"
+      ],
+      "product_time": "2023-11-06T05:04:00+00:00",
+      "pass_time": "2023-11-06T05:20:04.911859+00:00",
+      "relative_orbit": 95,
+      "orbit_state": "descending",
+      "offset_h": 0.27,
+      "coverage": 1.0,
+      "reference_before": "2023-10-26",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR706",
+      "aoi": 3,
+      "product": "EMSR706_AOI03_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "RADARSAT-2"
+      ],
+      "product_time": "2023-11-11T17:34:00+00:00",
+      "pass_time": "2023-11-12T06:07:37.875877+00:00",
+      "relative_orbit": 8,
+      "orbit_state": "descending",
+      "offset_h": 12.56,
+      "coverage": 1.0,
+      "reference_before": "2023-10-31",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR706",
+      "aoi": 5,
+      "product": "EMSR706_AOI05_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed"
+      ],
+      "product_time": "2023-11-11T17:49:00+00:00",
+      "pass_time": "2023-11-12T06:07:37.875877+00:00",
+      "relative_orbit": 8,
+      "orbit_state": "descending",
+      "offset_h": 12.31,
+      "coverage": 1.0,
+      "reference_before": "2023-10-31",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR708",
+      "aoi": 1,
+      "product": "EMSR708_AOI01_DEL_MONIT02",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed"
+      ],
+      "product_time": "2023-11-12T17:49:00+00:00",
+      "pass_time": "2023-11-12T06:07:37.875877+00:00",
+      "relative_orbit": 8,
+      "orbit_state": "descending",
+      "offset_h": -11.69,
+      "coverage": 1.0,
+      "reference_before": "2023-10-31",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR708",
+      "aoi": 3,
+      "product": "EMSR708_AOI03_DEL_MONIT02",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed"
+      ],
+      "product_time": "2023-11-12T05:18:00+00:00",
+      "pass_time": "2023-11-12T06:07:37.875877+00:00",
+      "relative_orbit": 8,
+      "orbit_state": "descending",
+      "offset_h": 0.83,
+      "coverage": 1.0,
+      "reference_before": "2023-10-31",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR711",
+      "aoi": 1,
+      "product": "EMSR711_AOI01_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed"
+      ],
+      "product_time": "2023-12-18T05:29:00+00:00",
+      "pass_time": "2023-12-18T06:08:51.366471+00:00",
+      "relative_orbit": 8,
+      "orbit_state": "descending",
+      "offset_h": 0.66,
+      "coverage": 1.0,
+      "reference_before": "2023-12-07",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR712",
+      "aoi": 1,
+      "product": "EMSR712_AOI01_DEL_MONIT04",
+      "stratum": "sar",
+      "sensors": [
+        "PAZ"
+      ],
+      "product_time": "2024-01-01T17:27:00+00:00",
+      "pass_time": "2024-01-01T05:50:27.006086+00:00",
+      "relative_orbit": 37,
+      "orbit_state": "descending",
+      "offset_h": -11.61,
+      "coverage": 0.552,
+      "reference_before": "2023-12-17",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR712",
+      "aoi": 2,
+      "product": "EMSR712_AOI02_DEL_MONIT06",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed"
+      ],
+      "product_time": "2024-01-07T05:19:00+00:00",
+      "pass_time": "2024-01-06T17:09:16.264194+00:00",
+      "relative_orbit": 117,
+      "orbit_state": "ascending",
+      "offset_h": -12.16,
+      "coverage": 0.749,
+      "reference_before": "2023-12-17",
+      "n_reference_scenes": 3
+    },
+    {
+      "activation": "EMSR712",
+      "aoi": 3,
+      "product": "EMSR712_AOI03_DEL_MONIT08",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed"
+      ],
+      "product_time": "2024-01-07T05:19:00+00:00",
+      "pass_time": "2024-01-06T17:09:16.264194+00:00",
+      "relative_orbit": 117,
+      "orbit_state": "ascending",
+      "offset_h": -12.16,
+      "coverage": 0.752,
+      "reference_before": "2023-12-17",
+      "n_reference_scenes": 3
+    },
+    {
+      "activation": "EMSR712",
+      "aoi": 4,
+      "product": "EMSR712_AOI04_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed"
+      ],
+      "product_time": "2023-12-24T17:24:00+00:00",
+      "pass_time": "2023-12-25T17:09:16.656836+00:00",
+      "relative_orbit": 117,
+      "orbit_state": "ascending",
+      "offset_h": 23.75,
+      "coverage": 0.798,
+      "reference_before": "2023-12-17",
+      "n_reference_scenes": 3
+    },
+    {
+      "activation": "EMSR712",
+      "aoi": 5,
+      "product": "EMSR712_AOI05_DEL_MONIT04",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed"
+      ],
+      "product_time": "2023-12-31T17:18:00+00:00",
+      "pass_time": "2024-01-01T17:00:58.790637+00:00",
+      "relative_orbit": 44,
+      "orbit_state": "ascending",
+      "offset_h": 23.72,
+      "coverage": 0.679,
+      "reference_before": "2023-12-17",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR712",
+      "aoi": 6,
+      "product": "EMSR712_AOI06_DEL_MONIT02",
+      "stratum": "sar",
+      "sensors": [
+        "PAZ"
+      ],
+      "product_time": "2023-12-27T17:18:00+00:00",
+      "pass_time": "2023-12-27T05:42:16.973037+00:00",
+      "relative_orbit": 139,
+      "orbit_state": "descending",
+      "offset_h": -11.6,
+      "coverage": 0.552,
+      "reference_before": "2023-12-17",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR712",
+      "aoi": 7,
+      "product": "EMSR712_AOI07_DEL_MONIT03",
+      "stratum": "sar",
+      "sensors": [
+        "PAZ"
+      ],
+      "product_time": "2024-01-02T17:10:00+00:00",
+      "pass_time": "2024-01-03T05:34:18.967777+00:00",
+      "relative_orbit": 66,
+      "orbit_state": "descending",
+      "offset_h": 12.41,
+      "coverage": 1.0,
+      "reference_before": "2023-12-17",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR712",
+      "aoi": 8,
+      "product": "EMSR712_AOI08_DEL_MONIT04",
+      "stratum": "sar",
+      "sensors": [
+        "PAZ"
+      ],
+      "product_time": "2024-01-02T17:10:00+00:00",
+      "pass_time": "2024-01-03T05:34:18.967777+00:00",
+      "relative_orbit": 66,
+      "orbit_state": "descending",
+      "offset_h": 12.41,
+      "coverage": 1.0,
+      "reference_before": "2023-12-17",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR712",
+      "aoi": 9,
+      "product": "EMSR712_AOI09_DEL_MONIT05",
+      "stratum": "sar",
+      "sensors": [
+        "PAZ"
+      ],
+      "product_time": "2024-01-06T05:17:00+00:00",
+      "pass_time": "2024-01-06T17:09:16.264194+00:00",
+      "relative_orbit": 117,
+      "orbit_state": "ascending",
+      "offset_h": 11.87,
+      "coverage": 1.0,
+      "reference_before": "2023-12-17",
+      "n_reference_scenes": 3
+    },
+    {
+      "activation": "EMSR712",
+      "aoi": 10,
+      "product": "EMSR712_AOI10_DEL_MONIT03",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed"
+      ],
+      "product_time": "2024-01-07T05:06:00+00:00",
+      "pass_time": "2024-01-06T17:08:51.264035+00:00",
+      "relative_orbit": 117,
+      "orbit_state": "ascending",
+      "offset_h": -11.95,
+      "coverage": 1.0,
+      "reference_before": "2023-12-17",
+      "n_reference_scenes": 3
+    },
+    {
+      "activation": "EMSR718",
+      "aoi": 2,
+      "product": "EMSR718_AOI02_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed Second Generation"
+      ],
+      "product_time": "2024-04-15T06:02:00+00:00",
+      "pass_time": "2024-04-15T18:15:34.777798+00:00",
+      "relative_orbit": 1,
+      "orbit_state": "ascending",
+      "offset_h": 12.23,
+      "coverage": 1.0,
+      "reference_before": "2024-04-04",
+      "n_reference_scenes": 3
+    },
+    {
+      "activation": "EMSR722",
+      "aoi": 1,
+      "product": "EMSR722_AOI01_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "RADARSAT-2",
+        "RADARSAT-2"
+      ],
+      "product_time": "2024-05-18T17:21:00+00:00",
+      "pass_time": "2024-05-19T05:43:06.936883+00:00",
+      "relative_orbit": 139,
+      "orbit_state": "descending",
+      "offset_h": 12.37,
+      "coverage": 0.999,
+      "reference_before": "2024-05-10",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR722",
+      "aoi": 2,
+      "product": "EMSR722_AOI02_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed Second Generation",
+        "COSMO-SkyMed Second Generation"
+      ],
+      "product_time": "2024-05-19T05:12:00+00:00",
+      "pass_time": "2024-05-19T05:43:06.936883+00:00",
+      "relative_orbit": 139,
+      "orbit_state": "descending",
+      "offset_h": 0.52,
+      "coverage": 0.999,
+      "reference_before": "2024-05-10",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR725",
+      "aoi": 3,
+      "product": "EMSR725_AOI03_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "PAZ",
+        "PAZ"
+      ],
+      "product_time": "2024-05-22T16:13:00+00:00",
+      "pass_time": "2024-05-23T05:05:35.459804+00:00",
+      "relative_orbit": 22,
+      "orbit_state": "descending",
+      "offset_h": 12.88,
+      "coverage": 1.0,
+      "reference_before": "2024-05-13",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR725",
+      "aoi": 4,
+      "product": "EMSR725_AOI04_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "TerraSAR-X",
+        "TerraSAR-X"
+      ],
+      "product_time": "2024-05-23T16:23:00+00:00",
+      "pass_time": "2024-05-23T05:05:35.459804+00:00",
+      "relative_orbit": 22,
+      "orbit_state": "descending",
+      "offset_h": -11.29,
+      "coverage": 1.0,
+      "reference_before": "2024-05-13",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR728",
+      "aoi": 4,
+      "product": "EMSR728_AOI04_DEL_MONIT04",
+      "stratum": "sar",
+      "sensors": [
+        "PAZ",
+        "PAZ"
+      ],
+      "product_time": "2024-06-07T05:35:00+00:00",
+      "pass_time": "2024-06-07T05:35:08.415395+00:00",
+      "relative_orbit": 66,
+      "orbit_state": "descending",
+      "offset_h": 0.0,
+      "coverage": 0.575,
+      "reference_before": "2024-05-24",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR728",
+      "aoi": 5,
+      "product": "EMSR728_AOI05_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "PAZ",
+        "PAZ"
+      ],
+      "product_time": "2024-06-03T05:09:00+00:00",
+      "pass_time": "2024-06-02T05:26:56.016768+00:00",
+      "relative_orbit": 168,
+      "orbit_state": "descending",
+      "offset_h": -23.7,
+      "coverage": 0.971,
+      "reference_before": "2024-05-24",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR728",
+      "aoi": 6,
+      "product": "EMSR728_AOI06_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "RADARSAT-2",
+        "RADARSAT-2"
+      ],
+      "product_time": "2024-06-02T05:21:00+00:00",
+      "pass_time": "2024-06-02T05:26:56.016768+00:00",
+      "relative_orbit": 168,
+      "orbit_state": "descending",
+      "offset_h": 0.1,
+      "coverage": 0.999,
+      "reference_before": "2024-05-24",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR754",
+      "aoi": 2,
+      "product": "EMSR754_AOI02_DEL_PRODUCT",
+      "stratum": "optical",
+      "sensors": [
+        "WorldView-3"
+      ],
+      "product_time": "2024-09-13T03:57:00+00:00",
+      "pass_time": "2024-09-12T22:51:27.180785+00:00",
+      "relative_orbit": 91,
+      "orbit_state": "descending",
+      "offset_h": -5.09,
+      "coverage": 1.0,
+      "reference_before": "2024-09-02",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR755",
+      "aoi": 1,
+      "product": "EMSR755_AOI01_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed"
+      ],
+      "product_time": "2024-09-17T04:30:00+00:00",
+      "pass_time": "2024-09-16T16:52:22.969724+00:00",
+      "relative_orbit": 146,
+      "orbit_state": "ascending",
+      "offset_h": -11.63,
+      "coverage": 0.987,
+      "reference_before": "2024-09-07",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR756",
+      "aoi": 1,
+      "product": "EMSR756_AOI01_DEL_MONIT02",
+      "stratum": "sar",
+      "sensors": [
+        "PAZ"
+      ],
+      "product_time": "2024-09-18T16:43:00+00:00",
+      "pass_time": "2024-09-18T16:35:52.777596+00:00",
+      "relative_orbit": 175,
+      "orbit_state": "ascending",
+      "offset_h": -0.12,
+      "coverage": 0.516,
+      "reference_before": "2024-09-07",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR756",
+      "aoi": 3,
+      "product": "EMSR756_AOI03_DEL_MONIT02",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed Second Generation"
+      ],
+      "product_time": "2024-09-21T04:17:00+00:00",
+      "pass_time": "2024-09-20T05:09:44.235314+00:00",
+      "relative_orbit": 22,
+      "orbit_state": "descending",
+      "offset_h": -23.12,
+      "coverage": 0.841,
+      "reference_before": "2024-09-07",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR756",
+      "aoi": 4,
+      "product": "EMSR756_AOI04_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "PAZ"
+      ],
+      "product_time": "2024-09-16T04:59:00+00:00",
+      "pass_time": "2024-09-15T05:02:02.084252+00:00",
+      "relative_orbit": 124,
+      "orbit_state": "descending",
+      "offset_h": -23.95,
+      "coverage": 1.0,
+      "reference_before": "2024-09-07",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR756",
+      "aoi": 7,
+      "product": "EMSR756_AOI07_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "RADARSAT-2"
+      ],
+      "product_time": "2024-09-20T05:12:00+00:00",
+      "pass_time": "2024-09-20T05:09:44.235314+00:00",
+      "relative_orbit": 22,
+      "orbit_state": "descending",
+      "offset_h": -0.04,
+      "coverage": 1.0,
+      "reference_before": "2024-09-07",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR759",
+      "aoi": 1,
+      "product": "EMSR759_AOI01_DEL_MONIT01",
+      "stratum": "optical",
+      "sensors": [
+        "GeoEye-1"
+      ],
+      "product_time": "2024-09-21T09:14:00+00:00",
+      "pass_time": "2024-09-22T04:54:15.398164+00:00",
+      "relative_orbit": 51,
+      "orbit_state": "descending",
+      "offset_h": 19.67,
+      "coverage": 1.0,
+      "reference_before": "2024-09-06",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR759",
+      "aoi": 2,
+      "product": "EMSR759_AOI02_DEL_MONIT01",
+      "stratum": "optical",
+      "sensors": [
+        "GeoEye-1"
+      ],
+      "product_time": "2024-09-21T09:14:00+00:00",
+      "pass_time": "2024-09-22T04:54:15.398164+00:00",
+      "relative_orbit": 51,
+      "orbit_state": "descending",
+      "offset_h": 19.67,
+      "coverage": 1.0,
+      "reference_before": "2024-09-06",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR761",
+      "aoi": 1,
+      "product": "EMSR761_AOI01_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed"
+      ],
+      "product_time": "2024-09-20T17:06:00+00:00",
+      "pass_time": "2024-09-21T17:00:32.606572+00:00",
+      "relative_orbit": 44,
+      "orbit_state": "ascending",
+      "offset_h": 23.91,
+      "coverage": 0.995,
+      "reference_before": "2024-09-11",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR763",
+      "aoi": 1,
+      "product": "EMSR763_AOI01_DEL_MONIT03",
+      "stratum": "sar",
+      "sensors": [
+        "PAZ"
+      ],
+      "product_time": "2024-09-28T17:01:00+00:00",
+      "pass_time": "2024-09-28T16:52:47.904498+00:00",
+      "relative_orbit": 146,
+      "orbit_state": "ascending",
+      "offset_h": -0.14,
+      "coverage": 0.998,
+      "reference_before": "2024-09-07",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR766",
+      "aoi": 2,
+      "product": "EMSR766_AOI02_DEL_MONIT02",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed",
+        "COSMO-SkyMed"
+      ],
+      "product_time": "2024-09-29T16:49:00+00:00",
+      "pass_time": "2024-09-29T04:46:58.335675+00:00",
+      "relative_orbit": 153,
+      "orbit_state": "descending",
+      "offset_h": -12.03,
+      "coverage": 0.529,
+      "reference_before": "2024-09-18",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR768",
+      "aoi": 2,
+      "product": "EMSR768_AOI02_DEL_MONIT02",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed Second Generation"
+      ],
+      "product_time": "2024-10-08T16:55:00+00:00",
+      "pass_time": "2024-10-09T05:03:18.002148+00:00",
+      "relative_orbit": 124,
+      "orbit_state": "descending",
+      "offset_h": 12.14,
+      "coverage": 1.0,
+      "reference_before": "2024-09-27",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR771",
+      "aoi": 4,
+      "product": "EMSR771_AOI04_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed Second Generation"
+      ],
+      "product_time": "2024-10-21T04:16:00+00:00",
+      "pass_time": "2024-10-20T17:07:10.489270+00:00",
+      "relative_orbit": 117,
+      "orbit_state": "ascending",
+      "offset_h": -11.15,
+      "coverage": 1.0,
+      "reference_before": "2024-09-11",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR771",
+      "aoi": 5,
+      "product": "EMSR771_AOI05_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed Second Generation",
+        "COSMO-SkyMed Second Generation"
+      ],
+      "product_time": "2024-10-21T04:16:00+00:00",
+      "pass_time": "2024-10-20T17:07:10.489270+00:00",
+      "relative_orbit": 117,
+      "orbit_state": "ascending",
+      "offset_h": -11.15,
+      "coverage": 1.0,
+      "reference_before": "2024-09-11",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR771",
+      "aoi": 6,
+      "product": "EMSR771_AOI06_DEL_MONIT03",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed"
+      ],
+      "product_time": "2024-10-25T05:10:00+00:00",
+      "pass_time": "2024-10-25T17:15:05.707293+00:00",
+      "relative_orbit": 15,
+      "orbit_state": "ascending",
+      "offset_h": 12.08,
+      "coverage": 0.998,
+      "reference_before": "2024-09-11",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR771",
+      "aoi": 7,
+      "product": "EMSR771_AOI07_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed Second Generation",
+        "COSMO-SkyMed Second Generation",
+        "COSMO-SkyMed Second Generation",
+        "COSMO-SkyMed Second Generation"
+      ],
+      "product_time": "2024-10-21T04:16:00+00:00",
+      "pass_time": "2024-10-20T17:07:10.489270+00:00",
+      "relative_orbit": 117,
+      "orbit_state": "ascending",
+      "offset_h": -11.15,
+      "coverage": 1.0,
+      "reference_before": "2024-09-11",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR771",
+      "aoi": 8,
+      "product": "EMSR771_AOI08_DEL_MONIT03",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed"
+      ],
+      "product_time": "2024-10-25T05:10:00+00:00",
+      "pass_time": "2024-10-25T17:15:30.707526+00:00",
+      "relative_orbit": 15,
+      "orbit_state": "ascending",
+      "offset_h": 12.09,
+      "coverage": 1.0,
+      "reference_before": "2024-09-11",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR773",
+      "aoi": 1,
+      "product": "EMSR773_AOI01_DEL_MONIT04",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed Second Generation"
+      ],
+      "product_time": "2024-11-08T05:51:00+00:00",
+      "pass_time": "2024-11-07T17:54:48.334029+00:00",
+      "relative_orbit": 30,
+      "orbit_state": "ascending",
+      "offset_h": -11.94,
+      "coverage": 0.521,
+      "reference_before": "2024-10-22",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR773",
+      "aoi": 3,
+      "product": "EMSR773_AOI03_DEL_PRODUCT",
+      "stratum": "optical",
+      "sensors": [
+        "WorldView-2",
+        "GeoEye-1"
+      ],
+      "product_time": "2024-10-31T10:22:00+00:00",
+      "pass_time": "2024-11-01T06:02:19.665430+00:00",
+      "relative_orbit": 110,
+      "orbit_state": "descending",
+      "offset_h": 19.67,
+      "coverage": 1.0,
+      "reference_before": "2024-10-22",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR773",
+      "aoi": 4,
+      "product": "EMSR773_AOI04_DEL_PRODUCT",
+      "stratum": "optical",
+      "sensors": [
+        "GeoEye-1"
+      ],
+      "product_time": "2024-10-31T10:22:00+00:00",
+      "pass_time": "2024-11-01T06:02:44.666044+00:00",
+      "relative_orbit": 110,
+      "orbit_state": "descending",
+      "offset_h": 19.68,
+      "coverage": 1.0,
+      "reference_before": "2024-10-22",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR773",
+      "aoi": 6,
+      "product": "EMSR773_AOI06_DEL_MONIT01",
+      "stratum": "optical",
+      "sensors": [
+        "SPOT-6-7"
+      ],
+      "product_time": "2024-11-08T10:28:00+00:00",
+      "pass_time": "2024-11-07T17:55:13.333674+00:00",
+      "relative_orbit": 30,
+      "orbit_state": "ascending",
+      "offset_h": -16.55,
+      "coverage": 1.0,
+      "reference_before": "2024-10-22",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR775",
+      "aoi": 11,
+      "product": "EMSR775_AOI11_DEL_PRODUCT",
+      "stratum": "optical",
+      "sensors": [
+        "Pleiades"
+      ],
+      "product_time": "2024-11-05T11:11:00+00:00",
+      "pass_time": "2024-11-06T06:04:39.048086+00:00",
+      "relative_orbit": 8,
+      "orbit_state": "descending",
+      "offset_h": 18.89,
+      "coverage": 1.0,
+      "reference_before": "2024-10-24",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR783",
+      "aoi": 1,
+      "product": "EMSR783_AOI01_DEL_MONIT02",
+      "stratum": "sar",
+      "sensors": [
+        "PAZ"
+      ],
+      "product_time": "2025-01-01T18:11:00+00:00",
+      "pass_time": "2025-01-01T17:51:33.706055+00:00",
+      "relative_orbit": 132,
+      "orbit_state": "ascending",
+      "offset_h": -0.32,
+      "coverage": 0.853,
+      "reference_before": "2024-12-23",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR788",
+      "aoi": 2,
+      "product": "EMSR788_AOI02_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "PAZ"
+      ],
+      "product_time": "2025-01-30T17:43:00+00:00",
+      "pass_time": "2025-01-30T17:57:11.935163+00:00",
+      "relative_orbit": 30,
+      "orbit_state": "ascending",
+      "offset_h": 0.24,
+      "coverage": 1.0,
+      "reference_before": "2025-01-23",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR788",
+      "aoi": 3,
+      "product": "EMSR788_AOI03_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "PAZ"
+      ],
+      "product_time": "2025-01-30T17:43:00+00:00",
+      "pass_time": "2025-01-30T17:57:11.935163+00:00",
+      "relative_orbit": 30,
+      "orbit_state": "ascending",
+      "offset_h": 0.24,
+      "coverage": 1.0,
+      "reference_before": "2025-01-23",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR788",
+      "aoi": 4,
+      "product": "EMSR788_AOI04_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "PAZ"
+      ],
+      "product_time": "2025-01-30T17:43:00+00:00",
+      "pass_time": "2025-01-30T17:57:11.935163+00:00",
+      "relative_orbit": 30,
+      "orbit_state": "ascending",
+      "offset_h": 0.24,
+      "coverage": 1.0,
+      "reference_before": "2025-01-23",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR788",
+      "aoi": 5,
+      "product": "EMSR788_AOI05_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "PAZ"
+      ],
+      "product_time": "2025-01-30T17:43:00+00:00",
+      "pass_time": "2025-01-30T17:57:11.935163+00:00",
+      "relative_orbit": 30,
+      "orbit_state": "ascending",
+      "offset_h": 0.24,
+      "coverage": 1.0,
+      "reference_before": "2025-01-23",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR788",
+      "aoi": 6,
+      "product": "EMSR788_AOI06_DEL_MONIT03",
+      "stratum": "sar",
+      "sensors": [
+        "ICEYE",
+        "PAZ"
+      ],
+      "product_time": "2025-02-04T17:51:00+00:00",
+      "pass_time": "2025-02-04T18:05:31.662184+00:00",
+      "relative_orbit": 103,
+      "orbit_state": "ascending",
+      "offset_h": 0.24,
+      "coverage": 1.0,
+      "reference_before": "2025-01-23",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR789",
+      "aoi": 2,
+      "product": "EMSR789_AOI02_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed Second Generation"
+      ],
+      "product_time": "2025-02-27T22:42:00+00:00",
+      "pass_time": "2025-02-27T23:45:44.205846+00:00",
+      "relative_orbit": 91,
+      "orbit_state": "ascending",
+      "offset_h": 1.06,
+      "coverage": 1.0,
+      "reference_before": "2025-02-19",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR789",
+      "aoi": 5,
+      "product": "EMSR789_AOI05_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed Second Generation"
+      ],
+      "product_time": "2025-03-11T22:36:00+00:00",
+      "pass_time": "2025-03-11T23:45:44.305728+00:00",
+      "relative_orbit": 91,
+      "orbit_state": "ascending",
+      "offset_h": 1.16,
+      "coverage": 0.537,
+      "reference_before": "2025-02-19",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR796",
+      "aoi": 5,
+      "product": "EMSR796_AOI05_DEL_PRODUCT",
+      "stratum": "mixed",
+      "sensors": [
+        "Pleiades Neo",
+        "ICEYE"
+      ],
+      "product_time": "2025-04-06T19:30:00+00:00",
+      "pass_time": "2025-04-07T11:00:56.481901+00:00",
+      "relative_orbit": 40,
+      "orbit_state": "descending",
+      "offset_h": 15.52,
+      "coverage": 1.0,
+      "reference_before": "2025-02-19",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR796",
+      "aoi": 6,
+      "product": "EMSR796_AOI06_DEL_MONIT02",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed"
+      ],
+      "product_time": "2025-04-07T11:20:00+00:00",
+      "pass_time": "2025-04-07T11:00:29.339064+00:00",
+      "relative_orbit": 40,
+      "orbit_state": "descending",
+      "offset_h": -0.33,
+      "coverage": 1.0,
+      "reference_before": "2025-02-19",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR797",
+      "aoi": 1,
+      "product": "EMSR797_AOI01_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed"
+      ],
+      "product_time": "2025-03-28T16:25:00+00:00",
+      "pass_time": "2025-03-28T16:41:07.311553+00:00",
+      "relative_orbit": 73,
+      "orbit_state": "ascending",
+      "offset_h": 0.27,
+      "coverage": 1.0,
+      "reference_before": "2025-03-20",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR797",
+      "aoi": 2,
+      "product": "EMSR797_AOI02_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed"
+      ],
+      "product_time": "2025-03-28T16:25:00+00:00",
+      "pass_time": "2025-03-28T16:41:07.311553+00:00",
+      "relative_orbit": 73,
+      "orbit_state": "ascending",
+      "offset_h": 0.27,
+      "coverage": 1.0,
+      "reference_before": "2025-03-20",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR797",
+      "aoi": 3,
+      "product": "EMSR797_AOI03_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed"
+      ],
+      "product_time": "2025-03-28T16:25:00+00:00",
+      "pass_time": "2025-03-28T16:41:07.311553+00:00",
+      "relative_orbit": 73,
+      "orbit_state": "ascending",
+      "offset_h": 0.27,
+      "coverage": 1.0,
+      "reference_before": "2025-03-20",
+      "n_reference_scenes": 4
+    },
+    {
+      "activation": "EMSR838",
+      "aoi": 5,
+      "product": "EMSR838_AOI05_DEL_MONIT02",
+      "stratum": "sar",
+      "sensors": [
+        "ICEYE"
+      ],
+      "product_time": "2025-08-31T17:28:00+00:00",
+      "pass_time": "2025-09-01T13:12:40.831811+00:00",
+      "relative_orbit": 173,
+      "orbit_state": "ascending",
+      "offset_h": 19.74,
+      "coverage": 1.0,
+      "reference_before": "2025-08-22",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR838",
+      "aoi": 8,
+      "product": "EMSR838_AOI08_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "ICEYE"
+      ],
+      "product_time": "2025-09-01T05:33:00+00:00",
+      "pass_time": "2025-09-01T13:13:05.832048+00:00",
+      "relative_orbit": 173,
+      "orbit_state": "ascending",
+      "offset_h": 7.67,
+      "coverage": 0.535,
+      "reference_before": "2025-08-22",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR841",
+      "aoi": 1,
+      "product": "EMSR841_AOI01_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed Second Generation"
+      ],
+      "product_time": "2025-09-12T16:57:00+00:00",
+      "pass_time": "2025-09-13T05:22:35.652518+00:00",
+      "relative_orbit": 168,
+      "orbit_state": "descending",
+      "offset_h": 12.43,
+      "coverage": 0.88,
+      "reference_before": "2025-08-30",
+      "n_reference_scenes": 9
+    },
+    {
+      "activation": "EMSR843",
+      "aoi": 1,
+      "product": "EMSR843_AOI01_DEL_PRODUCT",
+      "stratum": "optical",
+      "sensors": [
+        "WorldView-2"
+      ],
+      "product_time": "2025-09-24T10:01:00+00:00",
+      "pass_time": "2025-09-24T05:34:56.579634+00:00",
+      "relative_orbit": 66,
+      "orbit_state": "descending",
+      "offset_h": -4.43,
+      "coverage": 1.0,
+      "reference_before": "2025-09-15",
+      "n_reference_scenes": 9
+    },
+    {
+      "activation": "EMSR844",
+      "aoi": 1,
+      "product": "EMSR844_AOI01_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "ICEYE"
+      ],
+      "product_time": "2025-10-11T18:19:00+00:00",
+      "pass_time": "2025-10-11T10:58:38.133882+00:00",
+      "relative_orbit": 55,
+      "orbit_state": "ascending",
+      "offset_h": -7.34,
+      "coverage": 0.575,
+      "reference_before": "2025-10-01",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR848",
+      "aoi": 1,
+      "product": "EMSR848_AOI01_DEL_MONIT02",
+      "stratum": "sar",
+      "sensors": [
+        "ICEYE"
+      ],
+      "product_time": "2025-11-02T13:39:00+00:00",
+      "pass_time": "2025-11-02T22:35:14.251066+00:00",
+      "relative_orbit": 120,
+      "orbit_state": "descending",
+      "offset_h": 8.94,
+      "coverage": 1.0,
+      "reference_before": "2025-10-22",
+      "n_reference_scenes": 9
+    },
+    {
+      "activation": "EMSR848",
+      "aoi": 3,
+      "product": "EMSR848_AOI03_DEL_MONIT04",
+      "stratum": "sar",
+      "sensors": [
+        "ICEYE"
+      ],
+      "product_time": "2025-11-08T15:38:00+00:00",
+      "pass_time": "2025-11-08T22:36:22.117537+00:00",
+      "relative_orbit": 120,
+      "orbit_state": "descending",
+      "offset_h": 6.97,
+      "coverage": 0.999,
+      "reference_before": "2025-10-22",
+      "n_reference_scenes": 9
+    },
+    {
+      "activation": "EMSR850",
+      "aoi": 3,
+      "product": "EMSR850_AOI03_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "ICEYE"
+      ],
+      "product_time": "2025-11-22T21:46:00+00:00",
+      "pass_time": "2025-11-23T04:47:37.904716+00:00",
+      "relative_orbit": 153,
+      "orbit_state": "descending",
+      "offset_h": 7.03,
+      "coverage": 1.0,
+      "reference_before": "2025-11-11",
+      "n_reference_scenes": 10
+    },
+    {
+      "activation": "EMSR850",
+      "aoi": 5,
+      "product": "EMSR850_AOI05_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "ICEYE"
+      ],
+      "product_time": "2025-11-22T08:29:00+00:00",
+      "pass_time": "2025-11-23T04:48:02.904177+00:00",
+      "relative_orbit": 153,
+      "orbit_state": "descending",
+      "offset_h": 20.32,
+      "coverage": 1.0,
+      "reference_before": "2025-11-11",
+      "n_reference_scenes": 9
+    },
+    {
+      "activation": "EMSR854",
+      "aoi": 2,
+      "product": "EMSR854_AOI02_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed"
+      ],
+      "product_time": "2026-01-08T04:21:00+00:00",
+      "pass_time": "2026-01-08T05:03:26.982847+00:00",
+      "relative_orbit": 124,
+      "orbit_state": "descending",
+      "offset_h": 0.71,
+      "coverage": 0.696,
+      "reference_before": "2025-12-30",
+      "n_reference_scenes": 9
+    },
+    {
+      "activation": "EMSR856",
+      "aoi": 7,
+      "product": "EMSR856_AOI07_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed"
+      ],
+      "product_time": "2026-01-11T16:32:00+00:00",
+      "pass_time": "2026-01-11T16:33:07.386172+00:00",
+      "relative_orbit": 175,
+      "orbit_state": "ascending",
+      "offset_h": 0.02,
+      "coverage": 0.999,
+      "reference_before": "2025-11-11",
+      "n_reference_scenes": 10
+    },
+    {
+      "activation": "EMSR857",
+      "aoi": 1,
+      "product": "EMSR857_AOI01_DEL_MONIT02",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed Second Generation"
+      ],
+      "product_time": "2026-01-23T14:49:00+00:00",
+      "pass_time": "2026-01-24T03:10:45.325497+00:00",
+      "relative_orbit": 6,
+      "orbit_state": "descending",
+      "offset_h": 12.36,
+      "coverage": 1.0,
+      "reference_before": "2026-01-03",
+      "n_reference_scenes": 10
+    },
+    {
+      "activation": "EMSR857",
+      "aoi": 6,
+      "product": "EMSR857_AOI06_DEL_MONIT04",
+      "stratum": "sar",
+      "sensors": [
+        "ICEYE"
+      ],
+      "product_time": "2026-01-24T08:09:00+00:00",
+      "pass_time": "2026-01-24T03:10:45.325497+00:00",
+      "relative_orbit": 6,
+      "orbit_state": "descending",
+      "offset_h": -4.97,
+      "coverage": 0.911,
+      "reference_before": "2026-01-03",
+      "n_reference_scenes": 10
+    },
+    {
+      "activation": "EMSR857",
+      "aoi": 7,
+      "product": "EMSR857_AOI07_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "TerraSAR-X"
+      ],
+      "product_time": "2026-01-22T16:25:00+00:00",
+      "pass_time": "2026-01-22T16:22:50.660832+00:00",
+      "relative_orbit": 72,
+      "orbit_state": "ascending",
+      "offset_h": -0.04,
+      "coverage": 1.0,
+      "reference_before": "2026-01-03",
+      "n_reference_scenes": 10
+    },
+    {
+      "activation": "EMSR857",
+      "aoi": 9,
+      "product": "EMSR857_AOI09_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "TerraSAR-X"
+      ],
+      "product_time": "2026-01-23T16:07:00+00:00",
+      "pass_time": "2026-01-24T03:09:29.352243+00:00",
+      "relative_orbit": 6,
+      "orbit_state": "descending",
+      "offset_h": 11.04,
+      "coverage": 0.905,
+      "reference_before": "2026-01-03",
+      "n_reference_scenes": 5
+    },
+    {
+      "activation": "EMSR861",
+      "aoi": 1,
+      "product": "EMSR861_AOI01_DEL_MONIT03",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed Second Generation"
+      ],
+      "product_time": "2026-02-09T05:57:00+00:00",
+      "pass_time": "2026-02-09T06:26:17.561144+00:00",
+      "relative_orbit": 154,
+      "orbit_state": "descending",
+      "offset_h": 0.49,
+      "coverage": 1.0,
+      "reference_before": "2026-01-21",
+      "n_reference_scenes": 8
+    },
+    {
+      "activation": "EMSR861",
+      "aoi": 4,
+      "product": "EMSR861_AOI04_DEL_MONIT02",
+      "stratum": "sar",
+      "sensors": [
+        "PAZ"
+      ],
+      "product_time": "2026-02-06T06:03:00+00:00",
+      "pass_time": "2026-02-05T06:10:36.975036+00:00",
+      "relative_orbit": 8,
+      "orbit_state": "descending",
+      "offset_h": -23.87,
+      "coverage": 0.618,
+      "reference_before": "2026-01-21",
+      "n_reference_scenes": 10
+    },
+    {
+      "activation": "EMSR861",
+      "aoi": 7,
+      "product": "EMSR861_AOI07_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "ICEYE"
+      ],
+      "product_time": "2026-02-06T15:37:00+00:00",
+      "pass_time": "2026-02-07T06:41:40.985873+00:00",
+      "relative_orbit": 125,
+      "orbit_state": "descending",
+      "offset_h": 15.08,
+      "coverage": 1.0,
+      "reference_before": "2026-01-21",
+      "n_reference_scenes": 8
+    },
+    {
+      "activation": "EMSR861",
+      "aoi": 15,
+      "product": "EMSR861_AOI15_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed Second Generation"
+      ],
+      "product_time": "2026-02-09T18:04:00+00:00",
+      "pass_time": "2026-02-09T18:18:50.763710+00:00",
+      "relative_orbit": 74,
+      "orbit_state": "ascending",
+      "offset_h": 0.25,
+      "coverage": 1.0,
+      "reference_before": "2026-01-21",
+      "n_reference_scenes": 9
+    },
+    {
+      "activation": "EMSR861",
+      "aoi": 20,
+      "product": "EMSR861_AOI20_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "RADARSAT-2"
+      ],
+      "product_time": "2026-02-09T18:27:00+00:00",
+      "pass_time": "2026-02-08T18:27:29.409876+00:00",
+      "relative_orbit": 147,
+      "orbit_state": "ascending",
+      "offset_h": -23.99,
+      "coverage": 1.0,
+      "reference_before": "2026-01-21",
+      "n_reference_scenes": 10
+    },
+    {
+      "activation": "EMSR864",
+      "aoi": 2,
+      "product": "EMSR864_AOI02_DEL_MONIT03",
+      "stratum": "sar",
+      "sensors": [
+        "RADARSAT-2"
+      ],
+      "product_time": "2026-02-12T18:38:00+00:00",
+      "pass_time": "2026-02-13T06:43:31.632396+00:00",
+      "relative_orbit": 125,
+      "orbit_state": "descending",
+      "offset_h": 12.09,
+      "coverage": 0.694,
+      "reference_before": "2026-01-21",
+      "n_reference_scenes": 9
+    },
+    {
+      "activation": "EMSR864",
+      "aoi": 3,
+      "product": "EMSR864_AOI03_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "ICEYE"
+      ],
+      "product_time": "2026-02-06T23:08:00+00:00",
+      "pass_time": "2026-02-07T06:42:05.986231+00:00",
+      "relative_orbit": 125,
+      "orbit_state": "descending",
+      "offset_h": 7.57,
+      "coverage": 0.923,
+      "reference_before": "2026-01-21",
+      "n_reference_scenes": 9
+    },
+    {
+      "activation": "EMSR864",
+      "aoi": 5,
+      "product": "EMSR864_AOI05_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "RADARSAT-2"
+      ],
+      "product_time": "2026-02-07T06:27:00+00:00",
+      "pass_time": "2026-02-07T06:42:05.986231+00:00",
+      "relative_orbit": 125,
+      "orbit_state": "descending",
+      "offset_h": 0.25,
+      "coverage": 1.0,
+      "reference_before": "2026-01-21",
+      "n_reference_scenes": 9
+    },
+    {
+      "activation": "EMSR864",
+      "aoi": 13,
+      "product": "EMSR864_AOI13_DEL_MONIT02",
+      "stratum": "sar",
+      "sensors": [
+        "ICEYE"
+      ],
+      "product_time": "2026-02-10T10:03:00+00:00",
+      "pass_time": "2026-02-09T18:20:05.763192+00:00",
+      "relative_orbit": 74,
+      "orbit_state": "ascending",
+      "offset_h": -15.72,
+      "coverage": 1.0,
+      "reference_before": "2026-01-21",
+      "n_reference_scenes": 9
+    },
+    {
+      "activation": "EMSR864",
+      "aoi": 14,
+      "product": "EMSR864_AOI14_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed Second Generation"
+      ],
+      "product_time": "2026-02-09T06:16:00+00:00",
+      "pass_time": "2026-02-08T18:26:39.409907+00:00",
+      "relative_orbit": 147,
+      "orbit_state": "ascending",
+      "offset_h": -11.82,
+      "coverage": 1.0,
+      "reference_before": "2026-01-21",
+      "n_reference_scenes": 10
+    },
+    {
+      "activation": "EMSR864",
+      "aoi": 15,
+      "product": "EMSR864_AOI15_DEL_PRODUCT",
+      "stratum": "sar",
+      "sensors": [
+        "COSMO-SkyMed Second Generation"
+      ],
+      "product_time": "2026-02-09T06:15:00+00:00",
+      "pass_time": "2026-02-08T18:26:14.409918+00:00",
+      "relative_orbit": 147,
+      "orbit_state": "ascending",
+      "offset_h": -11.81,
+      "coverage": 1.0,
+      "reference_before": "2026-01-21",
+      "n_reference_scenes": 10
+    },
+    {
+      "activation": "EMSR866",
+      "aoi": 6,
+      "product": "EMSR866_AOI06_DEL_MONIT01",
+      "stratum": "sar",
+      "sensors": [
+        "RADARSAT-2"
+      ],
+      "product_time": "2026-02-14T17:41:00+00:00",
+      "pass_time": "2026-02-13T17:48:00.221125+00:00",
+      "relative_orbit": 132,
+      "orbit_state": "ascending",
+      "offset_h": -23.88,
+      "coverage": 0.551,
+      "reference_before": "2026-02-05",
+      "n_reference_scenes": 10
+    },
+    {
+      "activation": "EMSR868",
+      "aoi": 1,
+      "product": "EMSR868_AOI01_DEL_MONIT03",
+      "stratum": "sar",
+      "sensors": [
+        "TerraSAR-X"
+      ],
+      "product_time": "2026-02-26T16:07:00+00:00",
+      "pass_time": "2026-02-25T16:08:07.004707+00:00",
+      "relative_orbit": 131,
+      "orbit_state": "ascending",
+      "offset_h": -23.98,
+      "coverage": 0.983,
+      "reference_before": "2026-02-11",
+      "n_reference_scenes": 10
+    },
+    {
+      "activation": "EMSR868",
+      "aoi": 2,
+      "product": "EMSR868_AOI02_DEL_MONIT02",
+      "stratum": "sar",
+      "sensors": [
+        "ICEYE"
+      ],
+      "product_time": "2026-02-26T08:20:00+00:00",
+      "pass_time": "2026-02-25T16:08:07.004707+00:00",
+      "relative_orbit": 131,
+      "orbit_state": "ascending",
+      "offset_h": -16.2,
+      "coverage": 1.0,
+      "reference_before": "2026-02-11",
+      "n_reference_scenes": 10
+    },
+    {
+      "activation": "EMSR871",
+      "aoi": 1,
+      "product": "EMSR871_AOI01_DEL_MONIT02",
+      "stratum": "sar",
+      "sensors": [
+        "TerraSAR-X"
+      ],
+      "product_time": "2026-04-03T16:49:00+00:00",
+      "pass_time": "2026-04-02T16:56:36.977322+00:00",
+      "relative_orbit": 44,
+      "orbit_state": "ascending",
+      "offset_h": -23.87,
+      "coverage": 0.905,
+      "reference_before": "2026-03-24",
+      "n_reference_scenes": 10
+    }
+  ],
+  "checked": "2026-10-10T18:13:07+00:00"
+}

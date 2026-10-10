@@ -195,6 +195,41 @@ class TestAugmentation:
         assert sample["sar"].shape[-2:] == sample["label"].shape[-2:]
 
 
+class TestCloudAugmentation:
+    """v1.1 row 9c: a synthetic cloud on part of a training chip, on top of modality dropout."""
+
+    @staticmethod
+    def _clouded(training: bool = True, p: float = 1.0):
+        from dataclasses import replace
+
+        ds = _dataset(training=training)
+        ds.data_cfg = replace(ds.data_cfg, cloud_augment_p=p)
+        return ds
+
+    def test_a_cloud_lowers_quality_on_part_of_the_chip_and_brightens_the_optical(self) -> None:
+        torch.manual_seed(0)
+        plain = _dataset(training=True)[0]
+        torch.manual_seed(0)
+        cloudy = self._clouded()[0]
+        newly = (cloudy["optical_quality"] == 0).sum() - (plain["optical_quality"] == 0).sum()
+        assert 0 < int(newly) < cloudy["optical_quality"].numel()
+        under = (cloudy["optical_quality"][0] == 0) & (cloudy["optical"][0] > 0.29)
+        assert under.any()
+        b3, b8, b11 = cloudy["optical"][0][under], cloudy["optical"][1][under], cloudy["optical"][2][under]
+        assert torch.allclose(b3, b8) and torch.allclose(b11, 0.8 * b3, atol=1e-6)
+        assert torch.equal(cloudy["label"].sum(), plain["label"].sum())   # labels and SAR untouched
+        assert torch.allclose(cloudy["sar"].sum(), plain["sar"].sum())
+
+    def test_never_outside_training_and_off_by_default(self) -> None:
+        a, b = self._clouded(training=False)[0], _dataset(training=False)[0]
+        assert torch.equal(a["optical"], b["optical"]) and torch.equal(a["optical_quality"], b["optical_quality"])
+        assert DataConfig().cloud_augment_p == 0.0
+
+    def test_probability_is_validated(self) -> None:
+        with pytest.raises(ValueError, match="cloud_augment_p"):
+            DataConfig(cloud_augment_p=1.5)
+
+
 class TestForkSafety:
     def test_handles_are_cached_per_process(self) -> None:
         """A handle opened before a fork is inherited with duplicated GDAL state."""

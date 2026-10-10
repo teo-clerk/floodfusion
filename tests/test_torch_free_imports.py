@@ -40,6 +40,13 @@ TORCH_FREE_MODULES = (
     "floodfusion.data.synthetic.benchmark",
     "floodfusion.utils.vram",
     "floodfusion.utils.env",
+    # v1.1
+    "floodfusion.data.passes",
+    "floodfusion.data.kurosiwo",
+    "floodfusion.data.seasonal",
+    "floodfusion.cems_benchmark",
+    "floodfusion.cems_scores",
+    "floodfusion.crossfit",
 )
 
 

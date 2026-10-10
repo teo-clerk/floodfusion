@@ -95,6 +95,7 @@ __all__ = [
     "BUCKET_URL",
     "HandChip",
     "S1F11Event",
+    "archive_for_query",
     "chip_reference",
     "chip_shift_windows",
     "choose_event_shift",
@@ -396,8 +397,14 @@ class _EventArchive:
 
 
 def _event_archive(event: S1F11Event, bbox: Sequence[float], sources: IngestSources, margin_m: float) -> _EventArchive:
+    return archive_for_query(_event_query(event, bbox), bbox, sources, margin_m)
+
+
+def archive_for_query(query: EventQuery, bbox: Sequence[float], sources: IngestSources,
+                      margin_m: float) -> _EventArchive:
+    """The matched scenes of ``query`` and every item its chips need, fetched once (Kuro Siwo reuses it)."""
     profile = PROFILES["planetary_computer"]
-    matched = search_matched_pairs(_event_query(event, bbox), PC_STAC_URL, client=sources.client, profile=profile)
+    matched = search_matched_pairs(query, PC_STAC_URL, client=sources.client, profile=profile)
     annotations = tuple(read_acquisition_geometry(sources, matched))
     wide = _grow_bbox(bbox, margin_m)
     s1 = items_by_id(sources.client, profile.s1_collection, matched.s1_post_frames + matched.s1_pre_frames)

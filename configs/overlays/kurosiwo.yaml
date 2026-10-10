@@ -1,0 +1,15 @@
+# =============================================================================
+#  Overlay: the Kuro Siwo benchmark (v1.1; reports/protocol_v1_1.md).
+#  Applied ON TOP of every row config, with --data-root data/kurosiwo (flood labels) or
+#  data/kurosiwo_water (the same chips, label = flood ∪ hydro). The training budget is
+#  Sen1Floods11's, fixed before any run; fold-specific settings are added per fold by
+#  floodfusion.crossval (grouped 5-fold).
+# =============================================================================
+data:
+  chip_root: "chips"
+  num_workers: 4
+
+train:
+  epochs: 30
+  warmup_epochs: 3
+  early_stopping_patience: 8

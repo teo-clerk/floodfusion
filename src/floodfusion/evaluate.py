@@ -332,7 +332,9 @@ def evaluate_run(
 #: Raw-logit grid on which validation chips' misses are counted for conformal risk control.
 _CONFORMAL_Z = np.linspace(-12.0, 12.0, 241)
 #: Calibrated-scale grid on which every test chip's confusion is also stored.
-_CHIP_GRID = tuple(round(i / 20, 2) for i in range(1, 20))
+#: Per-chip thresholds: the 0.05 grid plus the low thresholds a conformal recall target needs
+#: (v1.0 fitted τ_conf around 0.03, below the old grid; v1.1 cross-fits it, floodfusion.crossfit).
+_CHIP_GRID = (0.005, 0.01, 0.02, 0.03, 0.04, *(round(i / 20, 2) for i in range(1, 20)))
 
 
 def _conformal(per_chip_val: Mapping[str, Sequence[Sequence[int]]], alpha: float, temperature: float,

@@ -232,7 +232,43 @@ def open_catalogue(catalogue_url: str, profile: CatalogueProfile | None = None) 
     retry = Retry(total=6, backoff_factor=2.0, status_forcelist=(429, 500, 502, 503, 504),
                   allowed_methods=frozenset({"GET", "POST"}), respect_retry_after_header=True)
     stac_io = StacApiIO(timeout=_HTTP_TIMEOUT, max_retries=retry)
-    return Client.open(catalogue_url, modifier=modifier, stac_io=stac_io)
+    return RateLimitedClient(Client.open(catalogue_url, modifier=modifier, stac_io=stac_io))
+
+
+#: Pauses (s) after a "rate limit" refusal that outlasts the HTTP-level retries: Planetary
+#: Computer throttles a sustained burst for minutes, not seconds.
+RATE_LIMIT_BACKOFF_S = (30.0, 60.0, 120.0, 240.0, 480.0)
+
+
+def search_with_backoff(client: Any, *, sleep: Any = None, **kwargs: Any) -> list[dict[str, Any]]:
+    """``client.search(**kwargs)`` materialised as STAC-JSON dicts, retried while the catalogue says "rate limit"."""
+    import time as _time
+
+    sleep = sleep or _time.sleep
+    for wait in (*RATE_LIMIT_BACKOFF_S, None):
+        try:
+            result = client.search(**kwargs)
+            return [_as_dict(i) for i in (result.items() if hasattr(result, "items") else result)]
+        except Exception as exc:  # noqa: BLE001 - only a rate-limit refusal is retried
+            if wait is None or "rate limit" not in str(exc).lower():
+                raise
+            LOGGER.warning("STAC rate limit; retrying in %.0f s", wait)
+            sleep(wait)
+    raise AssertionError("unreachable")
+
+
+class RateLimitedClient:
+    """A live STAC client whose searches survive a throttling catalogue (results materialised)."""
+
+    def __init__(self, client: Any, *, sleep: Any = None) -> None:
+        self._client = client
+        self._sleep = sleep
+
+    def search(self, **kwargs: Any) -> list[dict[str, Any]]:
+        return search_with_backoff(self._client, sleep=self._sleep, **kwargs)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._client, name)
 
 
 # ---------------------------------------------------------------------------

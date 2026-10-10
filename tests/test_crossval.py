@@ -8,7 +8,14 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from floodfusion.crossval import Fold, leave_one_group_out, official_splits
+from floodfusion.crossval import (
+    Fold,
+    all_groups_split,
+    assign_group_folds,
+    k_fold_groups,
+    leave_one_group_out,
+    official_splits,
+)
 from floodfusion.data.records import ChipRecord
 from floodfusion.splits import STRATEGY_LOBO, STRATEGY_PUBLISHED, freeze_splits, load_splits
 
@@ -24,6 +31,44 @@ def _records(groups=("S1F11_A", "S1F11_B", "S1F11_C", "S1F11_D"), per_group: int
         for i in range(per_group):
             out.append(_record(f"{g}_{i}", g, eval_grid=i % 2 == 0))
     return out
+
+
+class TestGroupedKFold:
+    GROUPS = ("KS_A", "KS_B", "KS_C", "KS_D", "KS_E", "KS_F", "KS_G")
+
+    def _records(self) -> list[ChipRecord]:
+        out = []
+        for n, g in enumerate(self.GROUPS):          # groups of 2..8 windows
+            out += [_record(f"{g}_{i}", g, eval_grid=i % 2 == 0) for i in range(2 + n)]
+        return out
+
+    def test_groups_are_dealt_largest_first_to_the_lightest_fold(self) -> None:
+        fold_of = assign_group_folds(self._records(), 3)
+        assert fold_of == {"KS_G": 0, "KS_F": 1, "KS_E": 2, "KS_D": 2, "KS_C": 1, "KS_B": 0, "KS_A": 0}
+
+    def test_every_group_is_tested_once_and_never_straddles_a_split(self) -> None:
+        records = self._records()
+        folds = k_fold_groups(records, 3, manifest_sha256="m")
+        assert list(folds) == ["fold0", "fold1", "fold2"]
+        tested = [g for split in folds.values() for g in split.test_basins]
+        assert sorted(tested) == sorted(self.GROUPS)
+        for i, split in enumerate(folds.values()):
+            assert split.val_basins == folds[f"fold{(i + 1) % 3}"].test_basins
+            assert not set(split.train_basins) & (set(split.val_basins) | set(split.test_basins))
+            group = {r.chip_id: r.basin_id for r in records}
+            assert {group[c] for c in split.test_chips} <= set(split.test_basins)
+            assert {group[c] for c in split.train_chips} == set(split.train_basins)
+
+    def test_the_all_groups_model_validates_on_the_last_fold(self) -> None:
+        records = self._records()
+        [(name, split)] = all_groups_split(records, 3).items()
+        last = [g for g, f in assign_group_folds(records, 3).items() if f == 2]
+        assert name == "all" and set(split.val_basins) == set(last) and split.test_chips == split.val_chips
+        assert set(split.train_basins) == set(self.GROUPS) - set(last)
+
+    def test_fewer_groups_than_folds_is_refused(self) -> None:
+        with pytest.raises(ValueError, match=">= 5 groups"):
+            k_fold_groups(_records(), 5)
 
 
 class TestLeaveOneGroupOut:
@@ -161,6 +206,45 @@ class TestCvReport:
         assert "same chips" in text and "| 9 |" in text and "Caveats" in text
         # Conformal: events E0..E5 have mean chip FNR 0.05..0.10 <= 0.1, E6..E8 exceed it.
         assert result["conformal"]["9/seed42"]["events_held"] == 6 and "| 9 | 42 | 0.1 | 9/9 | 6/9 |" in text
+
+
+class TestCvReportV11:
+    @staticmethod
+    def _add_v11(root: Path) -> None:
+        """Row 12 and a variant per fold, and threshold curves on row 9 (two grid thresholds)."""
+        for k, event in enumerate(EVENTS):
+            fold = root / "loeo" / event
+            _write_run(fold / "row12_fusion_bce_loss" / "seed42", 12, 42, {event: _cm_json(85 + k, 20, 20)})
+            _write_run(fold / "row09c_cloud_augment" / "seed42", 0, 42, {event: _cm_json(78 + k, 20, 20)})
+            ev = fold / "row09_fusion_crossattn" / "seed42" / "eval_test.json"
+            data = json.loads(ev.read_text())
+            # At 0.25: many false alarms; at 0.5: balanced. Pooled cost (r = 3) is lower at 0.5 for every event.
+            data["thresholds"] = [0.25, 0.5]
+            data["per_basin_confusion_by_threshold"] = {event: [[100, 200, 0, 1000], [90 + k, 10, 10, 1000]]}
+            ev.write_text(json.dumps(data))
+
+    def test_variants_are_reported_without_a_verdict_and_thresholds_are_cross_fitted(self, cv_runs, tmp_path) -> None:
+        from floodfusion.cv_report import build_cv_table
+
+        self._add_v11(cv_runs)
+        text = build_cv_table(cv_runs, out=tmp_path / "v11.md", n_boot=300, v11=True)
+        result = json.loads((tmp_path / "v11.json").read_text())
+        assert "row09c_cloud_augment" in result["rows"] and "12" in result["rows"]
+        gap = result["descriptive_gaps"]["12-9"]
+        assert gap["basins_b_better"] == 9 and "p_holm" not in gap and "resolvable" not in gap
+        assert "12-9" not in result["gaps"]                       # never inside the gap family
+        cross = result["crossfit"]["9/seed42"]["cost"]
+        assert {v["threshold"] for v in cross.values()} == {0.5}
+        assert "cross-fitted" in text and "9c — row 9, synthetic clouds" in text
+
+    def test_another_protocol_gets_its_own_header_and_no_published_split(self, cv_runs, tmp_path) -> None:
+        from floodfusion.cv_report import build_cv_table
+
+        (cv_runs / "loeo").rename(cv_runs / "kfold")
+        text = build_cv_table(cv_runs, protocol="kfold", out=tmp_path / "ks.md", n_boot=300, title="Kuro Siwo",
+                              intro=["Grouped five-fold."], caveats=["Labels drawn on radar."])
+        assert text.startswith("# Kuro Siwo") and "Grouped five-fold." in text and "Labels drawn on radar." in text
+        assert "published split" not in text and "Bolivia" not in text
 
 
 def test_listed_chips_that_produced_no_window_are_reported(caplog) -> None:

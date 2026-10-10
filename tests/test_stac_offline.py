@@ -225,3 +225,22 @@ def test_reference_before_skips_scenes_of_an_earlier_flood() -> None:
     assert m.s1_pre_id == "pre_clean" and m.s1_post_id == "post"
     with pytest.raises(LookupError, match="before 2023-10-10"):
         search_matched_pairs(_query(reference_before=datetime(2023, 10, 10), pre_event_window_days=5), PC, client=cat)
+
+
+def test_the_live_client_wrapper_retries_rate_limits_and_delegates_the_rest() -> None:
+    from floodfusion.data.stac import RateLimitedClient
+
+    class Throttled:
+        calls = 0
+        title = "catalogue"
+
+        def search(self, **kwargs):
+            Throttled.calls += 1
+            if Throttled.calls == 1:
+                raise RuntimeError("You have exceeded a rate limit.")
+            return [{"id": "a", "properties": {}}]
+
+    waits: list[float] = []
+    client = RateLimitedClient(Throttled(), sleep=waits.append)
+    assert client.search(collections=["x"]) == [{"id": "a", "properties": {}}]
+    assert waits == [30.0] and client.title == "catalogue"

@@ -385,7 +385,8 @@ def refined_lee(intensity: np.ndarray, looks: float, window: int = 7) -> np.ndar
     # 5. Lee MMSE weight with the oriented statistics, clamped to [0, 1].
     cu2 = 1.0 / looks
     ci2 = np.divide(var, mean**2, out=np.full_like(var, np.inf), where=mean > 0)
-    weight = np.clip(1.0 - cu2 / ci2, 0.0, 1.0)
+    # A perfectly uniform window has C_I = 0: pure speckle-free mean, weight 0 (no division by zero).
+    weight = np.clip(1.0 - np.divide(cu2, ci2, out=np.full_like(ci2, np.inf), where=ci2 > 0), 0.0, 1.0)
     out = mean + weight * (x - mean)
     out[~valid] = image[~valid]  # nodata / non-positive pixels pass through untouched
     return out
