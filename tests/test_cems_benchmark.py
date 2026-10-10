@@ -131,30 +131,47 @@ class TestActivationCache:
 
         def fetch(code: str) -> dict:
             calls.append(code)
-            if code == "EMSR2":
+            if code == "EMSR102":
                 raise LookupError(code)
             return {"code": code}
 
         pauses: list[float] = []
-        first = cached_activations(["EMSR1", "EMSR2", "EMSR3"], tmp_path, fetch=fetch, sleep=pauses.append)
-        again = cached_activations(["EMSR1", "EMSR2", "EMSR3"], tmp_path, fetch=fetch, sleep=pauses.append)
-        assert [r["code"] for r in first] == [r["code"] for r in again] == ["EMSR1", "EMSR3"]
-        assert calls == ["EMSR1", "EMSR2", "EMSR3"] and len(pauses) == 3
+        codes = ["EMSR101", "EMSR102", "EMSR103"]
+        first = cached_activations(codes, tmp_path, fetch=fetch, sleep=pauses.append)
+        again = cached_activations(codes, tmp_path, fetch=fetch, sleep=pauses.append)
+        assert [r["code"] for r in first] == [r["code"] for r in again] == ["EMSR101", "EMSR103"]
+        assert calls == codes and len(pauses) == 3
 
-    def test_a_non_public_activation_is_skipped_and_other_failures_stop_the_sweep(self, tmp_path) -> None:
+    def test_a_refusal_is_asked_again_then_recorded_and_other_failures_stop_the_sweep(self, tmp_path) -> None:
+        from floodfusion.data.http import HTTPStatusError
+
+        calls: list[str] = []
+
         def fetch(code: str) -> dict:
-            if code == "EMSR2":
-                raise OSError("HTTP 403 for https://rapidmapping.emergency.copernicus.eu/...")
-            if code == "EMSR4":
-                raise OSError("HTTP 500 for https://rapidmapping.emergency.copernicus.eu/...")
+            calls.append(code)
+            if code == "EMSR102":
+                raise HTTPStatusError("HTTP 403 for https://rapidmapping.emergency.copernicus.eu/...", 403)
+            if code == "EMSR104":
+                raise HTTPStatusError("HTTP 404 for https://rapidmapping.emergency.copernicus.eu/...", 404)
             return {"code": code}
 
-        with pytest.raises(OSError, match="500"):
-            cached_activations(["EMSR1", "EMSR2", "EMSR3", "EMSR4"], tmp_path, fetch=fetch, sleep=lambda s: None)
-        assert (tmp_path / "EMSR1.json").is_file() and (tmp_path / "EMSR2.restricted").is_file()
-        assert (tmp_path / "EMSR3.json").is_file() and not (tmp_path / "EMSR4.missing").exists()
-        records = cached_activations(["EMSR1", "EMSR2", "EMSR3"], tmp_path, fetch=fetch, sleep=lambda s: None)
-        assert [r["code"] for r in records] == ["EMSR1", "EMSR3"]
+        with pytest.raises(HTTPStatusError, match="404"):
+            cached_activations(["EMSR101", "EMSR102", "EMSR103", "EMSR104"], tmp_path, fetch=fetch, sleep=lambda s: None)
+        assert calls.count("EMSR102") == 3                   # asked three times before it counts as not public
+        assert (tmp_path / "EMSR101.json").is_file() and (tmp_path / "EMSR102.restricted").is_file()
+        assert (tmp_path / "EMSR103.json").is_file() and not (tmp_path / "EMSR104.missing").exists()
+        from floodfusion.cems_benchmark import cache_census
+
+        census = cache_census(["EMSR101", "EMSR102", "EMSR103", "EMSR104"], tmp_path)
+        assert census == {"public": ["EMSR101", "EMSR103"], "missing": [], "restricted": ["EMSR102"]}
+
+    def test_codes_are_validated_before_they_name_a_file(self, tmp_path) -> None:
+        with pytest.raises(ValueError, match="activation code"):
+            cached_activations(["../outside"], tmp_path, fetch=lambda c: pytest.fail("fetched"), sleep=lambda s: None)
+        from floodfusion.cems_benchmark import pair_key
+
+        with pytest.raises(ValueError, match="activation code"):
+            pair_key({"activation": "EMSR1/../../x", "aoi": 1})
 
 
 class TestRateLimit:

@@ -75,6 +75,29 @@ class TestDownload:
                          "polygons/EMSR1_Test/01/r1_v1/event/event.shp"]
         assert ks.download(tmp_path, get=lambda url: pytest.fail("refetched")) == 0   # resumable
 
+    def test_links_devices_and_foreign_roots_are_never_written(self, tmp_path, monkeypatch) -> None:
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+            good = tarfile.TarInfo(f"{ROOT}/polygons/EMSR1_Test/aoi/01/r1_v1/event/event.shp")
+            good.size = 3
+            tar.addfile(good, io.BytesIO(b"shp"))
+            link = tarfile.TarInfo(f"{ROOT}/polygons/EMSR1_Test/aoi/01/r1_v1/event/event.dbf")
+            link.type, link.linkname = tarfile.SYMTYPE, "/etc/passwd"
+            tar.addfile(link)
+            other = tarfile.TarInfo("Other-repo-abc/polygons/EMSR1_Test/aoi/01/r1_v1/event/event.prj")
+            other.size = 3
+            tar.addfile(other, io.BytesIO(b"prj"))
+        data = buf.getvalue()
+        monkeypatch.setattr(ks, "ANNOTATIONS_SHA256", hashlib.sha256(data).hexdigest())
+        assert ks.download(tmp_path, get=lambda url: data) == 1
+        assert not any(p.is_symlink() for p in tmp_path.rglob("*"))
+
+    def test_a_tarball_matching_nothing_is_an_error(self, tmp_path, monkeypatch) -> None:
+        data = self._tarball({f"{ROOT}/README.md": b"readme"})
+        monkeypatch.setattr(ks, "ANNOTATIONS_SHA256", hashlib.sha256(data).hexdigest())
+        with pytest.raises(OSError, match="no shapefile member"):
+            ks.download(tmp_path, get=lambda url: data)
+
     def test_a_tarball_with_another_hash_is_refused_before_writing(self, tmp_path) -> None:
         with pytest.raises(OSError, match="sha256"):
             ks.download(tmp_path, get=lambda url: b"not the pinned tarball")

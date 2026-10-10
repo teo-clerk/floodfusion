@@ -137,20 +137,27 @@ def k_fold_groups(records: Sequence[ChipRecord], k: int = 5, *, manifest_sha256:
 
 
 def all_groups_split(records: Sequence[ChipRecord], k: int = 5, *, manifest_sha256: str = "") -> dict[str, SplitAssignment]:
-    """``{"all": split}``: the deployable model — train on folds 0..k-2, validate on fold k-1.
+    """``{"all": split}``: the deployable model — train on folds 0..k-2; fold k-1 calibrates it.
 
-    It is scored on no held-out data of its own (its test set is its validation set, recorded
-    so the evaluation writes the calibration); it exists to be applied to *other* data (the CEMS
-    benchmark).
+    Fold k-1's groups alternate (sorted) between validation (early stopping, calibration) and a
+    test set that only satisfies the pipeline: splits must be non-empty and disjoint
+    (:func:`floodfusion.splits.load_splits`), and that score is never reported. The model exists to
+    be applied to *other* data (the CEMS benchmark).
     """
     fold_of = assign_group_folds(records, k)
-    val = tuple(sorted(r.chip_id for r in records if fold_of[r.basin_id] == k - 1 and r.eval_grid))
+    last = sorted(g for g, f in fold_of.items() if f == k - 1)
+    if len(last) < 2:
+        raise ValueError(f"the all-groups split needs >= 2 groups in fold {k - 1}, got {last}")
+    val_groups, test_groups = tuple(last[0::2]), tuple(last[1::2])
+
+    def chips(groups: Sequence[str]) -> tuple[str, ...]:
+        return tuple(sorted(r.chip_id for r in records if r.basin_id in groups and r.eval_grid))
+
     return {"all": SplitAssignment(
         train_chips=tuple(sorted(r.chip_id for r in records if fold_of[r.basin_id] != k - 1)),
-        val_chips=val, test_chips=val,
+        val_chips=chips(val_groups), test_chips=chips(test_groups),
         train_basins=tuple(sorted(g for g, f in fold_of.items() if f != k - 1)),
-        val_basins=tuple(sorted(g for g, f in fold_of.items() if f == k - 1)),
-        test_basins=tuple(sorted(g for g, f in fold_of.items() if f == k - 1)),
+        val_basins=val_groups, test_basins=test_groups,
         buffer_m=0.0, strategy=STRATEGY_LOBO, manifest_sha256=manifest_sha256)}
 
 
@@ -327,12 +334,14 @@ def run_cv(args: argparse.Namespace) -> None:
         LOGGER.warning("--skip-test: training only; no test split is scored (development runs)")
     else:
         _freeze_protocol(args, chip_dir, cfg.data.manifest_name)
+    if args.fold:   # a requested fold must exist in at least one of the requested protocols
+        known = {f.name for protocol in args.protocol for f in folds_on_disk(chip_dir, protocol)}
+        unknown = sorted(set(args.fold) - known)
+        if unknown:
+            raise ValueError(f"unknown folds {unknown} for protocols {args.protocol}; known: {sorted(known)}")
     for protocol in args.protocol:
         folds = folds_on_disk(chip_dir, protocol)
         if args.fold:
-            unknown = sorted(set(args.fold) - {f.name for f in folds})
-            if unknown:
-                raise ValueError(f"unknown {protocol} folds {unknown}; known: {[f.name for f in folds]}")
             folds = [f for f in folds if f.name in set(args.fold)]
         for i, fold in enumerate(folds, start=1):
             LOGGER.info("== %s fold %d/%d: %s", protocol, i, len(folds), fold.name)

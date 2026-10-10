@@ -210,12 +210,25 @@ def _keep(info: zipfile.ZipInfo) -> bool:
     return not info.is_dir() and flat and _KEEP.fullmatch(parts[-1]) is not None
 
 
+def content_matches(name: str, head: bytes) -> bool:
+    """Whether a member's first bytes are what its suffix promises: GeoJSON starts with ``{``, a
+    dBase table with a known version byte. Anything else (an ``<OGRVRTDataSource>`` above all) is refused."""
+    if name.endswith(".json"):
+        return head.lstrip(b"\xef\xbb\xbf \t\r\n")[:1] == b"{"
+    if name.endswith(".dbf"):
+        return bool(head) and head[0] in (0x02, 0x03, 0x04, 0x05, 0x30, 0x31, 0x32, 0x43, 0x63, 0x83, 0x8B, 0x8E, 0xCB,
+                                          0xF5, 0xFB)
+    return False
+
+
 def _extract(archive: zipfile.ZipFile, info: zipfile.ZipInfo, dest: Path) -> None:
     """Stream one member to ``dest``, stopping at its declared size (a lying header cannot inflate it)."""
     written = 0
     tmp = dest.with_name(f".{dest.name}.tmp")
     with archive.open(info) as src, tmp.open("wb") as out:
         while chunk := src.read(1 << 20):
+            if not written and not content_matches(dest.name, chunk[:64]):
+                raise OSError(f"{dest.name}: content does not match its type (refused)")
             written += len(chunk)
             if written > info.file_size:
                 raise OSError(f"{dest.name}: member is larger than its declared {info.file_size} bytes")

@@ -59,12 +59,14 @@ class TestGroupedKFold:
             assert {group[c] for c in split.test_chips} <= set(split.test_basins)
             assert {group[c] for c in split.train_chips} == set(split.train_basins)
 
-    def test_the_all_groups_model_validates_on_the_last_fold(self) -> None:
+    def test_the_all_groups_model_is_calibrated_on_the_last_fold_and_loads(self, tmp_path) -> None:
         records = self._records()
         [(name, split)] = all_groups_split(records, 3).items()
-        last = [g for g, f in assign_group_folds(records, 3).items() if f == 2]
-        assert name == "all" and set(split.val_basins) == set(last) and split.test_chips == split.val_chips
+        last = sorted(g for g, f in assign_group_folds(records, 3).items() if f == 2)
+        assert name == "all" and split.val_basins == tuple(last[0::2]) and split.test_basins == tuple(last[1::2])
         assert set(split.train_basins) == set(self.GROUPS) - set(last)
+        freeze_splits(split, tmp_path / "all.json")              # disjoint and non-empty: the loader accepts it
+        assert load_splits(tmp_path / "all.json") == split
 
     def test_fewer_groups_than_folds_is_refused(self) -> None:
         with pytest.raises(ValueError, match=">= 5 groups"):

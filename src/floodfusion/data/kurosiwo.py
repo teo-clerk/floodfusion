@@ -96,8 +96,9 @@ _MAX_TARBALL_BYTES = 400 * 1024 * 1024
 _MAX_MEMBER_BYTES = 64 * 1024 * 1024
 _MAX_EXTRACTED_BYTES = 1024 * 1024 * 1024
 #: ``<repo>-<sha>/polygons/<event>/aoi/<nn>/<version>/{aoi,event,hydro}/<name>.<shapefile part>``
-_MEMBER = re.compile(r"[\w.-]+/polygons/(EMSR\d+_[\w-]+)/aoi/(\d{2})/(r\d+_v\d+)/(aoi|event|hydro)/"
-                     r"[\w-]+\.(shp|shx|dbf|prj|cpg)", re.ASCII)
+_MEMBER = re.compile(rf"KuroSiwo-annotations-{ANNOTATIONS_COMMIT}/polygons/(EMSR\d+_[\w-]+)/aoi/(\d{{2}})/"
+                     r"(r\d+_v\d+)/(aoi|event|hydro)/[\w-]+\.(shp|shx|dbf|prj|cpg)", re.ASCII)
+_MAX_MEMBERS = 5000
 
 #: Chip side (px at 10 m): Sen1Floods11's 512 x 512 chips.
 CHIP_PX = 512
@@ -147,7 +148,10 @@ def download(raw_root: Path | str, *, get: Callable[[str], bytes] = _http_get) -
         raise OSError(f"Kuro Siwo annotations: sha256 {digest} != pinned {ANNOTATIONS_SHA256}")
     n, total = 0, 0
     with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
-        for member in archive.getmembers():
+        members = archive.getmembers()
+        if len(members) > _MAX_MEMBERS:
+            raise OSError(f"Kuro Siwo annotations: {len(members)} members (cap {_MAX_MEMBERS})")
+        for member in members:
             match = _MEMBER.fullmatch(member.name)
             if not member.isfile() or match is None:
                 continue
@@ -162,7 +166,9 @@ def download(raw_root: Path | str, *, get: Callable[[str], bytes] = _http_get) -
             atomic_write_bytes(dest, source.read(member.size + 1)[:member.size])
             total += member.size
             n += 1
-    done.write_text(json.dumps({"commit": ANNOTATIONS_COMMIT, "sha256": digest, "files": n}), encoding="utf-8")
+    if not n:
+        raise OSError("Kuro Siwo annotations: no shapefile member matched the expected layout")
+    atomic_write_bytes(done, json.dumps({"commit": ANNOTATIONS_COMMIT, "sha256": digest, "files": n}).encode("utf-8"))
     LOGGER.info("Kuro Siwo annotations: %d files extracted", n)
     return n
 
@@ -663,7 +669,9 @@ def relabel_water(src_root: Path | str, dst_root: Path | str, raw_root: Path | s
     aois = {a.stack_prefix: a for a in list_aois(raw_root)}
     nodata = int(cfg.grid.nodata_int16)
     n = 0
-    for event_dir in sorted(p for p in (src_root / "events").glob("*") if (p / "event.json").is_file()):
+    # A stack whose windows all failed the filters has no chips.parquet: nothing to relabel.
+    for event_dir in sorted(p for p in (src_root / "events").glob("*")
+                            if (p / "event.json").is_file() and (p / "chips.parquet").is_file()):
         out_dir = dst_root / "events" / event_dir.name
         if (out_dir / "event.json").is_file():
             continue

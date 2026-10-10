@@ -49,6 +49,7 @@ __all__ = [
     "Acquisition",
     "Candidate",
     "acquisitions",
+    "cache_census",
     "cached_activations",
     "eligible_pairs",
     "main",
@@ -215,51 +216,78 @@ def _product_extent(activation: Mapping[str, Any], product: Any) -> Any:
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
-#: Seconds between two uncached API requests: the public API rate-limits bursts (HTTP 403).
+#: Seconds between two uncached API requests.
 _API_PAUSE_S = 2.0
+#: A 401/403 is asked again this many times, this far apart, before the activation counts as not public.
+_REFUSAL_RETRIES = 2
+_REFUSAL_PAUSE_S = 30.0
+
+
+def _valid_code(code: str) -> str:
+    import re
+
+    if not re.fullmatch(r"EMSR[0-9]{3,4}", str(code), re.ASCII):
+        raise ValueError(f"not a CEMS rapid-mapping activation code: {str(code)[:20]!r}")
+    return str(code)
 
 
 def cached_activations(codes: Sequence[str], cache_dir: Path, *, fetch: Any = None,
                        pause_s: float = _API_PAUSE_S, sleep: Any = None) -> list[dict[str, Any]]:
     """Activation records, each fetched once into ``cache_dir`` (``<code>.json``; ``<code>.missing`` if unknown).
 
-    Uncached requests are spaced by ``pause_s``. An activation that is not public (HTTP 401/403)
-    is recorded as ``<code>.restricted`` and skipped: the benchmark uses no credentials. Any other
-    failure stops the sweep with what is cached so far preserved, so a re-run resumes there.
+    Uncached requests are spaced by ``pause_s``. An activation the API refuses (HTTP 401/403) is
+    asked again :data:`_REFUSAL_RETRIES` times :data:`_REFUSAL_PAUSE_S` apart, then recorded as
+    ``<code>.restricted`` and skipped: the benchmark uses no credentials. Any other failure stops
+    the sweep with what is cached so far preserved, so a re-run resumes there.
     """
     import time
 
     from floodfusion.data.cems import fetch_activation
+    from floodfusion.data.http import HTTPStatusError
+    from floodfusion.data.records import atomic_write_bytes
 
     fetch = fetch or fetch_activation
     sleep = sleep or time.sleep
     cache_dir.mkdir(parents=True, exist_ok=True)
     records: list[dict[str, Any]] = []
-    for code in codes:
-        hit, miss = cache_dir / f"{code}.json", cache_dir / f"{code}.missing"
+    for code in map(_valid_code, codes):
+        hit, miss, restricted = cache_dir / f"{code}.json", cache_dir / f"{code}.missing", cache_dir / f"{code}.restricted"
         if hit.is_file():
             records.append(json.loads(hit.read_text(encoding="utf-8")))
             continue
-        if miss.is_file() or (cache_dir / f"{code}.restricted").is_file():
+        if miss.is_file() or restricted.is_file():
             continue
-        try:
-            record = fetch(code)
-        except LookupError:
-            miss.write_text("", encoding="utf-8")
-            sleep(pause_s)
-            continue
-        except OSError as exc:
-            # Some activations are not public ("Authentication credentials were not provided"):
-            # they are outside the benchmark by definition (no credentials), not an error.
-            if not any(f"HTTP {s} " in f"{exc} " for s in (401, 403)):
-                raise
-            (cache_dir / f"{code}.restricted").write_text(str(exc)[:200], encoding="utf-8")
-            sleep(pause_s)
-            continue
-        hit.write_text(json.dumps(record), encoding="utf-8")
-        records.append(record)
+        for attempt in range(_REFUSAL_RETRIES + 1):
+            try:
+                record = fetch(code)
+                break
+            except LookupError:
+                record = None
+                atomic_write_bytes(miss, b"")
+                break
+            except HTTPStatusError as exc:
+                if exc.status not in (401, 403):
+                    raise
+                if attempt < _REFUSAL_RETRIES:
+                    sleep(_REFUSAL_PAUSE_S)
+                    continue
+                record = None
+                atomic_write_bytes(restricted, f"HTTP {exc.status}".encode())
         sleep(pause_s)
+        if record is not None:
+            atomic_write_bytes(hit, json.dumps(record).encode("utf-8"))
+            records.append(record)
     return records
+
+
+def cache_census(codes: Sequence[str], cache_dir: Path) -> dict[str, list[str]]:
+    """Which codes are public, unknown or refused, as cached: reported with every census."""
+    out: dict[str, list[str]] = {"public": [], "missing": [], "restricted": []}
+    for code in codes:
+        for kind, suffix in (("public", "json"), ("missing", "missing"), ("restricted", "restricted")):
+            if (cache_dir / f"{code}.{suffix}").is_file():
+                out[kind].append(code)
+    return out
 
 
 def _eligibility(args: argparse.Namespace) -> dict[str, Any]:
@@ -288,6 +316,7 @@ def _eligibility(args: argparse.Namespace) -> dict[str, Any]:
     summary = {
         "rule": {**rule, "codes": [f"EMSR{args.first}", f"EMSR{args.last}"]},
         "n_activations": len(records), "n_flood_activations": len(floods),
+        "codes": cache_census([f"EMSR{n}" for n in range(args.first, args.last + 1)], args.cache),
         "eligible_activations": sorted({p["activation"] for p in selected}),
         "pairs": selected,
         "checked": datetime.now(UTC).isoformat(timespec="seconds"),
@@ -333,8 +362,8 @@ def sample_tiles(tiles: Sequence[tuple[str, Any]], key: str) -> list[tuple[str, 
 
 
 def pair_key(pair: Mapping[str, Any]) -> str:
-    """``EMSR664_AOI01``: one eligible pair per AOI, so the AOI names it."""
-    return f"{pair['activation']}_AOI{int(pair['aoi']):02d}"
+    """``EMSR664_AOI01``: one eligible pair per AOI, so the AOI names it (validated: it names directories)."""
+    return f"{_valid_code(pair['activation'])}_AOI{int(pair['aoi']):02d}"
 
 
 def prepare_pair(pair: Mapping[str, Any], record: Mapping[str, Any], out_root: Path, cfg: Any,
@@ -349,6 +378,8 @@ def prepare_pair(pair: Mapping[str, Any], record: Mapping[str, Any], out_root: P
     from floodfusion.data.ingest import EventConfig, ingest_event
     from floodfusion.data.stac import NoMatchingPairError, redact
 
+    if record.get("code") != pair["activation"]:
+        raise ValueError(f"record {str(record.get('code'))[:20]!r} does not belong to pair {pair_key(pair)}")
     [product] = [p for p in cems.list_products(record) if p.tag == pair["product"]]
     out = out_root / pair_key(pair)
     product_dir = cems.download_product(product, out_root / "cems")
@@ -393,13 +424,13 @@ def _prepare(args: argparse.Namespace) -> None:
     for pair in select_pairs(selection["pairs"]):
         if wanted and pair["activation"] not in wanted:
             continue
-        record = json.loads((args.cache / f"{pair['activation']}.json").read_text(encoding="utf-8"))
+        record = json.loads((args.cache / f"{_valid_code(pair['activation'])}.json").read_text(encoding="utf-8"))
         try:
             summary = prepare_pair(pair, record, args.out, cfg, sources)
         except Exception as exc:  # noqa: BLE001 - one pair's failure must not stop the benchmark
             from floodfusion.data.http import redacted_traceback
 
-            LOGGER.error("%s failed: %s\n%s", pair_key(pair), exc, redacted_traceback(exc))
+            LOGGER.error("%s failed:\n%s", pair_key(pair), redacted_traceback(exc))
             continue
         ok = sum(v == "ok" for v in summary["tiles"].values())
         LOGGER.info("%s: %d/%d tiles ingested", summary["key"], ok, len(summary["tiles"]))

@@ -244,6 +244,8 @@ def search_with_backoff(client: Any, *, sleep: Any = None, **kwargs: Any) -> lis
     """``client.search(**kwargs)`` materialised as STAC-JSON dicts, retried while the catalogue says "rate limit"."""
     import time as _time
 
+    if isinstance(client, RateLimitedClient):   # already retries: never nest the loops
+        return client.search(**kwargs)
     sleep = sleep or _time.sleep
     for wait in (*RATE_LIMIT_BACKOFF_S, None):
         try:
@@ -497,7 +499,7 @@ def search_matched_pairs(
             dem_ids = tuple(sorted(i["id"] for i in _search(client, profile.dem_collection, query.bbox, None)))
         except Exception as exc:  # noqa: BLE001 - a missing DEM listing must not hide the S1 match
             LOGGER.warning("%s: DEM search in %s failed (%s); dem_ids left empty",
-                           query.event_id, profile.dem_collection, exc)
+                           query.event_id, profile.dem_collection, redact(str(exc))[:200])
     return MatchedScenes(
         event_id=query.event_id,
         s1_post_id=post["id"],

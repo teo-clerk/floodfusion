@@ -63,6 +63,7 @@ def seasonal_reference(event_dir: Path, client: Any, *, overwrite: bool = False)
     from floodfusion.data.chipping import read_event_stack
     from floodfusion.data.passes import acquisitions
     from floodfusion.data.preprocessing import db_to_linear, linear_to_db
+    from floodfusion.data.records import atomic_write_bytes
     from floodfusion.data.sources import read_s1_rtc
 
     record_path = event_dir / "seasonal.json"
@@ -79,20 +80,29 @@ def seasonal_reference(event_dir: Path, client: Any, *, overwrite: bool = False)
                               "orbit_state": state, "acquisitions": [a.when.isoformat() for a in candidates]}
     if len(candidates) < MIN_SCENES:
         record.update(status=f"insufficient: {len(candidates)} < {MIN_SCENES} same-orbit acquisitions", n_scenes=0)
-        record_path.write_text(json.dumps(record, indent=2), encoding="utf-8")
+        atomic_write_bytes(record_path, json.dumps(record, indent=2).encode("utf-8"))
         return record
-    stacks = {"VV": [], "VH": []}
+    stacks: dict[str, list[np.ndarray]] = {"VV": [], "VH": []}
     with rasterio.Env(**GDAL_ENV):
         for acq in candidates:
             items = items_by_id(client, "sentinel-1-rtc", acq.frame_ids)
             for pol in stacks:
-                db, _ = read_s1_rtc(items, grid, pol)
+                try:
+                    db, _ = read_s1_rtc(items, grid, pol)
+                except KeyError:   # a single-polarisation (1SSV) acquisition has no VH: VV is what counts
+                    if pol == "VV":
+                        raise
+                    continue
                 stacks[pol].append(db_to_linear(db))
     layers = []
     for pol in ("VV", "VH"):
+        if len(stacks[pol]) < MIN_SCENES:   # VH is optional; the change term uses VV
+            layers.append(np.full((grid.height, grid.width), np.nan, dtype=np.float32))
+            continue
         with np.errstate(all="ignore"):
             median = np.nanmedian(np.stack(stacks[pol]), axis=0)
         layers.append(np.where(median > 0, linear_to_db(np.where(median > 0, median, 1.0)), np.nan).astype(np.float32))
+    record["n_vh_scenes"] = len(stacks["VH"])
     profile = {"driver": "GTiff", "height": grid.height, "width": grid.width, "count": 2, "dtype": "float32",
                "crs": f"EPSG:{grid.epsg}", "transform": grid.affine, "nodata": float("nan"), "compress": "deflate",
                "tiled": True}
@@ -103,7 +113,7 @@ def seasonal_reference(event_dir: Path, client: Any, *, overwrite: bool = False)
         dst.set_band_description(2, "seasonal_vh_db")
     tmp.replace(event_dir / "seasonal.tif")
     record.update(status="ok", n_scenes=len(candidates))
-    record_path.write_text(json.dumps(record, indent=2), encoding="utf-8")
+    atomic_write_bytes(record_path, json.dumps(record, indent=2).encode("utf-8"))
     return record
 
 

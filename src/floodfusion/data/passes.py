@@ -49,7 +49,11 @@ def acquisitions(client: Any, geometry: Any, start: datetime, end: datetime, *,
     items = search_with_backoff(client, sleep=sleep or time.sleep, collections=["sentinel-1-rtc"],
                                 bbox=list(geometry.bounds), max_items=500,
                                 datetime=f"{start:%Y-%m-%dT%H:%M:%SZ}/{end:%Y-%m-%dT%H:%M:%SZ}")
-    items = [i for i in items if i.get("geometry") and shape(i["geometry"]).intersects(geometry)]
+    if len(items) >= 500:
+        LOGGER.warning("sentinel-1-rtc search returned the 500-item cap: the list may be truncated")
+    items = [i for i in items if i.get("geometry") and shape(i["geometry"]).intersects(geometry)
+             and isinstance(i.get("properties", {}).get("sat:relative_orbit"), int)
+             and i["properties"].get("sat:orbit_state")]
     groups: list[list[dict[str, Any]]] = []
     for item in sorted(items, key=datetime_of):
         p = item["properties"]
