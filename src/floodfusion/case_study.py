@@ -46,7 +46,7 @@ import numpy as np
 
 from floodfusion.metrics import ConfusionMatrix
 
-__all__ = ["Pass", "find_passes", "main", "scored_region", "tiles_for"]
+__all__ = ["Pass", "find_passes", "full_coverage_passes", "main", "scored_region", "tiles_for"]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -286,7 +286,19 @@ def _scores(prob: np.ndarray, model: _Model, label: np.ndarray, scored: np.ndarr
     return [_score(prob > t, label, scored) for t in thresholds]
 
 
-def _tile_layers(case_dir: Path, case: Mapping[str, Any], tile_id: str, models: Sequence[_Model]) -> dict[str, Any] | None:
+def full_coverage_passes(case: Mapping[str, Any]) -> set[str]:
+    """The passes covering the most tiles: the common region is defined over these.
+
+    A pass that saw only the edge of the AOI (EMSR664: 18 May, 4 of 16 tiles) would otherwise
+    shrink the region every pass observed to nothing; it is scored on its own coverage instead.
+    """
+    counts = {p["tag"]: sum(v == "ok" for v in p["tiles"].values()) for p in case["passes"]}
+    best = max(counts.values(), default=0)
+    return {tag for tag, n in counts.items() if n == best}
+
+
+def _tile_layers(case_dir: Path, case: Mapping[str, Any], tile_id: str, models: Sequence[_Model],
+                 full: set[str]) -> dict[str, Any] | None:
     """Every pass's valid mask and predictions on one tile, and every product rasterised once."""
     from floodfusion.config import ValidityFlag
     from floodfusion.data.chipping import read_event_stack
@@ -311,8 +323,7 @@ def _tile_layers(case_dir: Path, case: Mapping[str, Any], tile_id: str, models: 
         return None
     refs = {r["tag"]: (rasterise_vector(Path(r["region"]), grid), rasterise_vector(Path(r["label"]), grid))
             for r in case["products"]}
-    on_every_pass = len(passes) == len(case["passes"])
-    common = (np.logical_and.reduce([v["valid"] for v in passes.values()]) if on_every_pass
+    common = (np.logical_and.reduce([passes[tag]["valid"] for tag in sorted(full)]) if full and full <= set(passes)
               else np.zeros((grid.height, grid.width), dtype=bool))
     return {"grid": grid, "passes": passes, "refs": refs, "common": common}
 
@@ -341,9 +352,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     if args.baseline_run:
         models.append(_baseline(args.baseline_run, args.configs_dir, args.overlay))
     tally = _Tally({}, {}, defaultdict(float), defaultdict(list))
-    hero: tuple[float, str] = (-1.0, "")
+    full = full_coverage_passes(case)
+    nearest = {p["tag"]: p["label_product"] for p in case["passes"]}
+    hero: dict[str, tuple[float, str]] = {}
     for tile_id, _ in case["tiles"]:
-        layers = _tile_layers(case_dir, case, tile_id, models)
+        layers = _tile_layers(case_dir, case, tile_id, models, full)
         if layers is None:
             continue
         px_km2 = layers["grid"].pixel_size ** 2 / 1e6
@@ -353,21 +366,25 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             tally.area[f"cems:{ref_tag}"] += float((label & everywhere).sum()) * px_km2
         for pass_tag, layer in layers["passes"].items():
             tally.optical[pass_tag].append(layer["optical"])
+            on_common = pass_tag in full
             for m in models:
                 prob = layer["prob"][m.name]
-                tally.area[f"{m.name}:{pass_tag}"] += float(((prob > m.tau) & everywhere).sum()) * px_km2
+                if on_common:
+                    tally.area[f"{m.name}:{pass_tag}"] += float(((prob > m.tau) & everywhere).sum()) * px_km2
                 for ref_tag, (region, label) in layers["refs"].items():
-                    tally.add(tally.common, (pass_tag, ref_tag, m.name), _scores(prob, m, label, layers["common"] & region))
+                    if on_common:
+                        tally.add(tally.common, (pass_tag, ref_tag, m.name),
+                                  _scores(prob, m, label, layers["common"] & region))
                     tally.add(tally.own, (pass_tag, ref_tag, m.name), _scores(prob, m, label, layer["valid"] & region))
-        first = case["passes"][0]["tag"]
-        if first in layers["passes"]:
-            nearest = case["passes"][0]["label_product"]
-            region, label = layers["refs"][nearest]
-            flooded = float((label & region & layers["passes"][first]["valid"]).sum())
-            hero = max(hero, (flooded, tile_id))
+            if on_common:  # hero candidates: the tile with the most CEMS flood seen by this pass
+                region, label = layers["refs"][nearest[pass_tag]]
+                flooded = float((label & region & layer["valid"]).sum())
+                hero[pass_tag] = max(hero.get(pass_tag, (-1.0, "")), (flooded, tile_id))
     result = _report(case, models, tally, Path(args.out))
-    if hero[1] and args.assets is not None:
-        _figures(case, case_dir, hero[1], models[0], tally, Path(args.assets))
+    if hero and args.assets is not None:
+        # The full pass with optical on the most tiles: the case the fusion model exists for.
+        hero_pass = max(hero, key=lambda tag: (sum(tally.optical[tag]), hero[tag][0]))
+        _figures(case, case_dir, hero_pass, hero[hero_pass][1], models[0], tally, Path(args.assets))
     return result
 
 
@@ -411,7 +428,10 @@ def _report(case: Mapping[str, Any], models: Sequence[_Model], tally: _Tally, ou
         "",
     ]
     result: dict[str, Any] = {"common": {}, "own": {}, "area_km2": {}, "time_offset_h": {}}
-    for scope, store, title in (("common", tally.common, "on the region common to every pass and product"),
+    full = full_coverage_passes(case)
+    partial = [p["tag"] for p in case["passes"] if p["tag"] not in full]
+    for scope, store, title in (("common", tally.common, "on the region common to every full-coverage pass and "
+                                                         "every product"),
                                 ("own", tally.own, "on each pass's own coverage")):
         lines += [f"## IoU, pass × product, {title} (nearest product in time in **bold**)", ""]
         for m in models:
@@ -440,17 +460,19 @@ def _report(case: Mapping[str, Any], models: Sequence[_Model], tally: _Tally, ou
             c = cms[0]
             n = c.tp + c.fp + c.fn + c.tn
             lines.append(f"| {p['tag']} | {short[p['label_product']]} | {n / 1e4:.0f} | {(c.tp + c.fn) / max(n, 1):.3f} |")
-    lines += ["", "## Flooded area on the region every pass and every product observed (recession)", "",
+    lines += ["", "## Flooded area on the region every full-coverage pass and every product observed (recession)", "",
               "| Map | Time (UTC) | Flooded km² |", "| --- | --- | --- |"]
     timeline = [(r["time"], f"CEMS {short[r['tag']]} ({_md(r['sensor'])})", tally.area.get(f"cems:{r['tag']}", math.nan))
                 for r in products]
     timeline += [(p["when"], f"{m.name}, {p['tag']}", tally.area.get(f"{m.name}:{p['tag']}", math.nan))
-                 for p in case["passes"] for m in models]
+                 for p in case["passes"] if p["tag"] in full for m in models]
     for when, label, km2 in sorted(timeline):
         lines.append(f"| {label} | {when[:16]} | {km2:.1f} |")
     result["area_km2"] = {label: km2 for _, label, km2 in timeline}
-    lines += ["", f"Common region: {tally.area.get('common', math.nan):.0f} km² (valid SAR on every pass, observed by "
-              "every CEMS product).", "", "![EMSR664 Forlì](../assets/forli_hero.png)", "",
+    lines += ["", f"Common region: {tally.area.get('common', math.nan):.0f} km² (valid SAR on every full-coverage pass, "
+              "observed by every CEMS product)."
+              + (f" Passes that covered part of the AOI are scored on their own coverage only: {', '.join(partial)}."
+                 if partial else ""), "", "![EMSR664 Forlì](../assets/forli_hero.png)", "",
               "![recession](../assets/forli_recession.png)", ""]
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("\n".join(lines), encoding="utf-8")
@@ -459,15 +481,16 @@ def _report(case: Mapping[str, Any], models: Sequence[_Model], tally: _Tally, ou
     return result
 
 
-def _figures(case: Mapping[str, Any], case_dir: Path, tile_id: str, model: _Model, tally: _Tally, assets: Path) -> None:
-    """The hero map (first pass, nearest product) and the recession series."""
+def _figures(case: Mapping[str, Any], case_dir: Path, pass_tag: str, tile_id: str, model: _Model, tally: _Tally,
+             assets: Path) -> None:
+    """The hero map (``pass_tag`` against its nearest product) and the recession series."""
     from floodfusion.data.chipping import read_event_stack
     from floodfusion.data.encoding import ChipBand
     from floodfusion.data.ingest import rasterise_vector
     from floodfusion.figures import _pyplot
 
     plt = _pyplot()
-    first = case["passes"][0]
+    first = next(p for p in case["passes"] if p["tag"] == pass_tag)
     stack_path = case_dir / "passes" / first["tag"] / "events" / f"{first['tag']}_{tile_id}" / "stack.tif"
     raw, grid, _ = read_event_stack(stack_path)
     ref = next(r for r in case["products"] if r["tag"] == first["label_product"])
@@ -497,10 +520,11 @@ def _figures(case: Mapping[str, Any], case_dir: Path, tile_id: str, model: _Mode
     cems_points = sorted((datetime.fromisoformat(r["time"]), tally.area.get(f"cems:{r['tag']}", math.nan))
                          for r in case["products"])
     ax.plot([t for t, _ in cems_points], [a for _, a in cems_points], "s-", color="tab:blue", label="CEMS delineations")
+    full = full_coverage_passes(case)
     s1 = sorted((datetime.fromisoformat(p["when"]), tally.area.get(f"{model.name}:{p['tag']}", math.nan))
-                for p in case["passes"])
+                for p in case["passes"] if p["tag"] in full)
     ax.plot([t for t, _ in s1], [a for _, a in s1], "o-", color="tab:red", label=f"{model.name} (Sentinel-1)")
-    ax.set_ylabel("flooded km² (common region)")
+    ax.set_ylabel(f"flooded km² ({tally.area.get('common', math.nan):.0f} km² seen by all)")
     ax.grid(alpha=0.3)
     ax.legend(fontsize=8)
     fig.autofmt_xdate()

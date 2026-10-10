@@ -183,3 +183,37 @@ def test_a_case_tile_without_usable_sar_maps_no_flood(tmp_path) -> None:
 
 def model_predicts_flood(model, stack) -> bool:
     return bool((model.predict(stack) > 0.5).any())
+
+
+def test_full_coverage_passes_are_those_covering_the_most_tiles() -> None:
+    from floodfusion.case_study import full_coverage_passes
+
+    case = {"passes": [{"tag": "edge", "tiles": {"a": "ok", "b": "dropped: no scene", "c": "dropped: no scene"}},
+                       {"tag": "p2", "tiles": {"a": "ok", "b": "ok", "c": "ok"}},
+                       {"tag": "p3", "tiles": {"a": "ok", "b": "ok", "c": "ok"}}]}
+    assert full_coverage_passes(case) == {"p2", "p3"}
+    assert full_coverage_passes({"passes": [{"tag": "only", "tiles": {}}]}) == {"only"}
+
+
+def test_a_partial_pass_is_scored_on_its_own_coverage_only(tmp_path) -> None:
+    """Release finding: one pass covering 4 of 16 tiles made the common region (and the recession) empty."""
+    from floodfusion.case_study import _Model, _report, _Tally
+
+    full = {"a": "ok", "b": "ok"}
+    case = {"activation": "EMSR999", "aoi": 1, "reference_before": "2023-05-01",
+            "products": [{"tag": "EMSR999_AOI01_DEL_PRODUCT", "sensor": "CSK", "time": "2023-05-21T16:50:00+00:00",
+                          "flood_km2": 30.0, "region_km2": 900.0}],
+            "passes": [{"tag": "edge", "when": "2023-05-18T16:58:00+00:00", "label_product": "EMSR999_AOI01_DEL_PRODUCT",
+                        "tiles": {"a": "ok", "b": "dropped: no scene"}},
+                       {"tag": "full", "when": "2023-05-22T05:19:00+00:00", "label_product": "EMSR999_AOI01_DEL_PRODUCT",
+                        "tiles": full}]}
+    cm = ConfusionMatrix(70, 10, 10, 900)
+    tally = _Tally(common={("full", "EMSR999_AOI01_DEL_PRODUCT", "fusion"): [cm, cm]},
+                   own={("edge", "EMSR999_AOI01_DEL_PRODUCT", "fusion"): [cm, cm],
+                        ("full", "EMSR999_AOI01_DEL_PRODUCT", "fusion"): [cm, cm]},
+                   area={"common": 400.0, "cems:EMSR999_AOI01_DEL_PRODUCT": 28.0, "fusion:full": 31.0},
+                   optical={"edge": [False], "full": [True, True]})
+    result = _report(case, [_Model("fusion", None, 0.25)], tally, tmp_path / "r.md")
+    text = (tmp_path / "r.md").read_text()
+    assert "every full-coverage pass" in text and "own coverage only: edge" in text
+    assert "fusion, edge" not in result["area_km2"] and result["area_km2"]["fusion, full"] == 31.0
