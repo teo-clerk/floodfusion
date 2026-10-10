@@ -84,7 +84,7 @@
   "environment": {
     "python": "3.12.11",
     "platform": "Linux-7.2.5-3-omarchy-x86_64-with-glibc2.44",
-    "git_sha": "6fc736eef9ae5456c590b47a1c4dd4398f4d16c9",
+    "git_sha": "588d66c4363f694430765d45028b67aefe9415ff",
     "git_branch": "feat/floodfusion-implementation",
     "git_dirty": false,
     "numpy": "2.5.3",

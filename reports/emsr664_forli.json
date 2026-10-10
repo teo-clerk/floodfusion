@@ -1,0 +1,379 @@
+{
+  "common": {
+    "fusion (cross-attention)": {
+      "S1_20230518T1658_o044": {
+        "EMSR664_AOI01_DEL_PRODUCT": {
+          "iou_tau": null,
+          "iou_oracle": null
+        },
+        "EMSR664_AOI01_DEL_MONIT01": {
+          "iou_tau": null,
+          "iou_oracle": null
+        },
+        "EMSR664_AOI01_DEL_MONIT02": {
+          "iou_tau": null,
+          "iou_oracle": null
+        },
+        "EMSR664_AOI01_DEL_MONIT03": {
+          "iou_tau": null,
+          "iou_oracle": null
+        }
+      },
+      "S1_20230522T0519_o095": {
+        "EMSR664_AOI01_DEL_PRODUCT": {
+          "iou_tau": 0.0761491521081715,
+          "iou_oracle": 0.07737167305432732
+        },
+        "EMSR664_AOI01_DEL_MONIT01": {
+          "iou_tau": 0.13779025810069384,
+          "iou_oracle": 0.13870767823797095
+        },
+        "EMSR664_AOI01_DEL_MONIT02": {
+          "iou_tau": 0.217563357270413,
+          "iou_oracle": 0.22557969842829484
+        },
+        "EMSR664_AOI01_DEL_MONIT03": {
+          "iou_tau": 0.3899336340418327,
+          "iou_oracle": 0.41869241664897927
+        }
+      },
+      "S1_20230523T1706_o117": {
+        "EMSR664_AOI01_DEL_PRODUCT": {
+          "iou_tau": 0.043283587287160225,
+          "iou_oracle": 0.04931508678336685
+        },
+        "EMSR664_AOI01_DEL_MONIT01": {
+          "iou_tau": 0.1201492740807685,
+          "iou_oracle": 0.12716494357091407
+        },
+        "EMSR664_AOI01_DEL_MONIT02": {
+          "iou_tau": 0.25348262143640304,
+          "iou_oracle": 0.2535113535546442
+        },
+        "EMSR664_AOI01_DEL_MONIT03": {
+          "iou_tau": 0.5069729078505966,
+          "iou_oracle": 0.5087732409651865
+        }
+      }
+    },
+    "fusion, SAR only": {
+      "S1_20230518T1658_o044": {
+        "EMSR664_AOI01_DEL_PRODUCT": {
+          "iou_tau": null,
+          "iou_oracle": null
+        },
+        "EMSR664_AOI01_DEL_MONIT01": {
+          "iou_tau": null,
+          "iou_oracle": null
+        },
+        "EMSR664_AOI01_DEL_MONIT02": {
+          "iou_tau": null,
+          "iou_oracle": null
+        },
+        "EMSR664_AOI01_DEL_MONIT03": {
+          "iou_tau": null,
+          "iou_oracle": null
+        }
+      },
+      "S1_20230522T0519_o095": {
+        "EMSR664_AOI01_DEL_PRODUCT": {
+          "iou_tau": 0.07467905189424177,
+          "iou_oracle": 0.07745093548478947
+        },
+        "EMSR664_AOI01_DEL_MONIT01": {
+          "iou_tau": 0.13575098836745622,
+          "iou_oracle": 0.13871803852083933
+        },
+        "EMSR664_AOI01_DEL_MONIT02": {
+          "iou_tau": 0.22317519119824644,
+          "iou_oracle": 0.2255157521011225
+        },
+        "EMSR664_AOI01_DEL_MONIT03": {
+          "iou_tau": 0.40702552504818895,
+          "iou_oracle": 0.41836059606902753
+        }
+      },
+      "S1_20230523T1706_o117": {
+        "EMSR664_AOI01_DEL_PRODUCT": {
+          "iou_tau": 0.0679563105683979,
+          "iou_oracle": 0.07034596907874953
+        },
+        "EMSR664_AOI01_DEL_MONIT01": {
+          "iou_tau": 0.10768968347436413,
+          "iou_oracle": 0.10901614841416118
+        },
+        "EMSR664_AOI01_DEL_MONIT02": {
+          "iou_tau": 0.14336358091024184,
+          "iou_oracle": 0.14490377372908184
+        },
+        "EMSR664_AOI01_DEL_MONIT03": {
+          "iou_tau": 0.23022516556291392,
+          "iou_oracle": 0.23733649111063532
+        }
+      }
+    },
+    "physics baseline (row 2)": {
+      "S1_20230518T1658_o044": {
+        "EMSR664_AOI01_DEL_PRODUCT": {
+          "iou_tau": null,
+          "iou_oracle": null
+        },
+        "EMSR664_AOI01_DEL_MONIT01": {
+          "iou_tau": null,
+          "iou_oracle": null
+        },
+        "EMSR664_AOI01_DEL_MONIT02": {
+          "iou_tau": null,
+          "iou_oracle": null
+        },
+        "EMSR664_AOI01_DEL_MONIT03": {
+          "iou_tau": null,
+          "iou_oracle": null
+        }
+      },
+      "S1_20230522T0519_o095": {
+        "EMSR664_AOI01_DEL_PRODUCT": {
+          "iou_tau": 0.12572841721370046,
+          "iou_oracle": null
+        },
+        "EMSR664_AOI01_DEL_MONIT01": {
+          "iou_tau": 0.3366382015822184,
+          "iou_oracle": null
+        },
+        "EMSR664_AOI01_DEL_MONIT02": {
+          "iou_tau": 0.5245526155929773,
+          "iou_oracle": null
+        },
+        "EMSR664_AOI01_DEL_MONIT03": {
+          "iou_tau": 0.5771930100941676,
+          "iou_oracle": null
+        }
+      },
+      "S1_20230523T1706_o117": {
+        "EMSR664_AOI01_DEL_PRODUCT": {
+          "iou_tau": 0.10047026378712379,
+          "iou_oracle": null
+        },
+        "EMSR664_AOI01_DEL_MONIT01": {
+          "iou_tau": 0.283680247956397,
+          "iou_oracle": null
+        },
+        "EMSR664_AOI01_DEL_MONIT02": {
+          "iou_tau": 0.41932623078987596,
+          "iou_oracle": null
+        },
+        "EMSR664_AOI01_DEL_MONIT03": {
+          "iou_tau": 0.4116013276910267,
+          "iou_oracle": null
+        }
+      }
+    }
+  },
+  "own": {
+    "fusion (cross-attention)": {
+      "S1_20230518T1658_o044": {
+        "EMSR664_AOI01_DEL_PRODUCT": {
+          "iou_tau": 0.03041883709341469,
+          "iou_oracle": 0.0446194012248782
+        },
+        "EMSR664_AOI01_DEL_MONIT01": {
+          "iou_tau": 0.07521770668921801,
+          "iou_oracle": 0.09830693312249517
+        },
+        "EMSR664_AOI01_DEL_MONIT02": {
+          "iou_tau": 0.03922056775287476,
+          "iou_oracle": 0.047345307051459756
+        },
+        "EMSR664_AOI01_DEL_MONIT03": {
+          "iou_tau": null,
+          "iou_oracle": null
+        }
+      },
+      "S1_20230522T0519_o095": {
+        "EMSR664_AOI01_DEL_PRODUCT": {
+          "iou_tau": 0.07614859329510248,
+          "iou_oracle": 0.07737099570970572
+        },
+        "EMSR664_AOI01_DEL_MONIT01": {
+          "iou_tau": 0.13778932718493234,
+          "iou_oracle": 0.13870655138397261
+        },
+        "EMSR664_AOI01_DEL_MONIT02": {
+          "iou_tau": 0.21754834101525472,
+          "iou_oracle": 0.22556286558798777
+        },
+        "EMSR664_AOI01_DEL_MONIT03": {
+          "iou_tau": 0.3899288655934107,
+          "iou_oracle": 0.4186869758819045
+        }
+      },
+      "S1_20230523T1706_o117": {
+        "EMSR664_AOI01_DEL_PRODUCT": {
+          "iou_tau": 0.043287205695836155,
+          "iou_oracle": 0.04931864689124532
+        },
+        "EMSR664_AOI01_DEL_MONIT01": {
+          "iou_tau": 0.12014976359881367,
+          "iou_oracle": 0.1271654085230316
+        },
+        "EMSR664_AOI01_DEL_MONIT02": {
+          "iou_tau": 0.25348067706099686,
+          "iou_oracle": 0.253509196191657
+        },
+        "EMSR664_AOI01_DEL_MONIT03": {
+          "iou_tau": 0.5069606486685009,
+          "iou_oracle": 0.5087613842759714
+        }
+      }
+    },
+    "fusion, SAR only": {
+      "S1_20230518T1658_o044": {
+        "EMSR664_AOI01_DEL_PRODUCT": {
+          "iou_tau": 0.0318300407059896,
+          "iou_oracle": 0.055120201886040644
+        },
+        "EMSR664_AOI01_DEL_MONIT01": {
+          "iou_tau": 0.08144714808790891,
+          "iou_oracle": 0.09742704737998117
+        },
+        "EMSR664_AOI01_DEL_MONIT02": {
+          "iou_tau": 0.04103164009211858,
+          "iou_oracle": 0.04709710908800511
+        },
+        "EMSR664_AOI01_DEL_MONIT03": {
+          "iou_tau": null,
+          "iou_oracle": null
+        }
+      },
+      "S1_20230522T0519_o095": {
+        "EMSR664_AOI01_DEL_PRODUCT": {
+          "iou_tau": 0.07467853576106076,
+          "iou_oracle": 0.07745021636714884
+        },
+        "EMSR664_AOI01_DEL_MONIT01": {
+          "iou_tau": 0.13575012912307707,
+          "iou_oracle": 0.13871684189581027
+        },
+        "EMSR664_AOI01_DEL_MONIT02": {
+          "iou_tau": 0.2231592019338695,
+          "iou_oracle": 0.22549889058503034
+        },
+        "EMSR664_AOI01_DEL_MONIT03": {
+          "iou_tau": 0.4070206113382481,
+          "iou_oracle": 0.4183552217459631
+        }
+      },
+      "S1_20230523T1706_o117": {
+        "EMSR664_AOI01_DEL_PRODUCT": {
+          "iou_tau": 0.06796931061122785,
+          "iou_oracle": 0.07035875914839307
+        },
+        "EMSR664_AOI01_DEL_MONIT01": {
+          "iou_tau": 0.10769174887226673,
+          "iou_oracle": 0.10901697310838451
+        },
+        "EMSR664_AOI01_DEL_MONIT02": {
+          "iou_tau": 0.14336103717384613,
+          "iou_oracle": 0.14490217727670401
+        },
+        "EMSR664_AOI01_DEL_MONIT03": {
+          "iou_tau": 0.23021667985264235,
+          "iou_oracle": 0.2373299902691481
+        }
+      }
+    },
+    "physics baseline (row 2)": {
+      "S1_20230518T1658_o044": {
+        "EMSR664_AOI01_DEL_PRODUCT": {
+          "iou_tau": 0.030574748743718592,
+          "iou_oracle": null
+        },
+        "EMSR664_AOI01_DEL_MONIT01": {
+          "iou_tau": 0.22771357820883203,
+          "iou_oracle": null
+        },
+        "EMSR664_AOI01_DEL_MONIT02": {
+          "iou_tau": 0.1463388424423478,
+          "iou_oracle": null
+        },
+        "EMSR664_AOI01_DEL_MONIT03": {
+          "iou_tau": null,
+          "iou_oracle": null
+        }
+      },
+      "S1_20230522T0519_o095": {
+        "EMSR664_AOI01_DEL_PRODUCT": {
+          "iou_tau": 0.12572349036263314,
+          "iou_oracle": null
+        },
+        "EMSR664_AOI01_DEL_MONIT01": {
+          "iou_tau": 0.33662613518155277,
+          "iou_oracle": null
+        },
+        "EMSR664_AOI01_DEL_MONIT02": {
+          "iou_tau": 0.5244847157223937,
+          "iou_oracle": null
+        },
+        "EMSR664_AOI01_DEL_MONIT03": {
+          "iou_tau": 0.5771930100941676,
+          "iou_oracle": null
+        }
+      },
+      "S1_20230523T1706_o117": {
+        "EMSR664_AOI01_DEL_PRODUCT": {
+          "iou_tau": 0.10045918533068694,
+          "iou_oracle": null
+        },
+        "EMSR664_AOI01_DEL_MONIT01": {
+          "iou_tau": 0.2836646638054363,
+          "iou_oracle": null
+        },
+        "EMSR664_AOI01_DEL_MONIT02": {
+          "iou_tau": 0.4193096700939319,
+          "iou_oracle": null
+        },
+        "EMSR664_AOI01_DEL_MONIT03": {
+          "iou_tau": 0.411577072446522,
+          "iou_oracle": null
+        }
+      }
+    }
+  },
+  "area_km2": {
+    "CEMS DEL_PRODUCT (COSMO-SkyMed)": 42.0683,
+    "CEMS DEL_MONIT01 (RADARSAT-2)": 53.998200000000004,
+    "CEMS DEL_MONIT02 (PAZ)": 27.0597,
+    "CEMS DEL_MONIT03 (COSMO-SkyMed)": 27.9531,
+    "fusion (cross-attention), S1_20230522T0519_o095": 69.51830000000001,
+    "fusion, SAR only, S1_20230522T0519_o095": 63.702299999999994,
+    "physics baseline (row 2), S1_20230522T0519_o095": 19.4586,
+    "fusion (cross-attention), S1_20230523T1706_o117": 28.043699999999998,
+    "fusion, SAR only, S1_20230523T1706_o117": 94.66949999999999,
+    "physics baseline (row 2), S1_20230523T1706_o117": 16.310600000000004
+  },
+  "time_offset_h": {
+    "S1_20230518T1658_o044": {
+      "EMSR664_AOI01_DEL_PRODUCT": 23.747264859722225,
+      "EMSR664_AOI01_DEL_MONIT01": 0.06393152638888888,
+      "EMSR664_AOI01_DEL_MONIT02": -36.33606847361111,
+      "EMSR664_AOI01_DEL_MONIT03": -71.85273514027777
+    },
+    "S1_20230522T0519_o095": {
+      "EMSR664_AOI01_DEL_PRODUCT": 108.09961411583333,
+      "EMSR664_AOI01_DEL_MONIT01": 84.4162807825,
+      "EMSR664_AOI01_DEL_MONIT02": 48.016280782500004,
+      "EMSR664_AOI01_DEL_MONIT03": 12.499614115833333
+    },
+    "S1_20230523T1706_o117": {
+      "EMSR664_AOI01_DEL_PRODUCT": 143.8784463552778,
+      "EMSR664_AOI01_DEL_MONIT01": 120.19511302194445,
+      "EMSR664_AOI01_DEL_MONIT02": 83.79511302194445,
+      "EMSR664_AOI01_DEL_MONIT03": 48.27844635527777
+    }
+  },
+  "case": {
+    "activation": "EMSR664",
+    "aoi": 1,
+    "reference_before": "2023-05-01"
+  }
+}

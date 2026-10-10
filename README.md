@@ -13,12 +13,68 @@ EMS's own delineations of the 2023 Emilia-Romagna floods.
 
 ![EMSR664 Forlì: zero-shot Sentinel-1 flood map vs the Copernicus EMS delineation](assets/forli_hero.png)
 
+*Forlì, 23 May 2023: the cross-attention model, zero-shot with Sentinel-2 on 9 of 16 tiles (centre), against
+Copernicus EMS's COSMO-SkyMed delineation of 21 May (right).*
+
 ## Results at a glance
 
-TBD-RESULTS
+**Ten real floods, each held out.** Sen1Floods11, re-ingested; leave-one-event-out — every event is
+scored by a model that never saw it ([full table](reports/sen1floods11_table.md)).
 
-Every number regenerates from the recorded git SHA. The table builders refuse runs made from different
-code, mixed datasets or mixed test sets.
+| Model | IoU at τ* | AP |
+| --- | --- | --- |
+| Global Otsu on VV | 0.299 | 0.451 |
+| Physics baseline: adaptive threshold + change + terrain masks | 0.157 | 0.152 |
+| Physics baseline + optical water index (MNDWI) | 0.444 | 0.440 |
+| U-Net, SAR only | 0.365 | 0.538 |
+| **Cross-attention fusion** (3 seeds) | **0.625** | **0.769** |
+| The same fusion model with optical removed at inference | 0.383 | 0.570 |
+| TerraMind-1.0-small (IBM/ESA foundation model, frozen) + UNet decoder | 0.576 | 0.765 |
+
+- **Fusion beats the SAR-only U-Net on all 10 held-out floods**: +0.26 IoU, exact sign-flip test, Holm-adjusted
+  p = 0.018. The labels were drawn on the optical image the model sees, so part of that gain is agreement
+  with the annotators; the Copernicus EMS case below is the independent check.
+- **Without optical, the fusion model is the SAR-only model**: −0.005 IoU, not significant. Cloud costs what SAR
+  alone costs, never more.
+- **The IBM/ESA foundation model**, frozen, lands 0.05 IoU below the fusion model (behind on 7 of 10 events; not
+  significant).
+- **The published within-event split barely flatters these models**: at most +0.015 IoU at τ*, none
+  significant, against +0.048 for the synthetic leakage row.
+- **Conformal recall control holds on average but not per flood**: the mean per-chip miss rate is 0.08–0.10 at
+  α = 0.1, but it holds on only 5–8 of 10 new floods. Events are not exchangeable.
+- **Physics rules built on backscatter change fail on these labels**: in 8 of 10 events the labelled water did
+  not darken against a reference up to 60 days earlier ([diagnostic](reports/sen1floods11_label_change.md)).
+
+**Against Copernicus EMS's own maps: EMSR664, Forlì, May 2023** (zero-shot: trained on Sen1Floods11
+only; [report](reports/emsr664_forli.md)). Scored on the 1101 km² that both full Sentinel-1 passes and all
+four CEMS delineations (COSMO-SkyMed, RADARSAT-2, PAZ) observed, against the delineation nearest in time:
+
+| Sentinel-1 pass | Optical | Fusion | Same model, no optical | Physics baseline |
+| --- | --- | --- | --- | --- |
+| 22 May (12 h after CEMS) | none | 0.390 | 0.407 | **0.577** |
+| 23 May (48 h after CEMS) | 9 of 16 tiles | **0.507** | 0.230 | 0.412 |
+
+- **Optical's value survives an independent reference.** On 23 May, Sentinel-2 adds +0.28 IoU, and the
+  fusion map's flooded area (28.0 km²) matches CEMS's latest delineation (28.0 km²); without optical, the
+  same model maps 94.7 km².
+- **Zero-shot to the Po plain, the learned SAR-only path over-maps fields** and loses to the physics baseline
+  (0.41 vs 0.58). It is not yet a drop-in SAR-only product for a new region.
+- **The 18 May pass saw only the coast** (4 of 16 tiles) and is scored on its own coverage.
+
+**Synthetic benchmark: pipeline validation, not accuracy** (13 rows × 3 seeds, 3 test basins;
+[ablation](reports/ablation_table.md), [stress](reports/stress.md)).
+
+- **The leakage row works**: a random split inflates IoU by +0.048, in all 3 test basins.
+- **What does not pay off here**, reported rather than tuned away; three test basins support no significance
+  verdicts:
+  - fusion does not beat SAR-only (0.676 vs 0.676);
+  - plain BCE beats the compound loss (0.740 vs 0.676);
+  - the fusion gate barely trained, averaging 0.12–0.17 over clear sky ([gate diagnostic](reports/gate_diagnostic.md)).
+- **Under wind** (0.5 → 10 m/s), the physics baseline collapses (IoU 0.74 → 0.006) while the learned models
+  degrade gracefully (0.60 → 0.53).
+
+Every report names the git SHA it was produced at, and regenerates from it. The table builders refuse runs
+made from different code, mixed datasets or mixed test sets.
 
 ## Why this is hard
 
@@ -100,9 +156,9 @@ No step needs an account or an API key. The test suite and the synthetic demonst
 ```bash
 make setup && make preflight       # uv-locked environment (Python 3.12), environment checks
 make test                          # offline suite (CPU); make test-all adds the live-service tests
-make demo SEED_PROTOCOL=full       # synthetic benchmark -> 13-row ablation, 3 seeds (~2 h on an RTX 4060 Laptop)
+make demo SEED_PROTOCOL=full       # synthetic benchmark -> 13-row ablation, 3 seeds (~1.5 h on an RTX 4060 Laptop)
 make stress                        # single-factor stress curves + the fusion gate figure
-make s1f11 S1F11_LEARNED="4 9 14"  # Sen1Floods11 re-ingested, leave-one-event-out + published split
+make s1f11 S1F11_LEARNED="4 9 14"  # Sen1Floods11 re-ingested, leave-one-event-out + published split (~9 h)
 make forli                         # EMSR664 Forlì: every Sentinel-1 pass vs every CEMS delineation
 ```
 
