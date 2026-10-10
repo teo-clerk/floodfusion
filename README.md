@@ -38,14 +38,17 @@ scored by a model that never saw it ([full table](reports/sen1floods11_table.md)
 - **Fusion beats the SAR-only U-Net on all 10 held-out floods**: +0.26 IoU, exact sign-flip test, Holm-adjusted
   p = 0.018. The labels were drawn on the optical image the model sees, so part of that gain is agreement
   with the annotators; the Copernicus EMS case below is the independent check.
-- **Without optical, the fusion model is the SAR-only model**: −0.005 IoU, not significant. Cloud costs what SAR
-  alone costs, never more.
+- **Without optical, the fusion model is the SAR-only model**: −0.005 IoU, not significant, when a whole chip has
+  no optical. A **partial** cloud is worse: under it the model misses almost every flooded pixel (IoU 0.03 against
+  0.21 in its SAR-only mode, real cloud shapes pasted on clear chips;
+  [Stage A diagnostics](reports/stage_a_diagnostics.md)). The per-pixel quality gate does not hand those pixels to
+  the SAR path; only a chip with no usable optical at all falls back to it.
 - **The IBM/ESA foundation model**, frozen, lands 0.05 IoU below the fusion model (behind on 7 of 10 events; not
   significant).
 - **The published within-event split barely flatters the trained models**: at most +0.015 IoU at τ* for
   the SAR U-Net, the fusion model and TerraMind, against +0.048 for the synthetic leakage row. The fusion
   model run without optical gains up to +0.091. None of these gaps is significant.
-- **Conformal recall control holds on average but not per flood**: the mean per-chip miss rate is 0.08–0.10 at
+- **Conformal recall control holds on average but not per flood**: the mean per-chip miss rate is 0.08–0.11 at
   α = 0.1, but it holds on only 5–8 of 10 new floods. Events are not exchangeable.
 - **Physics rules built on backscatter change fail on these labels**: in 8 of 10 events the labelled water did
   not darken against a reference up to 60 days earlier ([diagnostic](reports/sen1floods11_label_change.md)).
