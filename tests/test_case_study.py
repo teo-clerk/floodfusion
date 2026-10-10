@@ -132,3 +132,54 @@ def test_report_marks_the_nearest_product_and_orders_the_recession(tmp_path) -> 
     rows = [line for line in text.splitlines() if line.startswith("| CEMS") or line.startswith("| fusion,")]
     assert rows[0].startswith("| CEMS DEL_PRODUCT") and rows[-1].startswith("| fusion, S1_20230518T1658_o044")
     assert json.loads((tmp_path / "r.json").read_text())["area_km2"]["fusion, S1_20230518T1658_o044"] == 72.0
+
+
+def _baseline_stack(tmp_path: Path, *, vv_left: float, vv_right: float, label: int, no_sar: bool = False) -> Path:
+    from floodfusion.data.chipping import AnalysisGrid, write_event_stack
+    from floodfusion.data.encoding import N_CHIP_BANDS, ChipBand
+
+    rng = np.random.default_rng(0)
+    stack = np.zeros((N_CHIP_BANDS, 64, 64), dtype=np.int16)
+    vv = np.where(np.arange(64)[None, :] < 32, vv_left, vv_right) + rng.normal(0, 0.5, (64, 64))
+    dry = np.full((64, 64), vv_right) + rng.normal(0, 0.5, (64, 64))      # before the flood: land everywhere
+    stack[ChipBand.VV_POST], stack[ChipBand.VV_PRE] = np.round(vv * 100), np.round(dry * 100)
+    stack[ChipBand.VH_POST], stack[ChipBand.VH_PRE] = np.round((vv - 6) * 100), np.round((dry - 6) * 100)
+    stack[ChipBand.LABEL] = label
+    if no_sar:  # the int16 nodata sentinel, exactly: no SAR coverage on this tile
+        stack[[ChipBand.VV_POST, ChipBand.VH_POST, ChipBand.VV_PRE, ChipBand.VH_PRE, ChipBand.DELTA_VV]] = -32768
+    path = tmp_path / "stack.tif"
+    write_event_stack(path, stack, AnalysisGrid(epsg=32632, transform=(10.0, 0.0, 7e5, 0.0, -10.0, 4.9e6),
+                                               width=64, height=64))
+    return path
+
+
+def test_the_baseline_maps_a_case_tile_that_carries_no_label(tmp_path) -> None:
+    """Release finding: the case-study baseline chose its pixels by label and crashed on unlabelled tiles."""
+    from floodfusion.case_study import _baseline
+
+    # Arrange: the left half darkened since the dry reference; no label anywhere (nodata).
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "eval_test.json").write_text(json.dumps({"operating_offset_db": 0.0}))
+    stack = _baseline_stack(tmp_path, vv_left=-22.0, vv_right=-8.0, label=-32768)
+    model = _baseline(run, Path(__file__).resolve().parents[1] / "configs", [])
+
+    # Act
+    flood = model.predict(stack) > 0.5
+
+    # Assert
+    assert flood[:, :28].mean() > 0.9 and flood[:, 36:].mean() < 0.1
+
+
+def test_a_case_tile_without_usable_sar_maps_no_flood(tmp_path) -> None:
+    from floodfusion.case_study import _baseline
+
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "eval_test.json").write_text(json.dumps({"operating_offset_db": 0.0}))
+    stack = _baseline_stack(tmp_path, vv_left=-22.0, vv_right=-8.0, label=-32768, no_sar=True)
+    assert not model_predicts_flood(_baseline(run, Path(__file__).resolve().parents[1] / "configs", []), stack)
+
+
+def model_predicts_flood(model, stack) -> bool:
+    return bool((model.predict(stack) > 0.5).any())

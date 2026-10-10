@@ -159,7 +159,8 @@ def gate_figure(m: Mapping[str, Any], records: Sequence[Any], device: Any, out: 
         if cmap == "magma":
             fig.colorbar(im, ax=ax, fraction=0.046)
     axes[-1].contour(sample["label"].numpy()[0], levels=[0.5], colors="crimson", linewidths=0.8)
-    fig.suptitle("The gate opens where optical is clear and closes under cloud (R2/R3 by construction)", fontsize=11)
+    # A description, not a claim: what the gate learned is measured in scripts/gate_diagnostic.py.
+    fig.suptitle("Row 9 on one chip: optical, its quality, the learned gate g, VV and the prediction", fontsize=11)
     fig.tight_layout()
     out.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out, dpi=110)

@@ -37,7 +37,7 @@ import logging
 import math
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -262,8 +262,14 @@ def _baseline(run_dir: Path, configs_dir: Path, overlays: Sequence[Path]) -> _Mo
     offset = float(evaluation["operating_offset_db"])
 
     def run(stack: Path) -> np.ndarray:
+        # Deployment has no label: the threshold comes from every valid SAR pixel. (The benchmark
+        # runner scores labelled pixels; a case tile's label is a CEMS delineation, often absent.)
         scene = load_scene(stack, cfg)
-        surface, _ = threshold_surface(scene, cfg)
+        valid = np.isfinite(scene.vv_post_db) & ~scene.layover & ~scene.shadow & ~scene.permanent
+        if int(valid.sum()) < 2:
+            LOGGER.warning("%s: no usable SAR pixels; the physics baseline maps no flood", stack.parent.name)
+            return np.zeros(scene.vv_post_db.shape, np.float32)
+        surface, _ = threshold_surface(replace(scene, scored=valid), cfg)
         return flood_map(scene, surface, cfg, offset_db=offset).astype(np.float32)
 
     return _Model("physics baseline (row 2)", run, 0.5, calibrated=False)
