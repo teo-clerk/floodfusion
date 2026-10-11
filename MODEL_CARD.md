@@ -68,7 +68,7 @@ All numbers come from the release runs; each report records its git SHA.
   - At the oracle threshold, fusion scores 0.668: some of the gap to τ\* is threshold transfer between events.
 - **Per event**, fusion ranges from 0.443 (Pakistan) to 0.852 (Mekong); see
   `reports/sen1floods11_table.md`.
-- **Conformal recall (α = 0.1).** The mean per-chip miss rate is 0.08–0.10, but the target holds on only
+- **Conformal recall (α = 0.1).** The mean per-chip miss rate is 0.08–0.11, but the target holds on only
   5–8 of 10 held-out events, and precision at the conformal threshold is about 0.25.
 - **EMSR664 Forlì, zero-shot against Copernicus EMS.** Scored on the 1101 km² common region against the nearest
   delineation:
@@ -93,6 +93,13 @@ All numbers come from the release runs; each report records its git SHA.
   at 0.12–0.17 over clear pixels, slightly higher under the cloud mask; only 2–6 % of clear pixels open
   past 0.5 (`reports/gate_diagnostic.md`). The network takes almost nothing from optical there (clear sky
   adds 0.004 IoU). What holds by construction is the SAR-only path when optical is missing.
+- **Partial cloud (real data).** The SAR-only fallback holds for a whole chip without optical, not per pixel.
+  With real cloud shapes pasted onto clear Sen1Floods11 chips, the flooded pixels under the cloud are almost
+  all missed (IoU 0.02–0.03, against 0.21 when the same chip is run SAR-only), while clear pixels keep their
+  accuracy even next to the cloud edge. On real data the gate opens with optical (≈ 0.25–0.48 against
+  0.14–0.19 with the missing embedding) but barely responds to the per-pixel quality
+  (`reports/stage_a_diagnostics.md`, A1 and A2). Until this is fixed, mask partly cloudy optical out entirely,
+  or run the SAR-only mode, where clouds cover flood-prone ground.
 - **Geometry.**
   - Sentinel-2 L2A of 2016–2019 sits 1–3 px from the radar geometry, and Sen1Floods11 labels follow it.
     Labels and optical are registered to the SAR per event, using the labels' water edges where the
