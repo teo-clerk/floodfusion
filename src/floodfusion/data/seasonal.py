@@ -83,17 +83,27 @@ def seasonal_reference(event_dir: Path, client: Any, *, overwrite: bool = False)
         atomic_write_bytes(record_path, json.dumps(record, indent=2).encode("utf-8"))
         return record
     stacks: dict[str, list[np.ndarray]] = {"VV": [], "VH": []}
+    skipped: list[str] = []
     with rasterio.Env(**GDAL_ENV):
         for acq in candidates:
             items = items_by_id(client, "sentinel-1-rtc", acq.frame_ids)
-            for pol in stacks:
-                try:
-                    db, _ = read_s1_rtc(items, grid, pol)
-                except KeyError:   # a single-polarisation (1SSV) acquisition has no VH: VV is what counts
-                    if pol == "VV":
-                        raise
-                    continue
-                stacks[pol].append(db_to_linear(db))
+            try:
+                vv, _ = read_s1_rtc(items, grid, "VV")
+            except ValueError:   # the frame's footprint touches the grid but holds no valid pixel over it
+                skipped.append(acq.when.isoformat())
+                continue
+            stacks["VV"].append(db_to_linear(vv))
+            try:
+                vh, _ = read_s1_rtc(items, grid, "VH")
+                stacks["VH"].append(db_to_linear(vh))
+            except (KeyError, ValueError):   # single polarisation (1SSV) or no VH data: VV is what counts
+                pass
+    record["skipped_acquisitions"] = skipped
+    if len(stacks["VV"]) < MIN_SCENES:
+        record.update(status=f"insufficient: {len(stacks['VV'])} < {MIN_SCENES} acquisitions with data over the grid",
+                      n_scenes=0)
+        atomic_write_bytes(record_path, json.dumps(record, indent=2).encode("utf-8"))
+        return record
     layers = []
     for pol in ("VV", "VH"):
         if len(stacks[pol]) < MIN_SCENES:   # VH is optional; the change term uses VV
@@ -112,7 +122,7 @@ def seasonal_reference(event_dir: Path, client: Any, *, overwrite: bool = False)
         dst.set_band_description(1, "seasonal_vv_db")
         dst.set_band_description(2, "seasonal_vh_db")
     tmp.replace(event_dir / "seasonal.tif")
-    record.update(status="ok", n_scenes=len(candidates))
+    record.update(status="ok", n_scenes=len(stacks["VV"]))
     atomic_write_bytes(record_path, json.dumps(record, indent=2).encode("utf-8"))
     return record
 

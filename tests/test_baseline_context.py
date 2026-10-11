@@ -99,3 +99,30 @@ class TestSeasonalReference:
         assert scene.reference == "seasonal" and np.allclose(scene.vv_pre_db, -9.0)
         recent = load_scene(d / "stack.tif", replace(cfg, baseline=replace(cfg.baseline, reference="recent")))
         assert recent.reference == "recent" and np.allclose(recent.vv_pre_db, -20.0)
+
+
+def test_an_acquisition_without_data_over_the_grid_is_skipped_not_fatal(tmp_path, monkeypatch) -> None:
+    from shapely.geometry import box, mapping
+
+    import floodfusion.data.archive as archive
+    import floodfusion.data.sources as sources
+    from floodfusion.data.stac import InMemoryCatalogue
+
+    d = _stack(tmp_path)
+    swath = box(14.0, 44.0, 16.0, 45.0)
+    days = ("2022-12-20", "2023-01-01", "2023-01-13", "2023-01-25")
+    items = [{"id": f"s{i}", "collection": "sentinel-1-rtc", "bbox": list(swath.bounds), "geometry": mapping(swath),
+              "properties": {"datetime": f"{day}T05:20:00Z", "sat:relative_orbit": 95, "sat:orbit_state": "descending"}}
+             for i, day in enumerate(days)]
+
+    def read(items, grid, pol):
+        if items[0]["id"] == "s1":
+            raise ValueError("gamma0_VV: no finite pixels")
+        return np.full((grid.height, grid.width), -9.0), {}
+
+    monkeypatch.setattr(sources, "read_s1_rtc", read)
+    monkeypatch.setattr(archive, "items_by_id", lambda client, coll, ids: [i for i in items if i["id"] in ids])
+    record = seasonal_reference(d, InMemoryCatalogue.from_dicts(items))
+    assert record["status"] == "ok" and record["n_scenes"] == 3 and len(record["skipped_acquisitions"]) == 1
+    vv, _ = read_seasonal(d)
+    assert np.allclose(vv, -9.0)

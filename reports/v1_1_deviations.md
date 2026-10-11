@@ -17,6 +17,7 @@ or scored when any entry below was made**, unless the entry says otherwise.
 | 2026-10-11 | `kurosiwo.relabel_water` skips stacks that produced no chips. | One stack with no passing window has no `basins.gpkg`. Nothing to relabel. |
 | 2026-10-11 | Security hardening from the review: OGR's VRT driver is never loaded (`OGR_SKIP`); CEMS package members must match their type; 401/403 is asked again twice before an activation counts as not public; activation codes are validated before they name a path; caches and resume markers are written atomically; the annotation tarball's root is anchored to the pinned commit; no nested rate-limit retries; one more log line redacted. | No effect on any data already selected or ingested. The 10 refused codes were re-checked by hand (see below). The committed census file is unchanged. |
 
+| 2026-10-11 | `data.seasonal` skips a year-earlier acquisition with no valid pixel over the grid, and counts only acquisitions with data towards the minimum of 3. | One CEMS tile (EMSR838 AOI08 t00_02) failed, because a frame touching its footprint held no data over it. Every other reference is unchanged. The new freeze SHA is set before any v1.1 run. |
 
 ## Protocol amendment
 
