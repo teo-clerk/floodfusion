@@ -44,9 +44,24 @@ ks_hours() {   # GPU hours spent so far on Kuro Siwo training (both label sets)
   $PY - <<'EOF'
 import json
 from pathlib import Path
-s = sum(float(json.loads(p.read_text()).get("train_seconds") or 0)
-        for p in Path("runs/v11").glob("kurosiwo*/*/*/*/seed*/run.json"))
+records = (json.loads(p.read_text()) for p in Path("runs/v11").glob("kurosiwo*/*/*/*/seed*/run.json"))
+# An evaluation-only sibling (row 11, "trained": false) copies its parent's train_seconds: count it once.
+s = sum(float(r.get("train_seconds") or 0) for r in records if r.get("trained", True))
 print(f"{s / 3600:.2f}")
+EOF
+}
+
+cems_done() {   # the CEMS scores and report exist, scored from a clean tree whose code paths equal this one
+  $PY - <<'EOF'
+import json
+import sys
+from pathlib import Path
+from floodfusion.utils.env import code_changed_since
+scores, report = Path("reports/cems_benchmark_scores.json"), Path("reports/cems_benchmark.json")
+if not (scores.is_file() and report.is_file()) or report.stat().st_mtime < scores.stat().st_mtime:
+    sys.exit(1)
+git = json.loads(scores.read_text())["git"]
+sys.exit(1 if git.get("git_dirty") or code_changed_since(git.get("git_sha")) else 0)
 EOF
 }
 
@@ -71,7 +86,7 @@ case "${1:-}" in
     $PY -m floodfusion.crossval run $S1F11 --protocol official $S1F11_ROWS
     $PY -m floodfusion.crossval run $KS --protocol all $KS_MAIN
     $PY -m floodfusion.crossval run $KSW --protocol all $WATER
-    make v11-cems
+    if cems_done; then echo "CEMS scores from matching code exist: skipping make v11-cems"; else make v11-cems; fi
     # 2. Cross-validation (descriptive tables), Kuro Siwo under its cap.
     $PY -m floodfusion.crossval run $S1F11 --protocol loeo $S1F11_ROWS
     $PY -m floodfusion.crossval run $KS --protocol kfold $KS_MAIN
