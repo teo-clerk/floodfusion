@@ -2,6 +2,8 @@
 # curriculum/ holds the design specification the code cites as docs/NN.
 /curriculum/
 /portfolio_briefing/
+# PDFs (printed study notes) stay local, wherever they are saved.
+*.pdf
 
 # --- Python / tooling ---------------------------------------------------------
 .venv/
