@@ -336,7 +336,14 @@ def _attribution_section(loeo_folds: Mapping[str, Any]) -> list[str]:
     """Row 2 per event with each rule component disabled — the change term above all."""
     variants: dict[str, dict[str, ConfusionMatrix]] = {}
     fallbacks, scenes = 0, 0
+    references: dict[str, dict[str, int]] = {}
     for fold_rows in loeo_folds.values():
+        for key in ("row02e_event_fallback", "row02s_seasonal"):
+            for e in fold_rows.get(key, []):
+                for info in (e["eval"].get("scenes") or {}).values():
+                    slot = references.setdefault(key, {})
+                    for name in (f"fallback: {info.get('fallback', 'none')}", f"reference: {info.get('reference', 'recent')}"):
+                        slot[name] = slot.get(name, 0) + 1
         for e in fold_rows.get("2", []):
             for name, per_basin in (e["eval"].get("attribution_per_basin") or {}).items():
                 variants.setdefault(name, {}).update({b: cm_from_dict(d) for b, d in per_basin.items()})
@@ -350,6 +357,10 @@ def _attribution_section(loeo_folds: Mapping[str, Any]) -> list[str]:
              "| Row 2 variant | Macro IoU over events | Pooled IoU |", "| --- | --- | --- |"]
     lines += [f"| {name} | {fmt(macro_iou(pb))} | {fmt(sum_confusions(list(pb.values())).iou)} |"
               for name, pb in sorted(variants.items())]
+    if references:
+        lines += ["", "Scenes of the v1.1 baseline variants by threshold fallback and change reference actually used:", "",
+                  "| Variant | Counts |", "| --- | --- |"]
+        lines += [f"| {key} | {', '.join(f'{k}: {v}' for k, v in sorted(c.items()))} |" for key, c in references.items()]
     return lines
 
 
@@ -360,6 +371,7 @@ V11_LABELS = {
     "row09r_sar_query": "9r — row 9, reverse assignment (Q from SAR, K = V from optical)",
     "row02e_event_fallback": "2e — row 2, event-pooled threshold where a chip has no bimodal tile",
     "row02s_seasonal": "2s — row 2e with the seasonal reference (same date, a year earlier)",
+    "cmp_terramind_small__eval_sar_only": "TM, evaluated SAR-only at inference (its own SAR-only calibration)",
 }
 #: v1.1 descriptive gaps (B - A): reported with unadjusted p-values and no verdict.
 V11_GAPS: tuple[tuple[int | str, int | str, str, str], ...] = (
@@ -405,7 +417,7 @@ def _crossfit_section(folds: Mapping[str, Mapping[str, Sequence[Mapping[str, Any
             for e in entries:
                 if e["eval"].get("per_basin_confusion_by_threshold"):
                     by_row.setdefault((key, _seed_key(e)), []).append(e)
-    lines = ["| Row | Seed | K | IoU at τ* (own validation) | IoU at cross-fitted τ | IoU, oracle τ | "
+    lines = ["| Row | Seed | K | IoU at τ* (own validation) | IoU at cross-fitted τ | IoU, best τ per group | "
              "Conformal: events with FNR ≤ α, own → cross-fitted | Mean chip FNR, cross-fitted | Precision at τ_conf, "
              "cross-fitted |", "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"]
     out: dict[str, Any] = {}
@@ -421,7 +433,8 @@ def _crossfit_section(folds: Mapping[str, Mapping[str, Sequence[Mapping[str, Any
                 chips.setdefault(basin_of[chip], (grid["thresholds"], {}))[1][chip] = \
                     [ConfusionMatrix(*map(int, c)) for c in cms]
             conf = e["eval"].get("conformal") or {}
-            own.update(conf.get("test_mean_chip_fnr_by_basin") or {})
+            if conf.get("feasible"):   # an infeasible fold flags everything: not a held target
+                own.update(conf.get("test_mean_chip_fnr_by_basin") or {})
         cost = crossfit_cost_threshold(curves, cost_ratio)
         conformal = crossfit_conformal(chips, alpha)
         tau_own = macro_iou({ev: cm_from_dict(d) for e in entries for ev, d in e["eval"]["per_basin"].items()})
@@ -477,7 +490,9 @@ def build_cv_table(runs_root: Path | str, *, out: Path | str | None = None, allo
                      "The cost-optimal threshold and the conformal threshold of each held-out event are fitted on the "
                      "pooled held-out predictions of the *other* events (each from its own fold model) instead of the "
                      "fold's single validation event. Nothing is re-run: the stored confusion counts are re-read "
-                     "(`floodfusion.crossfit`).", "", *c_lines, ""]
+                     "(`floodfusion.crossfit`). n counts windows, not events, and each calibration window comes from a "
+                     "fold model that was trained on the target event: the control is approximate (cross-conformal "
+                     "in style), not a finite-sample guarantee.", "", *c_lines, ""]
         v11_json = {"descriptive_gaps": d_gaps, "crossfit": c_json}
     if title is not None:
         header = [f"# {title}", "", *(intro or ()), ""]

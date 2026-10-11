@@ -13,9 +13,16 @@ or scored when any entry below was made**, unless the entry says otherwise.
 | 2026-10-10 | `crossval run --fold` accepts fold names across several protocols in one call. | Needed for the smoke run of one fold per protocol. Nothing else changes. |
 | 2026-10-10 | `data.seasonal`: VH is optional (VV decides; VH is written when ≥ 3 acquisitions have it). | A 2015 acquisition over India is single-polarisation (1SSV), which made 5 stacks fail. The baseline's change term uses VV only. |
 | 2026-10-10 | Version 1.1.0 in `pyproject.toml`, `uv.lock` (whose stale 0.1.0 entry is fixed) and the package. | Set before the freeze, so the release changes no code path. |
-| 2026-10-11 | `crossval.all_groups_split`: the last fold's groups alternate between validation (calibration, early stopping) and a test set that is never reported. Training stays on folds 0–3, as pre-registered. | The protocol's "validate on fold 4", with test = validation, fails the split loader's disjointness check (`load_splits`). Found by review before any run. |
+| 2026-10-11 | `crossval.all_groups_split` (first fix: alternate groups of fold 4). | Superseded the same day by Amendment 1 (A1.7), before any run: that rule left the validation set 2.5 % optical. |
 | 2026-10-11 | `kurosiwo.relabel_water` skips stacks that produced no chips. | One stack with no passing window has no `basins.gpkg`. Nothing to relabel. |
 | 2026-10-11 | Security hardening from the review: OGR's VRT driver is never loaded (`OGR_SKIP`); CEMS package members must match their type; 401/403 is asked again twice before an activation counts as not public; activation codes are validated before they name a path; caches and resume markers are written atomically; the annotation tarball's root is anchored to the pinned commit; no nested rate-limit retries; one more log line redacted. | No effect on any data already selected or ingested. The 10 refused codes were re-checked by hand (see below). The committed census file is unchanged. |
+
+
+## Protocol amendment
+
+| Date (UTC) | Change | Reason |
+|---|---|---|
+| 2026-10-11 | **Amendment 1** (`reports/protocol_v1_1.md`, A1.1–A1.11): SAR-only calibration for windows without optical, two unit definitions, an exact one-sided P2, Monte Carlo p-values, descriptive subsets and sensitivity analyses, P3 worded as a comparison of recipes, the Kuro Siwo all-groups validation set, run order and cap, a fail-closed seasonal reference, cross-fit caveats, TerraMind's pre-training period. | Two design reviews of the implementation, before any v1.1 model was trained or scored. |
 
 ## Observations that affect what can be reported
 
@@ -25,3 +32,5 @@ or scored when any entry below was made**, unless the entry says otherwise.
 | 2026-10-10 | **CEMS census, non-public codes:** 10 codes returned HTTP 403 ("Authentication credentials were not provided"): EMSR658, 700, 723, 724, 840, 869, 876, 879, 880, 891. Re-checked one by one, 3 s apart, after the census: all still 403. They are non-public activations, not rate limiting, so the census stands. |
 | 2026-10-11 | **Kuro Siwo yield:** 36 of the 40 dated events produced chips (3,971 windows, 29 groups). Excluded by the ingest's own rules: EMSR1111013 USA and EMSR130 Myanmar (no same-orbit pre-event pass within 60 days in the archive); EMSR502 Ireland and EMSR520 Netherlands (no pass on the labelled date covers ≥ 10 % of any AOI). The flood and water chip sets were verified identical in windows, validity, groups and optical availability; the water label raises the mean flood share from 0.095 to 0.114. |
 | 2026-10-11 | **CEMS benchmark yield:** all 90 pairs left by the caps (≤ 4 AOIs per activation) were prepared. |
+| 2026-10-11 | **Dry runs, disclosed.** Before the freeze, two throwaway runs checked that the new code paths do not crash. (1) `runs/v11_dryrun`: one Sen1Floods11 fold (rows 12, TerraMind, 9b, 9c, 9r, 2e, 2s) and one Kuro Siwo fold and all-groups model (rows 9, 2, 2s), seed 42, at a pre-freeze SHA. (2) The CEMS scorer on two pairs with the **v1.0** models, on CPU. Only completion and log lines were looked at, no IoU. None of these runs enters any v1.1 report. |
+| 2026-10-11 | **Census recheck:** the eligibility census re-run from scratch (fresh verdicts) with the current code gives the identical 117 pairs. Of the 243 codes, 233 are public and 10 restricted (see above). |

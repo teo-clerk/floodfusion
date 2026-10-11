@@ -139,16 +139,20 @@ def k_fold_groups(records: Sequence[ChipRecord], k: int = 5, *, manifest_sha256:
 def all_groups_split(records: Sequence[ChipRecord], k: int = 5, *, manifest_sha256: str = "") -> dict[str, SplitAssignment]:
     """``{"all": split}``: the deployable model — train on folds 0..k-2; fold k-1 calibrates it.
 
-    Fold k-1's groups alternate (sorted) between validation (early stopping, calibration) and a
-    test set that only satisfies the pipeline: splits must be non-empty and disjoint
-    (:func:`floodfusion.splits.load_splits`), and that score is never reported. The model exists to
-    be applied to *other* data (the CEMS benchmark).
+    Fold k-1's **smallest** group (fewest windows; ties by name) is a test set that only satisfies
+    the pipeline — splits must be non-empty and disjoint (:func:`floodfusion.splits.load_splits`)
+    and that score is never reported; the fold's other groups validate (early stopping,
+    calibration). The rule is blind to labels and optical. The model exists to be applied to
+    *other* data (the CEMS benchmark).
     """
     fold_of = assign_group_folds(records, k)
-    last = sorted(g for g, f in fold_of.items() if f == k - 1)
+    counts: dict[str, int] = {}
+    for r in records:
+        counts[r.basin_id] = counts.get(r.basin_id, 0) + 1
+    last = sorted((g for g, f in fold_of.items() if f == k - 1), key=lambda g: (counts[g], g))
     if len(last) < 2:
         raise ValueError(f"the all-groups split needs >= 2 groups in fold {k - 1}, got {last}")
-    val_groups, test_groups = tuple(last[0::2]), tuple(last[1::2])
+    test_groups, val_groups = (last[0],), tuple(sorted(last[1:]))
 
     def chips(groups: Sequence[str]) -> tuple[str, ...]:
         return tuple(sorted(r.chip_id for r in records if r.basin_id in groups and r.eval_grid))
@@ -270,6 +274,9 @@ def _config_name(row: int) -> str:
     return {**ROW_CONFIGS, **EXTRA_ROWS}[row]
 
 
+#: Rows whose checkpoints are also evaluated SAR-only, and the run folder that evaluation goes to.
+SAR_ONLY_EVALUATED = {9: lambda name: "row11_fusion_eval_sar_only", 14: lambda name: f"{name}__eval_sar_only"}
+
 #: The reference row: under the affordable protocol it alone gets every seed.
 REFERENCE_ROW = 9
 
@@ -289,7 +296,7 @@ def seeds_for(row: int, seeds: Sequence[int], protocol: str) -> list[int]:
 
 
 def _run_fold(fold: Fold, args: argparse.Namespace, device: Any) -> None:
-    from floodfusion.ablation import ROW_CONFIGS, _finished
+    from floodfusion.ablation import _finished
     from floodfusion.baseline_runner import run_baseline_row
     from floodfusion.evaluate import evaluate_run
     from floodfusion.runs import run_dir_for
@@ -316,8 +323,10 @@ def _run_fold(fold: Fold, args: argparse.Namespace, device: Any) -> None:
                 })
                 if not args.skip_test:
                     evaluate_run(run_dir, data_root=args.data_root, device=device, figures=False)
-            if row == 9 and not args.skip_test:
-                out = run_dir_for(root, ROW_CONFIGS[11], seed)
+            if row in SAR_ONLY_EVALUATED and not args.skip_test:
+                # The model's no-optical mode, calibrated on SAR-only validation logits: row 9 -> row 11,
+                # and TerraMind's (its CEMS windows without optical are read with this calibration).
+                out = run_dir_for(root, SAR_ONLY_EVALUATED[row](cfg.name), seed)
                 if not _finished(out):
                     evaluate_run(run_dir, data_root=args.data_root, device=device, force_sar_only=True,
                                  out_dir=out, figures=False)
@@ -375,14 +384,17 @@ def _freeze_protocol(args: argparse.Namespace, chip_dir: Path, manifest_name: st
     path = args.runs_root / "protocol.json"
     if path.is_file():
         frozen = json.loads(path.read_text(encoding="utf-8"))
-        same = {k: frozen.get(k) for k in ("seeds", "manifest_sha256", "folds")} == \
-            {k: record[k] for k in ("seeds", "manifest_sha256", "folds")} and \
-            all(frozen["rows"].get(r, h) == h for r, h in record["rows"].items())
+        # Rows may be ADDED by a later call (a staged queue); nothing already recorded may change.
+        same = {k: frozen.get(k) for k in ("manifest_sha256", "folds")} == \
+            {k: record[k] for k in ("manifest_sha256", "folds")} and \
+            all(frozen["rows"].get(r, h) == h for r, h in record["rows"].items()) and \
+            all(frozen.get("seeds", {}).get(r, s) == s for r, s in record["seeds"].items())
         if not same and not args.new_protocol:
             raise ValueError(f"{path} records a different protocol (rows, seeds, folds or manifest); "
                              "pass --new-protocol to start one deliberately")
         if same:
             record["rows"] = {**frozen["rows"], **record["rows"]}
+            record["seeds"] = {**frozen.get("seeds", {}), **record["seeds"]}
     args.runs_root.mkdir(parents=True, exist_ok=True)
     atomic_write_bytes(path, json.dumps(record, indent=2).encode("utf-8"))
 
@@ -466,7 +478,11 @@ TABLE_PRESETS: dict[str, dict[str, Any]] = {
                   "sampled per event by a seeded rule. Label: **flood** — water the event brought — minus JRC "
                   "permanent water. Folds group events whose AOIs lie within 100 km; each group is tested once by "
                   "a model that never saw it; validation = the next fold. Protocol: `reports/protocol_v1_1.md`."],
-        "caveats": ["**Labels drawn on radar.** Kuro Siwo's annotators drew on Sentinel-1: gaps involving optical "
+        "caveats": ["**Folds hold several groups.** The oracle-threshold IoU, AP and the other fold-averaged columns "
+                    "of the main table are fold-level quantities (each fold weighted equally), not per-group macros; "
+                    "IoU at τ* and every gap are per group. The baseline variants' event-pooled threshold pools a "
+                    "split group (events within 100 km), not one acquisition.",
+                    "**Labels drawn on radar.** Kuro Siwo's annotators drew on Sentinel-1: gaps involving optical "
                     "understate optical's value here, as Sen1Floods11's overstate it; the CEMS benchmark is the "
                     "independent check.",
                     "**Descriptive.** The confirmatory tests of v1.1 are on the CEMS benchmark; nothing here is "

@@ -164,3 +164,87 @@ water-label confirmation runs; nothing is shortened silently.
   results are reported on what exists, with K stated. Tests below K = 8 get no verdict.
 - **Results never change the protocol:** no threshold, cap, model or subset rule is changed after a v1.1 number has
   been seen.
+
+## Amendment 1 — 2026-10-11, before any v1.1 model was trained or scored
+
+Two independent reviews of the implemented design (experimental design; Python) found the problems below. The fixes
+are fixed here, before the freeze SHA. Nothing in this amendment was informed by a v1.1 result, because none existed.
+
+**A1.1 The SAR-only calibration of a model with an optical input.**
+- A window without usable optical is read with the model's SAR-only calibration. That calibration is fitted on SAR-only
+  validation logits: row 11's for row 9, and a new `cmp_terramind_small__eval_sar_only` for TerraMind.
+- Before this fix, P2 would have scored the fusion model's no-optical path with its with-optical calibration. That is
+  0.6 logit apart at τ*, which is comparable to the margin.
+- Descriptive companions are added: each optical model run SAR-only everywhere.
+
+**A1.2 Two unit definitions.**
+- An activation is not always an independent flood.
+- Activations within 100 km and 60 days of each other (single linkage, the Kuro Siwo grouping rule extended in time)
+  form a **cluster**.
+- Every test is run with activations and with clusters as units, with Holm applied within each definition.
+- A hypothesis is **supported** only if its test holds at both, with the same sign.
+- Expected K, counted from metadata and optical shares before any score:
+
+  | Test | Per activation | Per cluster |
+  |---|---|---|
+  | P1 (optical) | about 8 | about 7, so likely **no verdict** |
+  | P2 (SAR-only) | about 15 | fewer |
+  | P3, P4 | 38 | about 30 |
+
+**A1.3 P2 is an exact one-sided test.**
+- Non-inferiority is an exact sign-flip test of d + 0.05 > 0 over units, one-sided at α = 0.025, outside the Holm
+  family. The percentile bootstrap interval is still reported, but not as the test.
+- Why 0.05: v1.0's 95 % interval for row 11 − row 4 was [−0.044, +0.038]. The margin declares "inferior" only a loss
+  larger than v1.0 left plausible.
+- Power: with K ≈ 15, non-inferiority needs most units above −0.05. An inconclusive P2 is a possible, reportable
+  outcome.
+
+**A1.4 p-values.**
+- Sign-flip p-values are exact for K ≤ 20.
+- Above that they are Monte Carlo, 200 000 patterns, computed as (count + 1)/(n + 1). This applies to P3 and P4.
+
+**A1.5 Descriptive additions.** None carries a verdict.
+- the partial-cloud subset (10–50 % clear);
+- a sensitivity analysis without units holding < 1 km² of flood;
+- a sensitivity analysis without the 5 pairs whose regions overlap Kuro Siwo training AOIs (by place, not by event):
+  EMSR773 AOI06, 856 AOI07, 864 AOI05, 868 AOI01 and AOI02;
+- confusion counts kept per seed and pooled only in the report.
+
+**A1.6 P3 compares training recipes.**
+- The label definition changes everything that follows it: the sampler's positives, early stopping, the priors, the
+  calibration.
+- CEMS maps are themselves change-aware flood maps, so a positive P3 includes agreement of definitions.
+- H1 speaks of the radar path. Its SAR-only companions (`ks_r11_flood`, `ks_r11_water`) are reported beside P3.
+
+**A1.7 The Kuro Siwo all-groups model.**
+- Training stays on folds 0–3.
+- Validation is fold 4 **minus its smallest group**, a data-blind rule. That group (12 windows) is a technical test set
+  that is never reported.
+- The previous split (validation = test) fails the split loader's disjointness check.
+- The rule first adopted after that, alternate groups, left validation 2.5 % optical. This one leaves it 19 %, against
+  48 % in training.
+
+**A1.8 Order and cap.**
+- The run order is:
+  1. the deployable models (Sen1Floods11 published split; Kuro Siwo all, flood and water);
+  2. the CEMS scores;
+  3. the cross-validation tables;
+  4. the synthetic grid.
+- The Kuro Siwo cap of 12 GPU-h is checked before the water-label cross-validation and before the Kuro Siwo variants,
+  and those are dropped in that order. A dropped item is reported as not run.
+
+**A1.9 The seasonal reference fails closed.**
+- A stack with no `seasonal.json` is an error.
+- "Insufficient" (fewer than 3 acquisitions) falls back to the recent reference, counted per scene.
+- Sen1Floods11's India, Pakistan, Somalia and Sri Lanka (2016–2017) have no seasonal reference: the archive is too
+  sparse a year earlier. On those events 2s equals 2e by construction.
+- On CEMS tiles (16 × 17 km scenes) the event-pooled threshold fallback does not apply.
+
+**A1.10 Cross-fitted conformal, stated precisely.**
+- n counts windows, not events.
+- Each calibration window comes from a fold model that was trained on the target event. The control is approximate,
+  cross-conformal in style.
+
+**A1.11 TerraMind's pre-training period** (P4). TerraMind-v1 was pre-trained on TerraMesh. Its SSL4EO-S12 v1.1 part
+holds four seasonal samples per location from 2019–2021 (Blumenstiel et al., 2025, arXiv:2504.11172). Every CEMS
+benchmark event is from 2023-03 or later.

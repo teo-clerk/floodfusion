@@ -81,15 +81,21 @@ class TestSeasonalReference:
         assert not (d / "seasonal.tif").exists() and read_seasonal(d) is None
         assert seasonal_reference(d, None) == record     # cached: no second search
 
-    def test_the_baseline_uses_the_seasonal_reference_where_it_exists(self, tmp_path) -> None:
+    def test_the_baseline_uses_the_seasonal_reference_and_fails_closed_without_a_record(self, tmp_path) -> None:
         import rasterio
 
         d = _stack(tmp_path, pre_db=-20.0, post_db=-20.0)      # recent reference already flooded
         cfg = replace(CFG, baseline=replace(CFG.baseline, reference="seasonal", speckle_filter="none"))
-        assert np.allclose(load_scene(d / "stack.tif", cfg).vv_pre_db, -20.0)   # no seasonal.tif: recent kept
+        with pytest.raises(FileNotFoundError, match="make seasonal"):
+            load_scene(d / "stack.tif", cfg)                     # never built: no silent fallback
+        (d / "seasonal.json").write_text(json.dumps({"status": "insufficient: 2 < 3"}), encoding="utf-8")
+        scene = load_scene(d / "stack.tif", cfg)
+        assert scene.reference == "recent" and np.allclose(scene.vv_pre_db, -20.0)   # counted fallback
         with rasterio.open(d / "seasonal.tif", "w", driver="GTiff", height=GRID.height, width=GRID.width, count=2,
                            dtype="float32", crs=f"EPSG:{GRID.epsg}", transform=GRID.affine) as dst:
             dst.write(np.full((2, GRID.height, GRID.width), -9.0, dtype=np.float32))
-        assert np.allclose(load_scene(d / "stack.tif", cfg).vv_pre_db, -9.0)
-        assert np.allclose(load_scene(d / "stack.tif", replace(cfg, baseline=replace(cfg.baseline, reference="recent")))
-                           .vv_pre_db, -20.0)
+        (d / "seasonal.json").write_text(json.dumps({"status": "ok"}), encoding="utf-8")
+        scene = load_scene(d / "stack.tif", cfg)
+        assert scene.reference == "seasonal" and np.allclose(scene.vv_pre_db, -9.0)
+        recent = load_scene(d / "stack.tif", replace(cfg, baseline=replace(cfg.baseline, reference="recent")))
+        assert recent.reference == "recent" and np.allclose(recent.vv_pre_db, -20.0)

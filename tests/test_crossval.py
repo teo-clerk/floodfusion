@@ -63,7 +63,10 @@ class TestGroupedKFold:
         records = self._records()
         [(name, split)] = all_groups_split(records, 3).items()
         last = sorted(g for g, f in assign_group_folds(records, 3).items() if f == 2)
-        assert name == "all" and split.val_basins == tuple(last[0::2]) and split.test_basins == tuple(last[1::2])
+        size = {g: sum(r.basin_id == g for r in records) for g in last}
+        smallest = min(last, key=lambda g: (size[g], g))
+        assert name == "all" and split.test_basins == (smallest,)
+        assert split.val_basins == tuple(sorted(set(last) - {smallest}))
         assert set(split.train_basins) == set(self.GROUPS) - set(last)
         freeze_splits(split, tmp_path / "all.json")              # disjoint and non-empty: the loader accepts it
         assert load_splits(tmp_path / "all.json") == split
@@ -293,6 +296,20 @@ class TestDriverGuards:
             _freeze_protocol(self._args(tmp_path, seeds=[42, 43]), chip_dir, "manifest.parquet")
         _freeze_protocol(self._args(tmp_path, seeds=[42, 43], new_protocol=True), chip_dir, "manifest.parquet")
         assert json.loads((tmp_path / "runs" / "protocol.json").read_text())["seeds"] == {"4": [42], "9": [42, 43]}
+
+    def test_a_staged_call_may_add_rows_but_not_change_them(self, tmp_path, monkeypatch) -> None:
+        import floodfusion.data.records as records
+        from floodfusion.crossval import _freeze_protocol
+
+        monkeypatch.setattr(records, "load_manifest_meta", lambda path: json.loads((path.parent / "manifest.meta.json").read_text()))
+        chip_dir = self._chip_dir(tmp_path)
+        _freeze_protocol(self._args(tmp_path, learned_rows=[4, 9]), chip_dir, "manifest.parquet")
+        _freeze_protocol(self._args(tmp_path, baseline_rows=[], learned_rows=[15]), chip_dir, "manifest.parquet")
+        frozen = json.loads((tmp_path / "runs" / "protocol.json").read_text())
+        assert set(frozen["rows"]) == {"2", "4", "9", "15"} and frozen["seeds"] == {"4": [42], "9": [42], "15": [42]}
+        with pytest.raises(ValueError, match="different protocol"):
+            _freeze_protocol(self._args(tmp_path, learned_rows=[9], seeds=[42, 43], seed_protocol="full"), chip_dir,
+                             "manifest.parquet")
 
     def test_refreezing_one_protocol_keeps_the_others(self, tmp_path, monkeypatch) -> None:
         import floodfusion.splits as splits_mod

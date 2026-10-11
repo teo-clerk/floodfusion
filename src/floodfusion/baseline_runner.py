@@ -78,6 +78,7 @@ class SceneLayers:
     permanent: np.ndarray
     label: np.ndarray
     scored: np.ndarray  # valid pixels with a label
+    reference: str = "recent"   # the change term's reference actually used: recent | seasonal
 
 
 def _filtered_db(db: np.ndarray, cfg: ExperimentConfig) -> np.ndarray:
@@ -100,13 +101,21 @@ def load_scene(stack_path: Path, cfg: ExperimentConfig) -> SceneLayers:
     chip = decode_physical(raw, cfg.grid, cfg.norm)
     v = chip.validity.astype(np.int64)
     has_optical = bool(np.isfinite(chip.mndwi).any())
-    pre_db = chip.gamma0_db[2]
+    pre_db, reference = chip.gamma0_db[2], "recent"
     if cfg.baseline.reference == "seasonal":
+        import json
+
         from floodfusion.data.seasonal import read_seasonal
 
-        seasonal = read_seasonal(Path(stack_path).parent)
-        if seasonal is not None:   # else: this event has no seasonal reference; the recent one stays
-            pre_db = seasonal[0]
+        record = Path(stack_path).parent / "seasonal.json"
+        if not record.is_file():   # never built: fail closed, or 2s would silently be 2e
+            raise FileNotFoundError(f"{record}: no seasonal reference record — run `make seasonal` first")
+        if json.loads(record.read_text(encoding="utf-8")).get("status") == "ok":
+            seasonal = read_seasonal(Path(stack_path).parent)
+            if seasonal is None:
+                raise FileNotFoundError(f"{record.parent}: seasonal.json says ok but seasonal.tif is missing")
+            pre_db, reference = seasonal[0], "seasonal"
+        # else: fewer than MIN_SCENES acquisitions a year earlier — the recent reference, counted.
     return SceneLayers(
         vv_post_db=_filtered_db(chip.gamma0_db[0], cfg), vv_pre_db=_filtered_db(pre_db, cfg),
         mndwi=chip.mndwi if has_optical else None,
@@ -114,7 +123,7 @@ def load_scene(stack_path: Path, cfg: ExperimentConfig) -> SceneLayers:
         slope=np.nan_to_num(chip.slope_deg, nan=0.0), hand=np.nan_to_num(chip.hand_m, nan=0.0),
         layover=(v & int(ValidityFlag.LAYOVER)) > 0, shadow=(v & int(ValidityFlag.SHADOW)) > 0,
         permanent=(v & int(ValidityFlag.PERMANENT_WATER)) > 0,
-        label=chip.label == 1.0, scored=(v == 0) & np.isfinite(chip.label),
+        label=chip.label == 1.0, scored=(v == 0) & np.isfinite(chip.label), reference=reference,
     )
 
 
@@ -217,7 +226,7 @@ def run_baseline_row(cfg: ExperimentConfig, data_root: Path, out_dir: Path, *, a
         started = time.perf_counter()
         scene = load_scene(path, cfg)
         surface, info = threshold_surface(scene, cfg, fallback_db=pooled.get(group_of.get(path)))
-        scene_info[path.parent.name] = info
+        scene_info[path.parent.name] = {**info, "reference": scene.reference}
         for k, offset in enumerate(OFFSETS_DB):
             pred = flood_map(scene, surface, cfg, offset_db=float(offset))
             for split, by_event in windows.items():
