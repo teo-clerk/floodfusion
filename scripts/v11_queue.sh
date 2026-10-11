@@ -59,6 +59,7 @@ under_cap() {
 
 case "${1:-}" in
   smoke)
+    seasonal_ready
     $PY -m floodfusion.crossval run $S1F11 --protocol official loeo $S1F11_ROWS --fold official S1F11_Bolivia
     $PY -m floodfusion.crossval run $KS --protocol all kfold $KS_MAIN --fold all fold0
     $PY -m floodfusion.crossval run $KS --protocol kfold $KS_VARIANTS --fold fold0
