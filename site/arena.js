@@ -243,15 +243,19 @@
   function initBlind() {
     const b = DATA.blind, panel = byId("blind-panel");
     const rows = (b.floods || []).map((f) => h("tr", {}, h("td", {}, f.code), h("td", {}, f.date), h("td", {}, f.status)));
-    panel.replaceChildren(
+    const parts = [
       h("p", {}, h("b", {}, b.status_text)),
       progress("activations", b.k_activations ?? 0, 20),
-      progress("clusters", b.k_clusters ?? 0, 15),
+      b.k_clusters === null
+        ? h("p", { class: "footnote" }, "Clusters: not counted here (the runner's activation records are local).")
+        : progress("clusters", b.k_clusters ?? 0, 15),
       rows.length ? h("div", { class: "table-wrap" }, h("table", { class: "data-table" },
-        h("thead", {}, h("tr", {}, h("th", {}, "Activation"), h("th", {}, "Event"), h("th", {}, "Status"))),
+        h("thead", {}, h("tr", {}, h("th", {}, "Pair"), h("th", {}, "Event"), h("th", {}, "Status"))),
         h("tbody", {}, rows))) : null,
       h("p", { class: "footnote" }, "Scores of the blind floods are sealed: a running score invites stopping when it ",
-        "looks good. The verdicts are computed once, at the stopping rule."));
+        "looks good. The verdicts are computed once, at the stopping rule."),
+    ];
+    panel.replaceChildren(...parts.filter(Boolean));   // a DOM node list prints null as text
   }
 
   // ---------------------------------------------------------------- start

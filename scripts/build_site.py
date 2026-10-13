@@ -377,7 +377,10 @@ def _p4c(reports: Path) -> str | None:
         t = next(x for x in tests[unit] if x["id"] == "P4c")
         parts.append(f"per {unit} {t['delta']:+.3f} [{t['ci'][0]:+.3f}, {t['ci'][1]:+.3f}], fusion better on "
                      f"{t['wins']}/{t['k']}, p = {t['p']:.3f}")
-    return "Corrected P4 (fusion − TerraMind): " + "; ".join(parts) + " (v1.1 as run: +0.031 and +0.039)."
+    reversed_ = all(next(x for x in tests[u] if x["id"] == "P4c")["delta"] < 0 for u in ("activation", "cluster"))
+    lead = "H4 reverses: trained as described, TerraMind beats fusion. " if reversed_ else ""
+    return (lead + "Corrected P4 (fusion − TerraMind): " + "; ".join(parts)
+            + " (v1.1 as run: +0.031 and +0.039).")
 
 
 def _errata(reports: Path) -> list[dict[str, Any]]:
@@ -398,18 +401,33 @@ def _errata(reports: Path) -> list[dict[str, Any]]:
     ]
 
 
-def _blind(reports: Path) -> dict[str, Any]:
-    """The blind test's progress: counts and statuses only (scores stay sealed until the stopping rule)."""
+def _blind(reports: Path, records: Path = ROOT / "data" / "prospective" / "records") -> dict[str, Any]:
+    """The blind test's progress, counted as the stopping rule counts it; statuses only (scores stay sealed).
+
+    The ledger is append-only: a pair's last line is its state. Activations count in the primary stratum only. Their
+    clusters need each activation's event time and extent, read from the runner's local records; without them the
+    cluster count is unknown (None), never guessed.
+    """
     ledger = reports / "prospective" / "ledger.jsonl"
     if not ledger.is_file():
         return {"status": "not started", "status_text": "Not started: the models are frozen and the runner switched "
                 "on at the end of v1.2.", "k_activations": 0, "k_clusters": 0, "floods": []}
-    rows = [json.loads(line) for line in _read(ledger).splitlines() if line.strip()]
-    floods = [{"code": r["activation"], "date": r["event_date"], "status": r["status"]} for r in rows]
-    scored = {r["activation"] for r in rows if r["status"] == "scored"}
-    clusters = {r["cluster"] for r in rows if r["status"] == "scored"}
-    return {"status": "accruing", "status_text": f"Accruing: {len(scored)} activations scored, sealed.",
-            "k_activations": len(scored), "k_clusters": len(clusters), "floods": floods}
+    state: dict[str, dict[str, Any]] = {}
+    for line in _read(ledger).splitlines():
+        if line.strip():
+            row = json.loads(line)
+            state[row["key"]] = row
+    floods = [{"code": k, "date": r.get("event_date"), "status": r["status"]} for k, r in sorted(state.items())]
+    scored = sorted({r["activation"] for r in state.values() if r["status"] == "scored" and r.get("stratum") == "sar"})
+    k_clusters: int | None = 0
+    if scored:
+        from floodfusion.cems_scores import activation_clusters
+
+        found = {a: json.loads(_read(records / f"{a}.json")) for a in scored if (records / f"{a}.json").is_file()}
+        k_clusters = len(set(activation_clusters(found).values())) if len(found) == len(scored) else None
+    return {"status": "accruing",
+            "status_text": f"Accruing: {len(scored)} activations of the primary stratum scored, sealed.",
+            "k_activations": len(scored), "k_clusters": k_clusters, "floods": floods}
 
 
 def arena_data(root: Path = ROOT) -> dict[str, Any]:

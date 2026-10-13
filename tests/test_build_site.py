@@ -263,12 +263,25 @@ def test_erratum_one_reports_the_corrected_p4_once_it_exists(tmp_path):
 def test_blind_test_shows_counts_never_scores(tmp_path):
     ledger = tmp_path / "reports" / "prospective" / "ledger.jsonl"
     ledger.parent.mkdir(parents=True)
-    rows = [{"activation": "EMSR926", "event_date": "2026-08-21", "status": "scored", "cluster": "EMSR926", "iou": 0.5},
-            {"activation": "EMSR927", "event_date": "2026-08-25", "status": "waiting for the product", "cluster": "EMSR927"}]
+    rows = [  # the runner's own row format (floodfusion.prospective._row); a pair's last line is its state
+        {"key": "EMSR926", "activation": "EMSR926", "event_date": "2026-08-21", "status": "settling", "at": "t0"},
+        {"key": "EMSR926_AOI01", "activation": "EMSR926", "event_date": "2026-08-21", "status": "scored",
+         "at": "t1", "stratum": "sar", "sealed_sha256": "ab"},
+        {"key": "EMSR927_AOI02", "activation": "EMSR927", "event_date": "2026-08-25", "status": "scored",
+         "at": "t1", "stratum": "optical", "sealed_sha256": "cd"},                     # not the primary stratum
+        {"key": "EMSR933", "activation": "EMSR933", "event_date": "2026-09-30", "status": "settling", "at": "t0"},
+        {"key": "EMSR933", "activation": "EMSR933", "event_date": "2026-09-30", "status": "not eligible", "at": "t2"}]
     ledger.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
-    blind = _script()._blind(tmp_path / "reports")
-    assert blind["k_activations"] == 1 and blind["k_clusters"] == 1 and len(blind["floods"]) == 2
-    assert "iou" not in json.dumps(blind)                              # sealed
+    s = _script()
+    blind = s._blind(tmp_path / "reports", records=tmp_path / "records")
+    assert blind["k_activations"] == 1 and blind["k_clusters"] is None             # records not available here
+    assert [f["status"] for f in blind["floods"]] == ["settling", "scored", "scored", "not eligible"]
+    assert "sealed_sha256" not in json.dumps(blind) and "iou" not in json.dumps(blind)
+    records = tmp_path / "records"
+    records.mkdir()
+    (records / "EMSR926.json").write_text(json.dumps({"eventTime": "2026-08-21T00:00:00Z",
+                                                      "extent": "POLYGON ((10 45, 11 45, 11 46, 10 46, 10 45))"}))
+    assert s._blind(tmp_path / "reports", records=records)["k_clusters"] == 1
 
 
 def test_the_arena_page_and_its_script_agree(tmp_path):
