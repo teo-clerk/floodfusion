@@ -10,7 +10,9 @@
 #   scripts/v12_queue.sh probe         # the fair TerraMind's size/adaptation by the pre-registered timing rule
 #                                      # (run it only here: the queue holds the GPU lock it needs)
 #   scripts/v12_queue.sh pool          # (CPU) the pooled training set and its grouped folds, once both ingests are done
-#   scripts/v12_queue.sh cv            # pooled cross-validation, one seed: row 9, the fair TerraMind, row 21 —
+#   scripts/v12_queue.sh tune          # equal learning-rate budget (3 rates) per family on fold 0's inner split
+#   scripts/v12_queue.sh cv            # pooled cross-validation, one seed, each family at its tuned rate: row 9,
+#                                      # the fair TerraMind, row 21 (row 9's rate) —
 #                                      # each starts when its sidecars (none, DEM, seasonal) cover every pooled stack;
 #                                      # then the inference add-ons on whole test stacks of rows 9 and 21, and the
 #                                      # selection of v1.2's model (reports/v12_selection.json)
@@ -21,7 +23,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-STAGES="erratum-official erratum cems-preview arena probe pool cv finals"
+STAGES="erratum-official erratum cems-preview arena probe pool tune cv finals"
 case " $STAGES " in
   *" ${1:-} "*) ;;
   *) echo "usage: $0 ${STAGES// /|}" >&2; exit 2 ;;
@@ -53,6 +55,14 @@ addons() {   # addons <run folder>: the inference add-ons on whole test stacks o
     --manifest "$POOL/chips/manifest.parquet" --out "reports/v12_addons_$1.json.gz"
   $PY -m floodfusion.cv_addons report --scores "reports/v12_addons_$1.json.gz" --out "reports/v12_addons_$1.json"
 }
+tm_name() {   # the fair TerraMind chosen by the probe (exits if none fits in memory)
+  local tm
+  tm=$($PY -c "import json; print(json.load(open('reports/v12_tm_probe.json'))['chosen'] or '')")
+  [ -n "$tm" ] || { echo "no fair TerraMind fits in memory (reports/v12_tm_probe.json)" >&2; exit 1; }
+  echo "$tm"
+}
+tm_row() { $PY -c "print({'terramind_base_fair': 24, 'terramind_base_fair_frozen': 25, 'terramind_small_fair': 26}['$1'])"; }
+lr() { echo "--overlay reports/v12_lr_$1.yaml"; }   # a family's tuned learning rate (floodfusion.tuning)
 no_ingest() { ! pgrep -f "floodfusion.data.geoid ingest|floodfusion.data.kurosiwo ingest" > /dev/null; }
 [ "$1" = pool ] || gpu_lock   # the pool stage is CPU only
 echo "v1.2 queue '${1:-}' at $(git rev-parse --short HEAD), $(date -u +%FT%TZ)"
@@ -116,16 +126,20 @@ print(build_dataset('data/geoid', load_config('configs/base.yaml'), split_epsg=S
     $PY -m floodfusion.data.pool --root data/kurosiwo_v12 data/geoid --out $POOL
     $PY -m floodfusion.crossval splits --data-root $POOL --overlay configs/overlays/kurosiwo.yaml --scheme kfold
     ;;
+  tune)   # the equal learning-rate budget on fold 0's inner split: row 9 now, the fair TerraMind once it has its DEM
+    tm=$(tm_name)
+    $PY -m floodfusion.tuning --data-root $POOL --overlay configs/overlays/kurosiwo.yaml --rows 9
+    wait_until 48 pool_covered dem.tif
+    $PY -m floodfusion.tuning --data-root $POOL --overlay configs/overlays/kurosiwo.yaml --rows "$(tm_row "$tm")"
+    ;;
   cv)
-    tm=$($PY -c "import json; print(json.load(open('reports/v12_tm_probe.json'))['chosen'] or '')")
-    [ -n "$tm" ] || { echo "no fair TerraMind fits in memory (reports/v12_tm_probe.json): CV not started" >&2; exit 1; }
-    tm_row=$($PY -c "print({'terramind_base_fair': 24, 'terramind_base_fair_frozen': 25, 'terramind_small_fair': 26}['$tm'])")
-    $PY -m floodfusion.crossval run $POOL_ARGS $ONE_SEED --learned-rows 9
+    tm=$(tm_name)
+    $PY -m floodfusion.crossval run $POOL_ARGS $(lr row09_fusion_crossattn) $ONE_SEED --learned-rows 9
     addons row09_fusion_crossattn
     wait_until 48 pool_covered dem.tif
-    $PY -m floodfusion.crossval run $POOL_ARGS $ONE_SEED --learned-rows "$tm_row"
+    $PY -m floodfusion.crossval run $POOL_ARGS $(lr "$tm") $ONE_SEED --learned-rows "$(tm_row "$tm")"
     wait_until 48 pool_covered seasonal.tif
-    $PY -m floodfusion.crossval run $POOL_ARGS $ONE_SEED --learned-rows 21
+    $PY -m floodfusion.crossval run $POOL_ARGS $(lr row09_fusion_crossattn) $ONE_SEED --learned-rows 21
     addons row21_fusion_context_seasonal
     $PY -m floodfusion.cv_addons select --out reports/v12_selection.json \
       --reports reports/v12_addons_row09_fusion_crossattn.json reports/v12_addons_row21_fusion_context_seasonal.json
@@ -133,12 +147,10 @@ print(build_dataset('data/geoid', load_config('configs/base.yaml'), split_epsg=S
   finals)   # all groups, three seeds: v1.2's model (reports/v12_selection.json) and the fair TerraMind
     ours=$($PY -c "import json; print({'row09_fusion_crossattn': 9, 'row21_fusion_context_seasonal': 21}[
       json.load(open('reports/v12_selection.json'))['chosen']])")
-    tm=$($PY -c "import json; print(json.load(open('reports/v12_tm_probe.json'))['chosen'] or '')")
-    [ -n "$tm" ] || { echo "no fair TerraMind fits in memory (reports/v12_tm_probe.json)" >&2; exit 1; }
-    tm_row=$($PY -c "print({'terramind_base_fair': 24, 'terramind_base_fair_frozen': 25, 'terramind_small_fair': 26}['$tm'])")
-    $PY -m floodfusion.crossval run --data-root $POOL --overlay configs/overlays/kurosiwo.yaml \
-      --runs-root runs/v12/pool --protocol all --seeds 42 43 44 --seed-protocol full --baseline-rows \
-      --learned-rows "$ours" "$tm_row"
+    tm=$(tm_name)
+    finals="--protocol all --seeds 42 43 44 --seed-protocol full --baseline-rows"
+    $PY -m floodfusion.crossval run $POOL_ARGS $(lr row09_fusion_crossattn) $finals --learned-rows "$ours"
+    $PY -m floodfusion.crossval run $POOL_ARGS $(lr "$tm") $finals --learned-rows "$(tm_row "$tm")"
     ;;
   *)
     echo "usage: $0 ${STAGES// /|}" >&2
