@@ -43,7 +43,10 @@ def test_normalisation_uses_fixed_statistics_only() -> None:
     assert out[2, 0, 0] == pytest.approx((-5.0 - m[4]) / s[4])          # post - seasonal: a darkening of 5 dB
     assert np.isnan(sidecars.normalise_sidecar("seasonal", raw, vv_post_db=None, norm=norm)[2]).all()
     aef = sidecars.normalise_sidecar("aef", np.full((8, 2, 2), 127.0), vv_post_db=None, norm=norm)
-    assert aef.shape == (8, 2, 2) and np.allclose(aef, 1.0)
+    assert aef.shape == (8, 2, 2) and np.allclose(aef, 2.0)                # int8 127 = a PC of 2
+
+    from floodfusion.data.alphaearth import AEF_SCALE
+    assert sidecars.AEF_STORE_SCALE == AEF_SCALE
     assert sidecars.normalise_sidecar("dem", np.full((1, 2, 2), 250.0), vv_post_db=None, norm=norm)[0, 0, 0] == 250.0
     with pytest.raises(KeyError):
         sidecars.normalise_sidecar("ndvi", raw, vv_post_db=None, norm=norm)

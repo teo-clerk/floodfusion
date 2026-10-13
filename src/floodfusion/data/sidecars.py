@@ -61,7 +61,7 @@ SIDECARS_BY_ARCHITECTURE: dict[str, tuple[str, ...]] = {
     "terramind_small_fair": ("dem",),
 }
 #: AEF principal components are stored as int8 of value x scale (configs/datasets/aef_pca_v12.json fixes the scale).
-AEF_STORE_SCALE = 127.0
+AEF_STORE_SCALE = 63.5   # = alphaearth.AEF_SCALE: |pc| <= 2 for centred unit vectors
 
 
 def sidecars_for(architecture: str) -> tuple[str, ...]:
