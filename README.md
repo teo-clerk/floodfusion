@@ -42,9 +42,16 @@ the [deviations log](reports/v1_1_deviations.md).
 | Pre-registered question | Per activation | Per cluster | Supported |
 | --- | --- | --- | --- |
 | **H1** Two training recipes on the same Kuro Siwo chips: *flood* labels vs *water* labels | +0.059 IoU, better in 33/38, Holm p < 0.001 | +0.062, 27/30, p < 0.001 | **yes** |
-| **H4** The task-specific fusion model vs the TerraMind foundation model | +0.031, 24/38, Holm p = 0.034 | +0.039, 20/30, p = 0.009 | **yes**, but see below |
+| **H4** The task-specific fusion model vs the TerraMind foundation model | +0.031, 24/38, Holm p = 0.034 | +0.039, 20/30, p = 0.009 | **yes as run; reversed by the [erratum](reports/v1_1_erratum.md)** |
 | **H2** Fusion beats the SAR U-Net where optical is usable (≥ 50 % clear) | +0.038, 5/8, Holm p = 0.34, not significant | K = 7, too few | no verdict |
 | **H3** Without optical (< 10 % clear), fusion is no worse than the SAR U-Net (margin 0.05) | −0.020, non-inferior (one-sided p = 0.004) | −0.024, not shown (one-sided p = 0.029 > 0.025) | no |
+
+> **Erratum (2026-10-13): H4 is withdrawn.** TerraMind was trained without the modality dropout its config and the
+> protocol state. Re-trained as described, it **beats** the fusion model on the same 38 activations: fusion −
+> TerraMind = −0.042 per activation (fusion better in 10/38) and −0.043 per cluster (8/30), significant at both.
+> TerraMind scores 0.299 against fusion's 0.258. This is a post-hoc correction; the pre-registered verdict is kept as
+> run. A second defect (zero terrain past DEM tile edges) affects the fusion model, not TerraMind, on about 14 % of the
+> benchmark's area. Both are in [`reports/v1_1_erratum.md`](reports/v1_1_erratum.md).
 
 How to read the two supported results:
 - **H1** compares whole training recipes. The label changes what the sampler draws, the early stopping, the priors and
@@ -63,7 +70,8 @@ cloud cover are in the [strata report](reports/cems_benchmark_strata.md).
 | Cross-attention fusion | 0.258 | **0.397** |
 | The same fusion model, optical removed at inference | 0.272 | 0.398 |
 | Fusion trained on *water* labels of the same Kuro Siwo chips | — | 0.338 |
-| TerraMind-1.0-small, frozen + UNet decoder | 0.226 | — |
+| TerraMind-1.0-small, frozen + UNet decoder, as run in v1.1 | 0.226 | — |
+| The same TerraMind, trained as the protocol describes ([erratum](reports/v1_1_erratum.md)) | 0.299 | — |
 
 The physics baseline (adaptive threshold + change + terrain masks, no learning; one offset set on Sen1Floods11
 validation) scores **0.371**.
@@ -87,9 +95,10 @@ validation) scores **0.371**.
   - The physics baseline (0.371) beats every Sen1Floods11-trained network.
   - Trained on Kuro Siwo flood labels, the fusion model uses almost nothing from optical: 0.397 with it, 0.398
     without.
-- **Much of TerraMind's deficit is its threshold.** At the best single threshold for each model, TerraMind is slightly
-  ahead (0.270 vs 0.260). That threshold is chosen in-sample, so it is optimistic. H4 holds as pre-registered, at each
-  model's own threshold.
+- **TerraMind's deficit was a bug.** As run, TerraMind trailed at each model's own threshold but was already ahead at
+  the best single threshold (0.270 vs 0.260, chosen in-sample). It had been trained without modality dropout, so its
+  SAR-only path, which most CEMS pixels need, was barely trained. Trained as described, it leads at both thresholds
+  (0.299 at τ*, 0.328 at the oracle threshold).
 - **Absolute agreement is modest.**
   - CEMS products are drawn on 1–3 m images up to a day from the Sentinel-1 pass, and generalised by an analyst.
   - The seven activations mapped on optical very-high-resolution images agree with every tested model at only
@@ -129,7 +138,7 @@ validation) scores **0.371**.
 scored by a model that never saw it ([full table](reports/sen1floods11_table.md)). The v1.1 re-run at the frozen
 v1.1 code replicates it ([table](reports/v11_sen1floods11_table.md)):
 - fusion 0.608 against the SAR U-Net's 0.343 (+0.265, all 10 floods, Holm p = 0.018);
-- TerraMind 0.572.
+- TerraMind 0.572 as run; 0.597 trained as described (the erratum), still slightly below fusion here.
 
 | Model | IoU at τ* | AP |
 | --- | --- | --- |

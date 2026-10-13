@@ -77,15 +77,17 @@ All numbers come from the release runs; each report records its git SHA.
   | --- | --- | --- |
   | Fusion | 0.258 | 0.397 |
   | SAR-only U-Net | 0.281 | 0.394 |
-  | TerraMind-small | 0.226 | — |
+  | TerraMind-small, as run in v1.1 | 0.226 | — |
+  | TerraMind-small, trained as described (erratum) | 0.299 | — |
 
   The physics baseline scores 0.371.
 
   **The pre-registered tests:**
   - Flood-label recipe beats water-label recipe on the same Kuro Siwo chips: +0.06, supported. Part of this is
     agreement of definitions, since CEMS maps are flood maps.
-  - Fusion beats TerraMind at each model's own threshold: +0.03, supported. At the best single threshold, chosen
-    in-sample, the order reverses (0.260 vs 0.270).
+  - Fusion beats TerraMind at each model's own threshold: +0.03, supported as run. **Withdrawn by the erratum**
+    (`reports/v1_1_erratum.md`): TerraMind had been trained without modality dropout. Trained as described, it beats
+    fusion by 0.042 per activation (fusion better in 10/38) and 0.043 per cluster, significant at both.
   - Fusion beats the SAR U-Net where optical is usable: +0.04, not significant on 8 activations, and too few clusters
     for a verdict. Result: no verdict.
   - Fusion is non-inferior without optical: −0.02, which holds per activation, not per cluster. Not supported.
@@ -97,7 +99,7 @@ All numbers come from the release runs; each report records its git SHA.
   - The same model without optical: 0.383.
   - SAR-only U-Net: 0.365.
   - Physics baseline + MNDWI: 0.444.
-  - TerraMind-1.0-small, frozen: 0.576.
+  - TerraMind-1.0-small, frozen: 0.576 (v1.0, one seed); 0.597 trained as described (erratum, 3 seeds).
   - Fusion beats SAR-only on 10 of 10 events (Holm p = 0.018). Without optical, it equals SAR-only.
   - At the oracle threshold, fusion scores 0.668: some of the gap to τ\* is threshold transfer between events.
 - **Per event**, fusion ranges from 0.443 (Pakistan) to 0.852 (Mekong); see

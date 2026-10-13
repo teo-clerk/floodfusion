@@ -13,6 +13,9 @@ decision since is in `reports/v1_2_deviations.md`.
   - Its config set modality dropout to 0.5, but the training loop applied dropout only to the fusion rows.
   - Its decoder's BatchNorm also trained on sub-batches.
   - Both are fixed; TerraMind is re-trained, and P4 is re-scored beside the pre-registered result.
+  - **H4 reverses.** Trained as described, TerraMind beats the fusion model on the 38 CEMS activations: 0.299 vs
+    0.258; fusion − TerraMind = −0.042 per activation and −0.043 per cluster, significant at both. v1.1's conclusion
+    that the task-specific model beats the foundation model is withdrawn. The pre-registered verdict is kept as run.
 - **Zero terrain past a DEM tile edge.**
   - Copernicus GLO-30 declares no nodata, so terrain was read as 0 m past a 1° tile boundary.
   - Affected: 14 % of the CEMS benchmark's area, and 6–8 % of the training sets'.
