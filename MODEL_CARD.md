@@ -122,7 +122,7 @@ All numbers come from the release runs; each report records its git SHA.
   - Trained on Kuro Siwo's radar-drawn labels, the model uses almost nothing from optical at inference (0.397 with
     it, 0.398 without).
 - **Training data moved scores more than the architecture (descriptive).** On CEMS, where only the flood-vs-water
-  comparison holds everything but the labels fixed:
+  comparison holds the chips and the architecture fixed:
   - the same fusion network scores 0.397 trained on Kuro Siwo flood labels, 0.338 on water labels of the same chips,
     and 0.258 on Sen1Floods11;
   - Sen1Floods11-trained models score below the physics baseline (0.371) in a new region.

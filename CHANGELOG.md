@@ -14,7 +14,7 @@ A pre-registered test of v1.0's claims on independent references. The protocol
   - **H1, supported:** the flood-label recipe beats the water-label recipe on the same Kuro Siwo chips, +0.06 IoU.
   - **H4, supported:** the fusion model beats TerraMind-small at each model's own threshold, +0.03. At the best single
     threshold, chosen in-sample, TerraMind is ahead.
-  - **H2, no verdict:** fusion beats the SAR U-Net where optical is usable by +0.04, not significant; too few clusters.
+  - **H2, no verdict:** fusion − SAR U-Net where optical is usable, +0.04, not significant; too few clusters.
   - **H3, not supported:** non-inferiority without optical, −0.02, holds per activation but not per cluster.
 - **Training data moved scores more than the architecture** (descriptive). Kuro Siwo flood-label models score
   0.39–0.40 and the same networks trained on Sen1Floods11 0.26–0.28. The physics baseline scores 0.371.

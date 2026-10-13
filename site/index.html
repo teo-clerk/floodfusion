@@ -552,7 +552,8 @@
         <p class="footnote">H3 is a <a class="term" href="#g-noninf">non-inferiority</a> test: fusion may lose at
           most 0.05 IoU (the amber line), tested one-sided at 2.5 %. H1 compares two training recipes on identical Kuro Siwo chips:
           labels marking the water a flood brought, or all water. CEMS maps are flood maps too, so part of H1's gain is
-          agreement of definitions. H4's floods all postdate TerraMind's pre-training data (2019–2021). The rules are in the
+          agreement of definitions. H4's floods postdate the SSL4EO-S12 part of TerraMind's pre-training data (2019–2021), not all of it: TerraMesh
+          runs mostly 2019–2023. The rules are in the
           <a href="https://github.com/teo-clerk/floodfusion/blob/main/reports/protocol_v1_1.md">protocol</a>, and
           every change since in the
           <a href="https://github.com/teo-clerk/floodfusion/blob/main/reports/v1_1_deviations.md">deviations log</a>.</p>
@@ -645,7 +646,7 @@
       <h2>Findings, including the uncomfortable ones</h2>
       <div class="cards three">
         <article class="card lesson good">
-          <h3>Training data moved scores most</h3>
+          <h3>Training data moved scores more than the architecture</h3>
           <p>On independent maps, the flood-label recipe beat the water-label recipe by
             <span data-bind="cemsP3Delta"></span> IoU (pre-registered, supported). Kuro Siwo flood-label networks score
             <span data-bind="cemsKsRange"></span>, against <span data-bind="cemsS1Range"></span> for the same networks
@@ -662,7 +663,8 @@
           <p>Under a cloud covering part of a scene, the fusion model misses most of the flood beneath it. On partly
             cloudy independent activations it scores <span data-bind="cemsPartialWith"></span> with optical and
             <span data-bind="cemsPartialWithout"></span> without (descriptive). Without any optical it scored
-            <span data-bind="cemsP2Delta"></span> against the radar U-Net: non-inferiority was not shown.</p>
+            <span data-bind="cemsP2Delta"></span> against the radar U-Net: non-inferior per activation, not shown per
+            cluster.</p>
         </article>
         <article class="card lesson">
           <h3>A frozen foundation model is close</h3>

@@ -50,7 +50,9 @@ How to read the two supported results:
 - **H1** compares whole training recipes. The label changes what the sampler draws, the early stopping, the priors and
   the calibration. CEMS maps are themselves flood maps, so part of the gain is agreement of definitions. The same two
   models run without optical score 0.398 and 0.335.
-- **H4** is tested on events from 2023 onwards, after TerraMind's pre-training data (2019–2021).
+- **H4** is tested on events from 2023 onwards. That is after the SSL4EO-S12 part of TerraMind's pre-training data
+  (2019–2021), but TerraMind's full pre-training set (TerraMesh) runs mostly 2019–2023, so the earliest events may
+  fall within its period.
 
 **Every model on the same 38 activations:** macro IoU at each model's own threshold. Breakdowns by map type and
 cloud cover are in the [strata report](reports/cems_benchmark_strata.md).
@@ -149,7 +151,7 @@ v1.1 code replicates it ([table](reports/v11_sen1floods11_table.md)):
   the SAR path; only a chip with no usable optical at all falls back to it.
 - **The IBM/ESA foundation model**, frozen, lands 0.05 IoU below the fusion model (behind on 7 of 10 events; not
   significant).
-- **The published within-event split's flattery is small and unstable.** v1.0 measured at most +0.015 IoU at τ*
+- **The published within-event split's flattery is unstable, and never significant.** v1.0 measured at most +0.015 IoU at τ*
   for the SAR U-Net, the fusion model and TerraMind, against +0.048 for the synthetic leakage row. The fusion
   model run without optical gains up to +0.091. None of these gaps is significant.
 
