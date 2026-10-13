@@ -1,0 +1,2936 @@
+{
+  "rows": {
+    "9": {
+      "iou": 0.6283986595705321,
+      "ci": [
+        0.5774821094627983,
+        0.6779106649430223
+      ],
+      "ap": 0.7301067796036792,
+      "oracle": 0.6369509399382762,
+      "per_event": {
+        "KS_EMSR1111010_Peru": 0.27269638804361096,
+        "KS_EMSR118_Spain": 0.4797563617909231,
+        "KS_EMSR498_France": 0.6308926601914114,
+        "KS_EMSR561_Malawi": 0.8138640285827212,
+        "KS_EMSR1111004_USA": 0.5073969268729381,
+        "KS_EMSR147_Cumbria": 0.596199051688343,
+        "KS_EMSR267_Lithuania": 0.5351377427891051,
+        "KS_EMSR273_Albania": 0.4928496944387608,
+        "KS_EMSR417_Portugal": 0.7823473368470042,
+        "KS_EMSR554_Australia": 0.7396698192496728,
+        "KS_EMSR1111009_Pakistan": 0.69763270160286,
+        "KS_EMSR1111011_Philippines": 0.7363247159139473,
+        "KS_EMSR174_Skopje": 0.4396997862972785,
+        "KS_EMSR321_Honduras": 0.6173049821769045,
+        "KS_EMSR497_Germany": 0.6667639669374767,
+        "KS_EMSR562_Australia": 0.8940052376769949,
+        "KS_EMSR1111007_Nepal": 0.6103313989472201,
+        "KS_EMSR277_Greece": 0.7928050802510774,
+        "KS_EMSR324_France": 0.5159415541357548,
+        "KS_EMSR427_Sweden": 0.5167347509103014,
+        "KS_EMSR445_Romania": 0.6401695580010004,
+        "KS_EMSR496_Italy": 0.4398241296493183,
+        "KS_EMSR1111005_Madagascar": 0.7150573607454161,
+        "KS_EMSR1111006_Madagascar": 0.7223451841501463,
+        "KS_EMSR205_SriLanka": 0.5061704257287347,
+        "KS_EMSR275_Croatia": 0.6277312890578941,
+        "KS_EMSR411_France": 0.6532679976021363,
+        "KS_EMSR470_Togo": 0.8022968441330234,
+        "KS_EMSR567_Australia": 0.7783441531334547
+      },
+      "seeds": [
+        42,
+        43,
+        44
+      ]
+    },
+    "11": {
+      "iou": 0.6282528739279039,
+      "ci": [
+        0.5786376531629154,
+        0.6761079974315398
+      ],
+      "ap": 0.7220999013870283,
+      "oracle": 0.6371034605459427,
+      "per_event": {
+        "KS_EMSR1111010_Peru": 0.27430034561880695,
+        "KS_EMSR118_Spain": 0.4790988019018895,
+        "KS_EMSR498_France": 0.6309892956006226,
+        "KS_EMSR561_Malawi": 0.8141376055398378,
+        "KS_EMSR1111004_USA": 0.5044945242491303,
+        "KS_EMSR147_Cumbria": 0.5964499679829958,
+        "KS_EMSR267_Lithuania": 0.5303018851375246,
+        "KS_EMSR273_Albania": 0.49292349773991356,
+        "KS_EMSR417_Portugal": 0.7828091650150187,
+        "KS_EMSR554_Australia": 0.7401496524845449,
+        "KS_EMSR1111009_Pakistan": 0.6318373012801043,
+        "KS_EMSR1111011_Philippines": 0.7388466342898503,
+        "KS_EMSR174_Skopje": 0.5235523925647597,
+        "KS_EMSR321_Honduras": 0.6165022114947704,
+        "KS_EMSR497_Germany": 0.6698293571058124,
+        "KS_EMSR562_Australia": 0.8911225451464583,
+        "KS_EMSR1111007_Nepal": 0.6101887255215989,
+        "KS_EMSR277_Greece": 0.7870827158972578,
+        "KS_EMSR324_France": 0.5127994979590752,
+        "KS_EMSR427_Sweden": 0.5170169857582345,
+        "KS_EMSR445_Romania": 0.6307247498510521,
+        "KS_EMSR496_Italy": 0.4398996703697113,
+        "KS_EMSR1111005_Madagascar": 0.7150573607454161,
+        "KS_EMSR1111006_Madagascar": 0.722327831291186,
+        "KS_EMSR205_SriLanka": 0.5061704257287347,
+        "KS_EMSR275_Croatia": 0.6277007111012859,
+        "KS_EMSR411_France": 0.6532679976021363,
+        "KS_EMSR470_Togo": 0.8023172637376469,
+        "KS_EMSR567_Australia": 0.7774342251938394
+      },
+      "seeds": [
+        42,
+        43,
+        44
+      ]
+    }
+  },
+  "gaps": {
+    "9-11": {
+      "comparable": true,
+      "delta": 0.0001457856426282378,
+      "ci": [
+        -0.0079218555337909,
+        0.007181245844011743
+      ],
+      "basins_b_better": 13,
+      "n_basins": 29,
+      "per_basin_delta": {
+        "KS_EMSR1111010_Peru": -0.0016039575751959911,
+        "KS_EMSR118_Spain": 0.0006575598890335987,
+        "KS_EMSR498_France": -9.663540921112102e-05,
+        "KS_EMSR561_Malawi": -0.0002735769571166058,
+        "KS_EMSR1111004_USA": 0.0029024026238078093,
+        "KS_EMSR147_Cumbria": -0.0002509162946527921,
+        "KS_EMSR267_Lithuania": 0.004835857651580455,
+        "KS_EMSR273_Albania": -7.38033011527528e-05,
+        "KS_EMSR417_Portugal": -0.0004618281680145442,
+        "KS_EMSR554_Australia": -0.00047983323487210683,
+        "KS_EMSR1111009_Pakistan": 0.06579540032275566,
+        "KS_EMSR1111011_Philippines": -0.0025219183759029873,
+        "KS_EMSR174_Skopje": -0.0838526062674812,
+        "KS_EMSR321_Honduras": 0.0008027706821341907,
+        "KS_EMSR497_Germany": -0.0030653901683356244,
+        "KS_EMSR562_Australia": 0.0028826925305366347,
+        "KS_EMSR1111007_Nepal": 0.00014267342562124252,
+        "KS_EMSR277_Greece": 0.0057223643538196756,
+        "KS_EMSR324_France": 0.0031420561766796196,
+        "KS_EMSR427_Sweden": -0.00028223484793310494,
+        "KS_EMSR445_Romania": 0.009444808149948303,
+        "KS_EMSR496_Italy": -7.554072039300808e-05,
+        "KS_EMSR1111005_Madagascar": 0.0,
+        "KS_EMSR1111006_Madagascar": 1.7352858960206774e-05,
+        "KS_EMSR205_SriLanka": 0.0,
+        "KS_EMSR275_Croatia": 3.0577956608213164e-05,
+        "KS_EMSR411_France": 0.0,
+        "KS_EMSR470_Togo": -2.0419604623511667e-05,
+        "KS_EMSR567_Australia": 0.000909927939615307
+      },
+      "p_value": 0.940720296398518,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "p_holm": 0.940720296398518,
+      "resolvable": false
+    }
+  },
+  "conformal": {
+    "9/seed42": {
+      "alpha": 0.1,
+      "feasible": 5,
+      "folds": 5,
+      "per_event_mean_chip_fnr": {
+        "KS_EMSR1111010_Peru": 0.26927781849527016,
+        "KS_EMSR118_Spain": 0.3517748890205052,
+        "KS_EMSR498_France": 0.19455769602875428,
+        "KS_EMSR561_Malawi": 0.1192019171235663,
+        "KS_EMSR1111004_USA": 0.05706949066352198,
+        "KS_EMSR147_Cumbria": 0.07000871292723344,
+        "KS_EMSR267_Lithuania": 0.009444130383162604,
+        "KS_EMSR273_Albania": 0.041544239501449906,
+        "KS_EMSR417_Portugal": 0.007656898175553704,
+        "KS_EMSR554_Australia": 0.0777648442971557,
+        "KS_EMSR1111009_Pakistan": 0.10111977894207565,
+        "KS_EMSR1111011_Philippines": 0.0015848969013875355,
+        "KS_EMSR174_Skopje": 0.29798646872207646,
+        "KS_EMSR321_Honduras": 0.12052639703721528,
+        "KS_EMSR497_Germany": 0.02582110695465585,
+        "KS_EMSR562_Australia": 0.03695322261236242,
+        "KS_EMSR1111007_Nepal": 0.21901620522054072,
+        "KS_EMSR277_Greece": 0.015808868560341492,
+        "KS_EMSR324_France": 0.12546321561628665,
+        "KS_EMSR427_Sweden": 0.2470682035036126,
+        "KS_EMSR445_Romania": 0.03150848149312577,
+        "KS_EMSR496_Italy": 0.0010452961672473868,
+        "KS_EMSR1111005_Madagascar": 0.11410878061848492,
+        "KS_EMSR1111006_Madagascar": 0.0056280942471681914,
+        "KS_EMSR205_SriLanka": 0.15464531317478913,
+        "KS_EMSR275_Croatia": 0.011622070654999804,
+        "KS_EMSR411_France": 0.020924323499625034,
+        "KS_EMSR470_Togo": 0.0031950415788897933,
+        "KS_EMSR567_Australia": 0.020025537826373115
+      },
+      "events_held": 17,
+      "n_calibration_chips": [
+        257,
+        252,
+        240,
+        233,
+        223
+      ]
+    },
+    "9/seed43": {
+      "alpha": 0.1,
+      "feasible": 5,
+      "folds": 5,
+      "per_event_mean_chip_fnr": {
+        "KS_EMSR1111010_Peru": 0.011978679639877239,
+        "KS_EMSR118_Spain": 0.30311981227880636,
+        "KS_EMSR498_France": 0.15063266134502087,
+        "KS_EMSR561_Malawi": 0.05289111703789912,
+        "KS_EMSR1111004_USA": 0.018419316052028352,
+        "KS_EMSR147_Cumbria": 0.05410373319809384,
+        "KS_EMSR267_Lithuania": 0.03172770525506741,
+        "KS_EMSR273_Albania": 0.11107573055069106,
+        "KS_EMSR417_Portugal": 0.018507450518353948,
+        "KS_EMSR554_Australia": 0.049308473421844856,
+        "KS_EMSR1111009_Pakistan": 0.07496484667500274,
+        "KS_EMSR1111011_Philippines": 0.002048035488922072,
+        "KS_EMSR174_Skopje": 0.4351844309803803,
+        "KS_EMSR321_Honduras": 0.1161377052459586,
+        "KS_EMSR497_Germany": 0.026784855243028646,
+        "KS_EMSR562_Australia": 0.016087728262162888,
+        "KS_EMSR1111007_Nepal": 0.21213572704690115,
+        "KS_EMSR277_Greece": 0.025896970927247465,
+        "KS_EMSR324_France": 0.11183719842791214,
+        "KS_EMSR427_Sweden": 0.28204520915901143,
+        "KS_EMSR445_Romania": 0.02657662392521644,
+        "KS_EMSR496_Italy": 0.011189761381365161,
+        "KS_EMSR1111005_Madagascar": 0.08153848184682085,
+        "KS_EMSR1111006_Madagascar": 0.028367125377898404,
+        "KS_EMSR205_SriLanka": 0.2017046318246217,
+        "KS_EMSR275_Croatia": 0.038635547844739555,
+        "KS_EMSR411_France": 0.027749956415265824,
+        "KS_EMSR470_Togo": 0.0017349732475412034,
+        "KS_EMSR567_Australia": 0.015871498323120282
+      },
+      "events_held": 20,
+      "n_calibration_chips": [
+        257,
+        252,
+        240,
+        233,
+        223
+      ]
+    },
+    "9/seed44": {
+      "alpha": 0.1,
+      "feasible": 5,
+      "folds": 5,
+      "per_event_mean_chip_fnr": {
+        "KS_EMSR1111010_Peru": 0.007821959706407639,
+        "KS_EMSR118_Spain": 0.27105613947479135,
+        "KS_EMSR498_France": 0.19790018703812698,
+        "KS_EMSR561_Malawi": 0.03560501322088751,
+        "KS_EMSR1111004_USA": 0.18107475129180606,
+        "KS_EMSR147_Cumbria": 0.13619409891547848,
+        "KS_EMSR267_Lithuania": 0.012219455551377824,
+        "KS_EMSR273_Albania": 0.04587953626016306,
+        "KS_EMSR417_Portugal": 0.028122473528785684,
+        "KS_EMSR554_Australia": 0.06607631403120648,
+        "KS_EMSR1111009_Pakistan": 0.05150037722969034,
+        "KS_EMSR1111011_Philippines": 0.002617977477058745,
+        "KS_EMSR174_Skopje": 0.4667907347471155,
+        "KS_EMSR321_Honduras": 0.15416933770474214,
+        "KS_EMSR497_Germany": 0.02785640601683218,
+        "KS_EMSR562_Australia": 0.05956057427942987,
+        "KS_EMSR1111007_Nepal": 0.21440330619251954,
+        "KS_EMSR277_Greece": 0.02034866416031198,
+        "KS_EMSR324_France": 0.08771506233580774,
+        "KS_EMSR427_Sweden": 0.27570701229539013,
+        "KS_EMSR445_Romania": 0.04033115669206706,
+        "KS_EMSR496_Italy": 0.07042463665518921,
+        "KS_EMSR1111005_Madagascar": 0.16023155711357673,
+        "KS_EMSR1111006_Madagascar": 0.03546209424967006,
+        "KS_EMSR205_SriLanka": 0.28961321561360115,
+        "KS_EMSR275_Croatia": 0.06040234226233293,
+        "KS_EMSR411_France": 0.05308677667181096,
+        "KS_EMSR470_Togo": 0.002505889292418663,
+        "KS_EMSR567_Australia": 0.0315560306089067
+      },
+      "events_held": 19,
+      "n_calibration_chips": [
+        257,
+        252,
+        240,
+        233,
+        223
+      ]
+    },
+    "11/seed42": {
+      "alpha": 0.1,
+      "feasible": 5,
+      "folds": 5,
+      "per_event_mean_chip_fnr": {
+        "KS_EMSR1111010_Peru": 0.2695961129450124,
+        "KS_EMSR118_Spain": 0.353864668986501,
+        "KS_EMSR498_France": 0.19455769602875428,
+        "KS_EMSR561_Malawi": 0.1192019171235663,
+        "KS_EMSR1111004_USA": 0.05796452100686944,
+        "KS_EMSR147_Cumbria": 0.07000871292723344,
+        "KS_EMSR267_Lithuania": 0.009521984127679777,
+        "KS_EMSR273_Albania": 0.041544239501449906,
+        "KS_EMSR417_Portugal": 0.0076608709698583076,
+        "KS_EMSR554_Australia": 0.0777648442971557,
+        "KS_EMSR1111009_Pakistan": 0.021908845081258007,
+        "KS_EMSR1111011_Philippines": 0.0021303655634705983,
+        "KS_EMSR174_Skopje": 0.2050697691848833,
+        "KS_EMSR321_Honduras": 0.13006838582801622,
+        "KS_EMSR497_Germany": 0.028279969616151812,
+        "KS_EMSR562_Australia": 0.03819236087228555,
+        "KS_EMSR1111007_Nepal": 0.21482044296576028,
+        "KS_EMSR277_Greece": 0.017302449823436497,
+        "KS_EMSR324_France": 0.1252793004431146,
+        "KS_EMSR427_Sweden": 0.24584515051744568,
+        "KS_EMSR445_Romania": 0.031950441511535144,
+        "KS_EMSR496_Italy": 0.0010452961672473868,
+        "KS_EMSR1111005_Madagascar": 0.11410878061848492,
+        "KS_EMSR1111006_Madagascar": 0.0056280942471681914,
+        "KS_EMSR205_SriLanka": 0.15464531317478913,
+        "KS_EMSR275_Croatia": 0.011639581029896933,
+        "KS_EMSR411_France": 0.020924323499625034,
+        "KS_EMSR470_Togo": 0.00313302277792881,
+        "KS_EMSR567_Australia": 0.020025537826373115
+      },
+      "events_held": 18,
+      "n_calibration_chips": [
+        257,
+        252,
+        240,
+        233,
+        223
+      ]
+    },
+    "11/seed43": {
+      "alpha": 0.1,
+      "feasible": 5,
+      "folds": 5,
+      "per_event_mean_chip_fnr": {
+        "KS_EMSR1111010_Peru": 0.01028548910101935,
+        "KS_EMSR118_Spain": 0.30051322287818044,
+        "KS_EMSR498_France": 0.144611819990191,
+        "KS_EMSR561_Malawi": 0.04979738592671456,
+        "KS_EMSR1111004_USA": 0.01817281014382356,
+        "KS_EMSR147_Cumbria": 0.05410373319809384,
+        "KS_EMSR267_Lithuania": 0.030845530063280415,
+        "KS_EMSR273_Albania": 0.11107573055069106,
+        "KS_EMSR417_Portugal": 0.018526174317800948,
+        "KS_EMSR554_Australia": 0.049308473421844856,
+        "KS_EMSR1111009_Pakistan": 0.05000160227102202,
+        "KS_EMSR1111011_Philippines": 0.003156415302983454,
+        "KS_EMSR174_Skopje": 0.46929092698082575,
+        "KS_EMSR321_Honduras": 0.12204045284538,
+        "KS_EMSR497_Germany": 0.02765487274828314,
+        "KS_EMSR562_Australia": 0.013338766481966998,
+        "KS_EMSR1111007_Nepal": 0.20673398852491986,
+        "KS_EMSR277_Greece": 0.021136688169749313,
+        "KS_EMSR324_France": 0.11216941066196748,
+        "KS_EMSR427_Sweden": 0.2706567255069473,
+        "KS_EMSR445_Romania": 0.023829386737055203,
+        "KS_EMSR496_Italy": 0.011189761381365161,
+        "KS_EMSR1111005_Madagascar": 0.08744550121838013,
+        "KS_EMSR1111006_Madagascar": 0.030219998940711226,
+        "KS_EMSR205_SriLanka": 0.21019650445863197,
+        "KS_EMSR275_Croatia": 0.041641147698990764,
+        "KS_EMSR411_France": 0.02976930874655428,
+        "KS_EMSR470_Togo": 0.0021861039650526667,
+        "KS_EMSR567_Australia": 0.017932315765129343
+      },
+      "events_held": 20,
+      "n_calibration_chips": [
+        257,
+        252,
+        240,
+        233,
+        223
+      ]
+    },
+    "11/seed44": {
+      "alpha": 0.1,
+      "feasible": 5,
+      "folds": 5,
+      "per_event_mean_chip_fnr": {
+        "KS_EMSR1111010_Peru": 0.008000410449409898,
+        "KS_EMSR118_Spain": 0.27743437523893844,
+        "KS_EMSR498_France": 0.20589905820867394,
+        "KS_EMSR561_Malawi": 0.037970598455059075,
+        "KS_EMSR1111004_USA": 0.17052960131001194,
+        "KS_EMSR147_Cumbria": 0.14364788285330143,
+        "KS_EMSR267_Lithuania": 0.013083130841450916,
+        "KS_EMSR273_Albania": 0.05646317080098304,
+        "KS_EMSR417_Portugal": 0.03220341539843032,
+        "KS_EMSR554_Australia": 0.06959736221375101,
+        "KS_EMSR1111009_Pakistan": 0.0006342106579036418,
+        "KS_EMSR1111011_Philippines": 0.00408853983455044,
+        "KS_EMSR174_Skopje": 0.41368616564763255,
+        "KS_EMSR321_Honduras": 0.15973770004155685,
+        "KS_EMSR497_Germany": 0.028693746432188062,
+        "KS_EMSR562_Australia": 0.05247750788357857,
+        "KS_EMSR1111007_Nepal": 0.20384547991354415,
+        "KS_EMSR277_Greece": 0.016664534532785037,
+        "KS_EMSR324_France": 0.08606904604771048,
+        "KS_EMSR427_Sweden": 0.23461739143234941,
+        "KS_EMSR445_Romania": 0.03261175301158676,
+        "KS_EMSR496_Italy": 0.07042463665518921,
+        "KS_EMSR1111005_Madagascar": 0.16023155711357673,
+        "KS_EMSR1111006_Madagascar": 0.03546209424967006,
+        "KS_EMSR205_SriLanka": 0.28961321561360115,
+        "KS_EMSR275_Croatia": 0.06438420370000379,
+        "KS_EMSR411_France": 0.05308677667181096,
+        "KS_EMSR470_Togo": 0.00345500664147352,
+        "KS_EMSR567_Australia": 0.0315560306089067
+      },
+      "events_held": 19,
+      "n_calibration_chips": [
+        257,
+        252,
+        240,
+        233,
+        223
+      ]
+    }
+  },
+  "events": [
+    "KS_EMSR1111004_USA",
+    "KS_EMSR1111005_Madagascar",
+    "KS_EMSR1111006_Madagascar",
+    "KS_EMSR1111007_Nepal",
+    "KS_EMSR1111009_Pakistan",
+    "KS_EMSR1111010_Peru",
+    "KS_EMSR1111011_Philippines",
+    "KS_EMSR118_Spain",
+    "KS_EMSR147_Cumbria",
+    "KS_EMSR174_Skopje",
+    "KS_EMSR205_SriLanka",
+    "KS_EMSR267_Lithuania",
+    "KS_EMSR273_Albania",
+    "KS_EMSR275_Croatia",
+    "KS_EMSR277_Greece",
+    "KS_EMSR321_Honduras",
+    "KS_EMSR324_France",
+    "KS_EMSR411_France",
+    "KS_EMSR417_Portugal",
+    "KS_EMSR427_Sweden",
+    "KS_EMSR445_Romania",
+    "KS_EMSR470_Togo",
+    "KS_EMSR496_Italy",
+    "KS_EMSR497_Germany",
+    "KS_EMSR498_France",
+    "KS_EMSR554_Australia",
+    "KS_EMSR561_Malawi",
+    "KS_EMSR562_Australia",
+    "KS_EMSR567_Australia"
+  ],
+  "reproducibility_problems": [],
+  "descriptive_gaps": {},
+  "crossfit": {
+    "11/seed42": {
+      "cost": {
+        "KS_EMSR1111010_Peru": {
+          "threshold": 0.13,
+          "iou": 0.4068631885871153,
+          "precision": 0.40753018404076696,
+          "recall": 0.9959934443933532
+        },
+        "KS_EMSR118_Spain": {
+          "threshold": 0.135,
+          "iou": 0.4536264069117014,
+          "precision": 0.5689527385374643,
+          "recall": 0.691160486691884
+        },
+        "KS_EMSR498_France": {
+          "threshold": 0.135,
+          "iou": 0.6137677438590098,
+          "precision": 0.6555506413091552,
+          "recall": 0.9059237708725522
+        },
+        "KS_EMSR561_Malawi": {
+          "threshold": 0.135,
+          "iou": 0.8168224967516083,
+          "precision": 0.8828817220926587,
+          "recall": 0.9160851003146252
+        },
+        "KS_EMSR1111004_USA": {
+          "threshold": 0.135,
+          "iou": 0.5470286919548696,
+          "precision": 0.5842548133654296,
+          "recall": 0.8956755500396879
+        },
+        "KS_EMSR147_Cumbria": {
+          "threshold": 0.135,
+          "iou": 0.5869716194909528,
+          "precision": 0.6424517593643587,
+          "recall": 0.871746266264313
+        },
+        "KS_EMSR267_Lithuania": {
+          "threshold": 0.125,
+          "iou": 0.48414144820921096,
+          "precision": 0.49587441299554097,
+          "recall": 0.9534048044175265
+        },
+        "KS_EMSR273_Albania": {
+          "threshold": 0.135,
+          "iou": 0.5001607530081335,
+          "precision": 0.5554694562830944,
+          "recall": 0.8339739714621377
+        },
+        "KS_EMSR417_Portugal": {
+          "threshold": 0.135,
+          "iou": 0.7961801692159919,
+          "precision": 0.8314632271984985,
+          "recall": 0.9493988356395545
+        },
+        "KS_EMSR554_Australia": {
+          "threshold": 0.135,
+          "iou": 0.7395457994534999,
+          "precision": 0.8115473167890651,
+          "recall": 0.8928832463930635
+        },
+        "KS_EMSR1111009_Pakistan": {
+          "threshold": 0.13,
+          "iou": 0.6066463572219077,
+          "precision": 0.6399983056469685,
+          "recall": 0.9208928240311515
+        },
+        "KS_EMSR1111011_Philippines": {
+          "threshold": 0.13,
+          "iou": 0.6997221810713785,
+          "precision": 0.7052494860964809,
+          "recall": 0.9889233699112607
+        },
+        "KS_EMSR174_Skopje": {
+          "threshold": 0.135,
+          "iou": 0.589902982393101,
+          "precision": 0.8554976550286607,
+          "recall": 0.6551861755198148
+        },
+        "KS_EMSR321_Honduras": {
+          "threshold": 0.135,
+          "iou": 0.6277210118128353,
+          "precision": 0.7386616541779717,
+          "recall": 0.8069301717676646
+        },
+        "KS_EMSR497_Germany": {
+          "threshold": 0.13,
+          "iou": 0.649543817809541,
+          "precision": 0.6696765093158459,
+          "recall": 0.955763694416035
+        },
+        "KS_EMSR562_Australia": {
+          "threshold": 0.135,
+          "iou": 0.8935020962893188,
+          "precision": 0.9296150328386653,
+          "recall": 0.9583340755878019
+        },
+        "KS_EMSR1111007_Nepal": {
+          "threshold": 0.145,
+          "iou": 0.6191752345840863,
+          "precision": 0.7088291141864496,
+          "recall": 0.8303755293934802
+        },
+        "KS_EMSR277_Greece": {
+          "threshold": 0.13,
+          "iou": 0.7771004678467132,
+          "precision": 0.797769479768344,
+          "recall": 0.9677357256504576
+        },
+        "KS_EMSR324_France": {
+          "threshold": 0.125,
+          "iou": 0.47880885321748307,
+          "precision": 0.4896270116538269,
+          "recall": 0.9558903245367152
+        },
+        "KS_EMSR427_Sweden": {
+          "threshold": 0.135,
+          "iou": 0.5003177991509367,
+          "precision": 0.7050428404846805,
+          "recall": 0.6327607780684791
+        },
+        "KS_EMSR445_Romania": {
+          "threshold": 0.13,
+          "iou": 0.5958722686986849,
+          "precision": 0.6217614900489146,
+          "recall": 0.9346857960949161
+        },
+        "KS_EMSR496_Italy": {
+          "threshold": 0.13,
+          "iou": 0.2550625035352678,
+          "precision": 0.25898113315911897,
+          "recall": 0.9439995813052808
+        },
+        "KS_EMSR1111005_Madagascar": {
+          "threshold": 0.145,
+          "iou": 0.7397537079427827,
+          "precision": 0.9599549371251104,
+          "recall": 0.7633088418298223
+        },
+        "KS_EMSR1111006_Madagascar": {
+          "threshold": 0.135,
+          "iou": 0.715118859735648,
+          "precision": 0.7433585939793906,
+          "recall": 0.9495565434950535
+        },
+        "KS_EMSR205_SriLanka": {
+          "threshold": 0.135,
+          "iou": 0.504607555474051,
+          "precision": 0.5994608038923787,
+          "recall": 0.7612828109329429
+        },
+        "KS_EMSR275_Croatia": {
+          "threshold": 0.13,
+          "iou": 0.5913828978432235,
+          "precision": 0.6287169779214702,
+          "recall": 0.9087513258420058
+        },
+        "KS_EMSR411_France": {
+          "threshold": 0.135,
+          "iou": 0.6207252596877527,
+          "precision": 0.6724481819897038,
+          "recall": 0.889746790299572
+        },
+        "KS_EMSR470_Togo": {
+          "threshold": 0.145,
+          "iou": 0.807623623279227,
+          "precision": 0.9734484439699593,
+          "recall": 0.825815138579579
+        },
+        "KS_EMSR567_Australia": {
+          "threshold": 0.135,
+          "iou": 0.756217306926112,
+          "precision": 0.7727078723250577,
+          "recall": 0.9725534921776213
+        }
+      },
+      "conformal": {
+        "KS_EMSR1111010_Peru": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1170,
+          "mean_chip_fnr": 0.0067077679630877405,
+          "precision": 0.37841949961882987,
+          "iou": 0.3783312672300042
+        },
+        "KS_EMSR118_Spain": {
+          "feasible": true,
+          "threshold": 0.05,
+          "n_calibration_chips": 1047,
+          "mean_chip_fnr": 0.2657093734434613,
+          "precision": 0.5335494542663292,
+          "iou": 0.45115956527076545
+        },
+        "KS_EMSR498_France": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1190,
+          "mean_chip_fnr": 0.0987358091373617,
+          "precision": 0.5761672411477685,
+          "iou": 0.5571298714415571
+        },
+        "KS_EMSR561_Malawi": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1190,
+          "mean_chip_fnr": 0.06240718813502512,
+          "precision": 0.8370255275403944,
+          "iou": 0.8021885458579325
+        },
+        "KS_EMSR1111004_USA": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1104,
+          "mean_chip_fnr": 0.0034299073243863974,
+          "precision": 0.0752788219160126,
+          "iou": 0.07527798927201446
+        },
+        "KS_EMSR147_Cumbria": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1168,
+          "mean_chip_fnr": 0.03410773876489506,
+          "precision": 0.0905960299672172,
+          "iou": 0.09027307280807996
+        },
+        "KS_EMSR267_Lithuania": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1162,
+          "mean_chip_fnr": 0.0,
+          "precision": 0.17944882127538012,
+          "iou": 0.17944882127538012
+        },
+        "KS_EMSR273_Albania": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1187,
+          "mean_chip_fnr": 0.0,
+          "precision": 0.07208859843576301,
+          "iou": 0.07208859843576301
+        },
+        "KS_EMSR417_Portugal": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1167,
+          "mean_chip_fnr": 0.0030755783892914886,
+          "precision": 0.2107095806094311,
+          "iou": 0.21070789482339744
+        },
+        "KS_EMSR554_Australia": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1185,
+          "mean_chip_fnr": 0.03280254777070064,
+          "precision": 0.15672743144141416,
+          "iou": 0.15671476015658053
+        },
+        "KS_EMSR1111009_Pakistan": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1157,
+          "mean_chip_fnr": 0.07933642257003636,
+          "precision": 0.5094145849916948,
+          "iou": 0.4962260632909804
+        },
+        "KS_EMSR1111011_Philippines": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1159,
+          "mean_chip_fnr": 0.01887587007599252,
+          "precision": 0.5429447230535418,
+          "iou": 0.5423536095626348
+        },
+        "KS_EMSR174_Skopje": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1195,
+          "mean_chip_fnr": 0.3457314379425017,
+          "precision": 0.7247566684003269,
+          "iou": 0.6009055627425615
+        },
+        "KS_EMSR321_Honduras": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1161,
+          "mean_chip_fnr": 0.20638248530753558,
+          "precision": 0.6138926050355101,
+          "iou": 0.5681238231348305
+        },
+        "KS_EMSR497_Germany": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1131,
+          "mean_chip_fnr": 0.04394051109658219,
+          "precision": 0.5154130658037513,
+          "iou": 0.5107369840919346
+        },
+        "KS_EMSR562_Australia": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1175,
+          "mean_chip_fnr": 0.07064532573960385,
+          "precision": 0.7933447542557264,
+          "iou": 0.7847722478002244
+        },
+        "KS_EMSR1111007_Nepal": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1160,
+          "mean_chip_fnr": 0.1859973747357013,
+          "precision": 0.46266358022721193,
+          "iou": 0.4557072651013808
+        },
+        "KS_EMSR277_Greece": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1165,
+          "mean_chip_fnr": 0.007357224089718628,
+          "precision": 0.34474586506632793,
+          "iou": 0.3445474542299294
+        },
+        "KS_EMSR324_France": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1134,
+          "mean_chip_fnr": 0.09631501396999756,
+          "precision": 0.21893038402056242,
+          "iou": 0.21820273855875255
+        },
+        "KS_EMSR427_Sweden": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1160,
+          "mean_chip_fnr": 0.1967534967723567,
+          "precision": 0.5205795826345165,
+          "iou": 0.4803815854571287
+        },
+        "KS_EMSR445_Romania": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1172,
+          "mean_chip_fnr": 0.015927029467120504,
+          "precision": 0.2586175294423291,
+          "iou": 0.25784286617786806
+        },
+        "KS_EMSR496_Italy": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1199,
+          "mean_chip_fnr": 0.0,
+          "precision": 0.09692465727366112,
+          "iou": 0.09692465727366112
+        },
+        "KS_EMSR1111005_Madagascar": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1153,
+          "mean_chip_fnr": 0.16452124208744456,
+          "precision": 0.6864489346668116,
+          "iou": 0.6762218057693595
+        },
+        "KS_EMSR1111006_Madagascar": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1162,
+          "mean_chip_fnr": 0.026810886989756044,
+          "precision": 0.37827014062369063,
+          "iou": 0.3774567244728346
+        },
+        "KS_EMSR205_SriLanka": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1172,
+          "mean_chip_fnr": 0.21828026142293566,
+          "precision": 0.4580530569873568,
+          "iou": 0.43111773775435863
+        },
+        "KS_EMSR275_Croatia": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1159,
+          "mean_chip_fnr": 0.030624982155385404,
+          "precision": 0.39551322066292127,
+          "iou": 0.39332771305947273
+        },
+        "KS_EMSR411_France": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1196,
+          "mean_chip_fnr": 0.056372559165595325,
+          "precision": 0.2926794043390817,
+          "iou": 0.2905610280646789
+        },
+        "KS_EMSR470_Togo": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1166,
+          "mean_chip_fnr": 0.020229404766833225,
+          "precision": 0.5899490376911086,
+          "iou": 0.5858622973285823
+        },
+        "KS_EMSR567_Australia": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1194,
+          "mean_chip_fnr": 0.04473799820944508,
+          "precision": 0.4053179331061058,
+          "iou": 0.4042630458685981
+        }
+      },
+      "iou_own": 0.6193742877269734,
+      "iou_crossfit": 0.6197901069642119,
+      "oracle": 0.6568172935987949
+    },
+    "11/seed43": {
+      "cost": {
+        "KS_EMSR1111010_Peru": {
+          "threshold": 0.125,
+          "iou": 0.41964768451721723,
+          "precision": 0.42002903337506325,
+          "recall": 0.9978411636412725
+        },
+        "KS_EMSR118_Spain": {
+          "threshold": 0.135,
+          "iou": 0.482427879747418,
+          "precision": 0.5842208159695427,
+          "recall": 0.7346636417354249
+        },
+        "KS_EMSR498_France": {
+          "threshold": 0.135,
+          "iou": 0.6016137084695538,
+          "precision": 0.6380623783008232,
+          "recall": 0.9132826443048188
+        },
+        "KS_EMSR561_Malawi": {
+          "threshold": 0.135,
+          "iou": 0.8083181485168974,
+          "precision": 0.8374144178859321,
+          "recall": 0.95878677683004
+        },
+        "KS_EMSR1111004_USA": {
+          "threshold": 0.125,
+          "iou": 0.5158014361595379,
+          "precision": 0.5294432411151023,
+          "recall": 0.9524227181630407
+        },
+        "KS_EMSR147_Cumbria": {
+          "threshold": 0.135,
+          "iou": 0.5349150382327953,
+          "precision": 0.5780608731579672,
+          "recall": 0.8775515893204358
+        },
+        "KS_EMSR267_Lithuania": {
+          "threshold": 0.125,
+          "iou": 0.5180846764607997,
+          "precision": 0.5465194175713751,
+          "recall": 0.9087395961620653
+        },
+        "KS_EMSR273_Albania": {
+          "threshold": 0.135,
+          "iou": 0.4322610492551584,
+          "precision": 0.48489461520364247,
+          "recall": 0.7992882643459218
+        },
+        "KS_EMSR417_Portugal": {
+          "threshold": 0.135,
+          "iou": 0.8096900154883183,
+          "precision": 0.8542200469490772,
+          "recall": 0.9395123185960176
+        },
+        "KS_EMSR554_Australia": {
+          "threshold": 0.135,
+          "iou": 0.7749059763956392,
+          "precision": 0.8511794403719445,
+          "recall": 0.896347507434144
+        },
+        "KS_EMSR1111009_Pakistan": {
+          "threshold": 0.135,
+          "iou": 0.6629600107382755,
+          "precision": 0.7191141024995221,
+          "recall": 0.8946250626669688
+        },
+        "KS_EMSR1111011_Philippines": {
+          "threshold": 0.135,
+          "iou": 0.7339646761839568,
+          "precision": 0.7481370284241423,
+          "recall": 0.9748395294009671
+        },
+        "KS_EMSR174_Skopje": {
+          "threshold": 0.135,
+          "iou": 0.4822750437079195,
+          "precision": 0.8765465485768372,
+          "recall": 0.5174202817575927
+        },
+        "KS_EMSR321_Honduras": {
+          "threshold": 0.135,
+          "iou": 0.6233856436292091,
+          "precision": 0.7553309374064091,
+          "recall": 0.7811154677618172
+        },
+        "KS_EMSR497_Germany": {
+          "threshold": 0.125,
+          "iou": 0.6448036518259129,
+          "precision": 0.6663489483793944,
+          "recall": 0.9522499082306171
+        },
+        "KS_EMSR562_Australia": {
+          "threshold": 0.135,
+          "iou": 0.8818770542783598,
+          "precision": 0.9013690613980149,
+          "recall": 0.9760654744787465
+        },
+        "KS_EMSR1111007_Nepal": {
+          "threshold": 0.135,
+          "iou": 0.6170562137780422,
+          "precision": 0.6859063431090695,
+          "recall": 0.8600871313672922
+        },
+        "KS_EMSR277_Greece": {
+          "threshold": 0.125,
+          "iou": 0.7504522862556771,
+          "precision": 0.7654277584894112,
+          "recall": 0.9745916810078904
+        },
+        "KS_EMSR324_France": {
+          "threshold": 0.125,
+          "iou": 0.4541580529564586,
+          "precision": 0.464318718401221,
+          "recall": 0.9540313664719916
+        },
+        "KS_EMSR427_Sweden": {
+          "threshold": 0.135,
+          "iou": 0.5350031158347293,
+          "precision": 0.6849231850219942,
+          "recall": 0.7096576043681038
+        },
+        "KS_EMSR445_Romania": {
+          "threshold": 0.13,
+          "iou": 0.5945652383989486,
+          "precision": 0.6192884204254017,
+          "recall": 0.9370800207133937
+        },
+        "KS_EMSR496_Italy": {
+          "threshold": 0.135,
+          "iou": 0.4357691104641371,
+          "precision": 0.4464686305928756,
+          "recall": 0.9478725074579997
+        },
+        "KS_EMSR1111005_Madagascar": {
+          "threshold": 0.15,
+          "iou": 0.8065581919863755,
+          "precision": 0.9422767515293349,
+          "recall": 0.8484809747792714
+        },
+        "KS_EMSR1111006_Madagascar": {
+          "threshold": 0.135,
+          "iou": 0.7090872634032739,
+          "precision": 0.7413684062587839,
+          "recall": 0.9421460050217226
+        },
+        "KS_EMSR205_SriLanka": {
+          "threshold": 0.135,
+          "iou": 0.516883863711321,
+          "precision": 0.6598900920937564,
+          "recall": 0.7045892076959434
+        },
+        "KS_EMSR275_Croatia": {
+          "threshold": 0.135,
+          "iou": 0.6151541822607478,
+          "precision": 0.6575278602854144,
+          "recall": 0.9051734739366363
+        },
+        "KS_EMSR411_France": {
+          "threshold": 0.135,
+          "iou": 0.6366273958150167,
+          "precision": 0.6828831256315258,
+          "recall": 0.9038338088445078
+        },
+        "KS_EMSR470_Togo": {
+          "threshold": 0.135,
+          "iou": 0.8665623203091386,
+          "precision": 0.9559934169230325,
+          "recall": 0.9025655361890014
+        },
+        "KS_EMSR567_Australia": {
+          "threshold": 0.135,
+          "iou": 0.7297323858017677,
+          "precision": 0.7396913153651232,
+          "recall": 0.9818841478028744
+        }
+      },
+      "conformal": {
+        "KS_EMSR1111010_Peru": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1170,
+          "mean_chip_fnr": 0.00280728865869545,
+          "precision": 0.3744260295523929,
+          "iou": 0.37438772874517273
+        },
+        "KS_EMSR118_Spain": {
+          "feasible": true,
+          "threshold": 0.05,
+          "n_calibration_chips": 1047,
+          "mean_chip_fnr": 0.2524754225126417,
+          "precision": 0.5459335437230287,
+          "iou": 0.47523727238641733
+        },
+        "KS_EMSR498_France": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1190,
+          "mean_chip_fnr": 0.0804608256520116,
+          "precision": 0.5383691390070139,
+          "iou": 0.524536576179074
+        },
+        "KS_EMSR561_Malawi": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1190,
+          "mean_chip_fnr": 0.021219382248135833,
+          "precision": 0.7656650667368006,
+          "iou": 0.7574372667830612
+        },
+        "KS_EMSR1111004_USA": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1104,
+          "mean_chip_fnr": 0.0,
+          "precision": 0.06635385385385385,
+          "iou": 0.06635385385385385
+        },
+        "KS_EMSR147_Cumbria": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1168,
+          "mean_chip_fnr": 0.0,
+          "precision": 0.04113523050749184,
+          "iou": 0.04113479407369004
+        },
+        "KS_EMSR267_Lithuania": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1162,
+          "mean_chip_fnr": 0.0,
+          "precision": 0.17942120365123018,
+          "iou": 0.17942120365123018
+        },
+        "KS_EMSR273_Albania": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1187,
+          "mean_chip_fnr": 0.0,
+          "precision": 0.0554222427318874,
+          "iou": 0.0554222427318874
+        },
+        "KS_EMSR417_Portugal": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1167,
+          "mean_chip_fnr": 0.0,
+          "precision": 0.16729178774748565,
+          "iou": 0.16729178774748565
+        },
+        "KS_EMSR554_Australia": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1185,
+          "mean_chip_fnr": 0.0,
+          "precision": 0.13580799208080194,
+          "iou": 0.13580799208080194
+        },
+        "KS_EMSR1111009_Pakistan": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1157,
+          "mean_chip_fnr": 0.11167603832622959,
+          "precision": 0.48028925489715485,
+          "iou": 0.4730050942324036
+        },
+        "KS_EMSR1111011_Philippines": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1159,
+          "mean_chip_fnr": 0.02854900718783119,
+          "precision": 0.40600188337016874,
+          "iou": 0.4053500584179645
+        },
+        "KS_EMSR174_Skopje": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1195,
+          "mean_chip_fnr": 0.6035596110400122,
+          "precision": 0.7870299727520436,
+          "iou": 0.4986017607457276
+        },
+        "KS_EMSR321_Honduras": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1161,
+          "mean_chip_fnr": 0.2292136374039391,
+          "precision": 0.5683672583436141,
+          "iou": 0.5245319091844188
+        },
+        "KS_EMSR497_Germany": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1131,
+          "mean_chip_fnr": 0.0428348005297992,
+          "precision": 0.3181758224560593,
+          "iou": 0.3167120031867852
+        },
+        "KS_EMSR562_Australia": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1175,
+          "mean_chip_fnr": 0.039735787441225426,
+          "precision": 0.689721001504175,
+          "iou": 0.6883560079548569
+        },
+        "KS_EMSR1111007_Nepal": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1160,
+          "mean_chip_fnr": 0.20954507043534987,
+          "precision": 0.5205154128572267,
+          "iou": 0.5089924972237019
+        },
+        "KS_EMSR277_Greece": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1165,
+          "mean_chip_fnr": 0.014558590431758684,
+          "precision": 0.3626001346660434,
+          "iou": 0.36216589764658785
+        },
+        "KS_EMSR324_France": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1134,
+          "mean_chip_fnr": 0.08633760330139625,
+          "precision": 0.24977822855795834,
+          "iou": 0.24892718455980373
+        },
+        "KS_EMSR427_Sweden": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1160,
+          "mean_chip_fnr": 0.27281125298198067,
+          "precision": 0.4148194932777639,
+          "iou": 0.37181604453931805
+        },
+        "KS_EMSR445_Romania": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1172,
+          "mean_chip_fnr": 0.010922027065912542,
+          "precision": 0.29410595619667773,
+          "iou": 0.2933824046254859
+        },
+        "KS_EMSR496_Italy": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1199,
+          "mean_chip_fnr": 0.004404785341996442,
+          "precision": 0.18218648626697817,
+          "iou": 0.1821168806980176
+        },
+        "KS_EMSR1111005_Madagascar": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1153,
+          "mean_chip_fnr": 0.1014552992129263,
+          "precision": 0.6915257817244141,
+          "iou": 0.6863611746824828
+        },
+        "KS_EMSR1111006_Madagascar": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1162,
+          "mean_chip_fnr": 0.03393540313454323,
+          "precision": 0.4125706409885369,
+          "iou": 0.4110041752918784
+        },
+        "KS_EMSR205_SriLanka": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1172,
+          "mean_chip_fnr": 0.26805408851481194,
+          "precision": 0.5532013753368646,
+          "iou": 0.49456186869561003
+        },
+        "KS_EMSR275_Croatia": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1159,
+          "mean_chip_fnr": 0.04776247000777774,
+          "precision": 0.4426082270522723,
+          "iou": 0.4377074993834304
+        },
+        "KS_EMSR411_France": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1196,
+          "mean_chip_fnr": 0.03443454613679572,
+          "precision": 0.33827551108004367,
+          "iou": 0.3363943462725155
+        },
+        "KS_EMSR470_Togo": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1166,
+          "mean_chip_fnr": 0.003966539619807597,
+          "precision": 0.6075859156920925,
+          "iou": 0.6071729289141513
+        },
+        "KS_EMSR567_Australia": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1194,
+          "mean_chip_fnr": 0.02197018072821399,
+          "precision": 0.42476176379373537,
+          "iou": 0.4240563780680027
+        }
+      },
+      "iou_own": 0.6289024237377135,
+      "iou_crossfit": 0.6273979763649172,
+      "oracle": 0.6595758624692167
+    },
+    "11/seed44": {
+      "cost": {
+        "KS_EMSR1111010_Peru": {
+          "threshold": 0.125,
+          "iou": 0.4148994201944778,
+          "precision": 0.415129328428581,
+          "recall": 0.9986669422777569
+        },
+        "KS_EMSR118_Spain": {
+          "threshold": 0.145,
+          "iou": 0.5095231734016105,
+          "precision": 0.6204185240777406,
+          "recall": 0.7402998046158955
+        },
+        "KS_EMSR498_France": {
+          "threshold": 0.13,
+          "iou": 0.6252652426085726,
+          "precision": 0.6932110019800427,
+          "recall": 0.864484267657629
+        },
+        "KS_EMSR561_Malawi": {
+          "threshold": 0.13,
+          "iou": 0.8050301818357855,
+          "precision": 0.8304248118712235,
+          "recall": 0.9634036560692354
+        },
+        "KS_EMSR1111004_USA": {
+          "threshold": 0.125,
+          "iou": 0.40137468182071684,
+          "precision": 0.4355762016834359,
+          "recall": 0.8363804603800393
+        },
+        "KS_EMSR147_Cumbria": {
+          "threshold": 0.13,
+          "iou": 0.6069759168305482,
+          "precision": 0.6759384595067516,
+          "recall": 0.8561004676316651
+        },
+        "KS_EMSR267_Lithuania": {
+          "threshold": 0.125,
+          "iou": 0.5046441911138372,
+          "precision": 0.5160269906312385,
+          "recall": 0.9581195728413852
+        },
+        "KS_EMSR273_Albania": {
+          "threshold": 0.13,
+          "iou": 0.5356217752974624,
+          "precision": 0.5820847700710995,
+          "recall": 0.8703021454723803
+        },
+        "KS_EMSR417_Portugal": {
+          "threshold": 0.125,
+          "iou": 0.7696141539743272,
+          "precision": 0.7757296543151102,
+          "recall": 0.989860361120486
+        },
+        "KS_EMSR554_Australia": {
+          "threshold": 0.13,
+          "iou": 0.7040555420764824,
+          "precision": 0.734584513048592,
+          "recall": 0.944261441573135
+        },
+        "KS_EMSR1111009_Pakistan": {
+          "threshold": 0.125,
+          "iou": 0.5854775610068771,
+          "precision": 0.6180506116670436,
+          "recall": 0.9174169533895105
+        },
+        "KS_EMSR1111011_Philippines": {
+          "threshold": 0.125,
+          "iou": 0.7245730486145734,
+          "precision": 0.7333746725824558,
+          "recall": 0.9837062828756791
+        },
+        "KS_EMSR174_Skopje": {
+          "threshold": 0.13,
+          "iou": 0.5478168962752388,
+          "precision": 0.8632552262807259,
+          "recall": 0.5998722911761184
+        },
+        "KS_EMSR321_Honduras": {
+          "threshold": 0.145,
+          "iou": 0.6261466114486977,
+          "precision": 0.7409133324555327,
+          "recall": 0.801677413759996
+        },
+        "KS_EMSR497_Germany": {
+          "threshold": 0.125,
+          "iou": 0.6277434579369016,
+          "precision": 0.642724025589294,
+          "recall": 0.9641995516575051
+        },
+        "KS_EMSR562_Australia": {
+          "threshold": 0.13,
+          "iou": 0.875567401182167,
+          "precision": 0.8986912640284772,
+          "recall": 0.9714516207020285
+        },
+        "KS_EMSR1111007_Nepal": {
+          "threshold": 0.145,
+          "iou": 0.6175358859468316,
+          "precision": 0.6920014523439766,
+          "recall": 0.8516034794265066
+        },
+        "KS_EMSR277_Greece": {
+          "threshold": 0.125,
+          "iou": 0.758189551458443,
+          "precision": 0.7751167057535382,
+          "recall": 0.9720033027335687
+        },
+        "KS_EMSR324_France": {
+          "threshold": 0.115,
+          "iou": 0.420609924668814,
+          "precision": 0.4254201301229385,
+          "recall": 0.9738214603999057
+        },
+        "KS_EMSR427_Sweden": {
+          "threshold": 0.13,
+          "iou": 0.5340184655968345,
+          "precision": 0.6598309170542899,
+          "recall": 0.736890001137527
+        },
+        "KS_EMSR445_Romania": {
+          "threshold": 0.125,
+          "iou": 0.5727639066224823,
+          "precision": 0.5922908430387862,
+          "recall": 0.945572512108197
+        },
+        "KS_EMSR496_Italy": {
+          "threshold": 0.13,
+          "iou": 0.589418534741905,
+          "precision": 0.6317524026954376,
+          "recall": 0.897916993771916
+        },
+        "KS_EMSR1111005_Madagascar": {
+          "threshold": 0.165,
+          "iou": 0.7053408897383011,
+          "precision": 0.968386937545464,
+          "recall": 0.7219647822057461
+        },
+        "KS_EMSR1111006_Madagascar": {
+          "threshold": 0.145,
+          "iou": 0.7267085809216488,
+          "precision": 0.7790334470782255,
+          "recall": 0.9153942439211705
+        },
+        "KS_EMSR205_SriLanka": {
+          "threshold": 0.13,
+          "iou": 0.5085835564669956,
+          "precision": 0.6950264343058548,
+          "recall": 0.6546854646270188
+        },
+        "KS_EMSR275_Croatia": {
+          "threshold": 0.13,
+          "iou": 0.6298240561703762,
+          "precision": 0.6874741789659612,
+          "recall": 0.8824996541281724
+        },
+        "KS_EMSR411_France": {
+          "threshold": 0.13,
+          "iou": 0.6476939465274398,
+          "precision": 0.7116126515337601,
+          "recall": 0.8782097004279601
+        },
+        "KS_EMSR470_Togo": {
+          "threshold": 0.15,
+          "iou": 0.835356280924361,
+          "precision": 0.9582807671385085,
+          "recall": 0.8668827735390536
+        },
+        "KS_EMSR567_Australia": {
+          "threshold": 0.13,
+          "iou": 0.7673733920844119,
+          "precision": 0.7907639680729761,
+          "recall": 0.9628839907767833
+        }
+      },
+      "conformal": {
+        "KS_EMSR1111010_Peru": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1170,
+          "mean_chip_fnr": 0.0009638486223960991,
+          "precision": 0.3624824417931584,
+          "iou": 0.36246969237039117
+        },
+        "KS_EMSR118_Spain": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1047,
+          "mean_chip_fnr": 0.24063749881374444,
+          "precision": 0.5632996185429355,
+          "iou": 0.4988172696486329
+        },
+        "KS_EMSR498_France": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1190,
+          "mean_chip_fnr": 0.13511945709007647,
+          "precision": 0.5926775240234619,
+          "iou": 0.5669412361596085
+        },
+        "KS_EMSR561_Malawi": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1190,
+          "mean_chip_fnr": 0.021773152441680717,
+          "precision": 0.7522326057321961,
+          "iou": 0.7443504060172633
+        },
+        "KS_EMSR1111004_USA": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1104,
+          "mean_chip_fnr": 0.11902263008117328,
+          "precision": 0.2835966845998974,
+          "iou": 0.2765563614135373
+        },
+        "KS_EMSR147_Cumbria": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1168,
+          "mean_chip_fnr": 0.09664204068174417,
+          "precision": 0.4257585151378425,
+          "iou": 0.4093790477379485
+        },
+        "KS_EMSR267_Lithuania": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1162,
+          "mean_chip_fnr": 0.0038066694986634646,
+          "precision": 0.2601061516718694,
+          "iou": 0.25994587815678416
+        },
+        "KS_EMSR273_Albania": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1187,
+          "mean_chip_fnr": 0.015275624805906406,
+          "precision": 0.2889667074376288,
+          "iou": 0.28757803745797983
+        },
+        "KS_EMSR417_Portugal": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1167,
+          "mean_chip_fnr": 0.017889606138071387,
+          "precision": 0.49123012524542176,
+          "iou": 0.49112473869618073
+        },
+        "KS_EMSR554_Australia": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1185,
+          "mean_chip_fnr": 0.04970602202841482,
+          "precision": 0.47427112273638,
+          "iou": 0.47269789675863483
+        },
+        "KS_EMSR1111009_Pakistan": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1157,
+          "mean_chip_fnr": 0.0022191775980004345,
+          "precision": 0.3929804994734243,
+          "iou": 0.3927927690692908
+        },
+        "KS_EMSR1111011_Philippines": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1159,
+          "mean_chip_fnr": 0.00790795213383076,
+          "precision": 0.38071898996478604,
+          "iou": 0.3805890042560258
+        },
+        "KS_EMSR174_Skopje": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1195,
+          "mean_chip_fnr": 0.4900230165165695,
+          "precision": 0.7547326906222612,
+          "iou": 0.5618516343707184
+        },
+        "KS_EMSR321_Honduras": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1161,
+          "mean_chip_fnr": 0.19963873143452326,
+          "precision": 0.4340623226747276,
+          "iou": 0.4136478168686526
+        },
+        "KS_EMSR497_Germany": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1131,
+          "mean_chip_fnr": 0.030396195889940105,
+          "precision": 0.22393423646562605,
+          "iou": 0.22364081859889257
+        },
+        "KS_EMSR562_Australia": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1175,
+          "mean_chip_fnr": 0.06696466396669504,
+          "precision": 0.7120970981868336,
+          "iou": 0.7093635399206659
+        },
+        "KS_EMSR1111007_Nepal": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1160,
+          "mean_chip_fnr": 0.1254925444733281,
+          "precision": 0.5128433563663656,
+          "iou": 0.5052546100576072
+        },
+        "KS_EMSR277_Greece": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1165,
+          "mean_chip_fnr": 0.0006051458930899528,
+          "precision": 0.2975009454091759,
+          "iou": 0.297491296652187
+        },
+        "KS_EMSR324_France": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1134,
+          "mean_chip_fnr": 0.02042016736921663,
+          "precision": 0.17774054822428131,
+          "iou": 0.17765055330460508
+        },
+        "KS_EMSR427_Sweden": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1160,
+          "mean_chip_fnr": 0.14196462540149463,
+          "precision": 0.32376545033599946,
+          "iou": 0.31421220825665597
+        },
+        "KS_EMSR445_Romania": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1172,
+          "mean_chip_fnr": 0.013834086478067,
+          "precision": 0.3074055109897404,
+          "iou": 0.3062167875365774
+        },
+        "KS_EMSR496_Italy": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1199,
+          "mean_chip_fnr": 0.03136561459283691,
+          "precision": 0.2906671635070722,
+          "iou": 0.28893553315944626
+        },
+        "KS_EMSR1111005_Madagascar": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1153,
+          "mean_chip_fnr": 0.16916039394605478,
+          "precision": 0.6783262789378464,
+          "iou": 0.6683840761807494
+        },
+        "KS_EMSR1111006_Madagascar": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1162,
+          "mean_chip_fnr": 0.0377619724534989,
+          "precision": 0.38626829452368927,
+          "iou": 0.3848094896590015
+        },
+        "KS_EMSR205_SriLanka": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1172,
+          "mean_chip_fnr": 0.2999945609147869,
+          "precision": 0.5576187572750956,
+          "iou": 0.4937804142650792
+        },
+        "KS_EMSR275_Croatia": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1159,
+          "mean_chip_fnr": 0.06875836443577536,
+          "precision": 0.44002150192330514,
+          "iou": 0.4338936846887778
+        },
+        "KS_EMSR411_France": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1196,
+          "mean_chip_fnr": 0.05755878324060103,
+          "precision": 0.289248410475772,
+          "iou": 0.2870555228648285
+        },
+        "KS_EMSR470_Togo": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1166,
+          "mean_chip_fnr": 0.00019210911815254698,
+          "precision": 0.5215696833293374,
+          "iou": 0.5215471809810289
+        },
+        "KS_EMSR567_Australia": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1194,
+          "mean_chip_fnr": 0.03525948088852721,
+          "precision": 0.4005464262922782,
+          "iou": 0.39989646693412706
+        }
+      },
+      "iou_own": 0.6397592800601841,
+      "iou_crossfit": 0.6268188354305904,
+      "oracle": 0.6627162020513021
+    },
+    "9/seed42": {
+      "cost": {
+        "KS_EMSR1111010_Peru": {
+          "threshold": 0.13,
+          "iou": 0.4073180315085267,
+          "precision": 0.40798846694030466,
+          "recall": 0.9959818434163401
+        },
+        "KS_EMSR118_Spain": {
+          "threshold": 0.13,
+          "iou": 0.4537319678558119,
+          "precision": 0.5668880012815345,
+          "recall": 0.6944794285985396
+        },
+        "KS_EMSR498_France": {
+          "threshold": 0.13,
+          "iou": 0.6120978248322037,
+          "precision": 0.6528591279264067,
+          "recall": 0.9074395521110921
+        },
+        "KS_EMSR561_Malawi": {
+          "threshold": 0.13,
+          "iou": 0.8167977398798517,
+          "precision": 0.8816681585924215,
+          "recall": 0.9173641006444022
+        },
+        "KS_EMSR1111004_USA": {
+          "threshold": 0.13,
+          "iou": 0.5462311403783451,
+          "precision": 0.5819997274105708,
+          "recall": 0.8988659337189568
+        },
+        "KS_EMSR147_Cumbria": {
+          "threshold": 0.13,
+          "iou": 0.5860514278765656,
+          "precision": 0.6405222076255808,
+          "recall": 0.8732794848385591
+        },
+        "KS_EMSR267_Lithuania": {
+          "threshold": 0.125,
+          "iou": 0.4829757617436102,
+          "precision": 0.4945358439986164,
+          "recall": 0.9538351796779483
+        },
+        "KS_EMSR273_Albania": {
+          "threshold": 0.13,
+          "iou": 0.49970048874790685,
+          "precision": 0.5534370712142459,
+          "recall": 0.8373045293305806
+        },
+        "KS_EMSR417_Portugal": {
+          "threshold": 0.13,
+          "iou": 0.7956892158090304,
+          "precision": 0.8291601810520203,
+          "recall": 0.9517170097873776
+        },
+        "KS_EMSR554_Australia": {
+          "threshold": 0.13,
+          "iou": 0.739134388446388,
+          "precision": 0.8091447963800905,
+          "recall": 0.895206103507314
+        },
+        "KS_EMSR1111009_Pakistan": {
+          "threshold": 0.13,
+          "iou": 0.7026406499311824,
+          "precision": 0.768423856938293,
+          "recall": 0.8913947091909266
+        },
+        "KS_EMSR1111011_Philippines": {
+          "threshold": 0.13,
+          "iou": 0.6904240774277114,
+          "precision": 0.694942091428445,
+          "recall": 0.9906714812626555
+        },
+        "KS_EMSR174_Skopje": {
+          "threshold": 0.13,
+          "iou": 0.45646437994722955,
+          "precision": 0.9160463510091321,
+          "recall": 0.47639382208564474
+        },
+        "KS_EMSR321_Honduras": {
+          "threshold": 0.13,
+          "iou": 0.6245993016651697,
+          "precision": 0.7200348182449766,
+          "recall": 0.8249431673883014
+        },
+        "KS_EMSR497_Germany": {
+          "threshold": 0.13,
+          "iou": 0.6332723659984566,
+          "precision": 0.6493341827714633,
+          "recall": 0.9624080286089608
+        },
+        "KS_EMSR562_Australia": {
+          "threshold": 0.13,
+          "iou": 0.8928484467564743,
+          "precision": 0.9396443011561664,
+          "recall": 0.9471684476532458
+        },
+        "KS_EMSR1111007_Nepal": {
+          "threshold": 0.135,
+          "iou": 0.6199667248203733,
+          "precision": 0.7044328237394467,
+          "recall": 0.837936385359599
+        },
+        "KS_EMSR277_Greece": {
+          "threshold": 0.13,
+          "iou": 0.7795014337145356,
+          "precision": 0.8006716215878916,
+          "recall": 0.9671930011735836
+        },
+        "KS_EMSR324_France": {
+          "threshold": 0.12,
+          "iou": 0.475415898175709,
+          "precision": 0.48585260708909267,
+          "recall": 0.9567692717600689
+        },
+        "KS_EMSR427_Sweden": {
+          "threshold": 0.13,
+          "iou": 0.5131517782218386,
+          "precision": 0.715620737847076,
+          "recall": 0.6445986425510939
+        },
+        "KS_EMSR445_Romania": {
+          "threshold": 0.13,
+          "iou": 0.5991555903049257,
+          "precision": 0.6257742355635945,
+          "recall": 0.9337110481586403
+        },
+        "KS_EMSR496_Italy": {
+          "threshold": 0.13,
+          "iou": 0.2550625035352678,
+          "precision": 0.25898113315911897,
+          "recall": 0.9439995813052808
+        },
+        "KS_EMSR1111005_Madagascar": {
+          "threshold": 0.14,
+          "iou": 0.7421131519065941,
+          "precision": 0.9593337027440263,
+          "recall": 0.7662170262918082
+        },
+        "KS_EMSR1111006_Madagascar": {
+          "threshold": 0.13,
+          "iou": 0.7142762918867556,
+          "precision": 0.741586987657588,
+          "recall": 0.9509689959978032
+        },
+        "KS_EMSR205_SriLanka": {
+          "threshold": 0.13,
+          "iou": 0.5041534373405818,
+          "precision": 0.5975777047760009,
+          "recall": 0.763300171763865
+        },
+        "KS_EMSR275_Croatia": {
+          "threshold": 0.13,
+          "iou": 0.5913982528404472,
+          "precision": 0.6287306537767178,
+          "recall": 0.9087590118826188
+        },
+        "KS_EMSR411_France": {
+          "threshold": 0.13,
+          "iou": 0.6190375947298034,
+          "precision": 0.6695193325029799,
+          "recall": 0.8914229671897289
+        },
+        "KS_EMSR470_Togo": {
+          "threshold": 0.14,
+          "iou": 0.8100397236844664,
+          "precision": 0.9730537891418426,
+          "recall": 0.8286274596029873
+        },
+        "KS_EMSR567_Australia": {
+          "threshold": 0.13,
+          "iou": 0.7545862157314887,
+          "precision": 0.7703414047225147,
+          "recall": 0.9736113521599352
+        }
+      },
+      "conformal": {
+        "KS_EMSR1111010_Peru": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1170,
+          "mean_chip_fnr": 0.004767990311758349,
+          "precision": 0.368136797949196,
+          "iou": 0.3680808981468285
+        },
+        "KS_EMSR118_Spain": {
+          "feasible": true,
+          "threshold": 0.05,
+          "n_calibration_chips": 1047,
+          "mean_chip_fnr": 0.2643243993623132,
+          "precision": 0.5327507655538128,
+          "iou": 0.45097429600139743
+        },
+        "KS_EMSR498_France": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1190,
+          "mean_chip_fnr": 0.0987358091373617,
+          "precision": 0.5761672411477685,
+          "iou": 0.5571298714415571
+        },
+        "KS_EMSR561_Malawi": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1190,
+          "mean_chip_fnr": 0.06240718813502512,
+          "precision": 0.8370255275403944,
+          "iou": 0.8021885458579325
+        },
+        "KS_EMSR1111004_USA": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1104,
+          "mean_chip_fnr": 0.0033994159338483114,
+          "precision": 0.07520800216652775,
+          "iou": 0.07520725792805075
+        },
+        "KS_EMSR147_Cumbria": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1168,
+          "mean_chip_fnr": 0.03410773876489506,
+          "precision": 0.0905960299672172,
+          "iou": 0.09027307280807996
+        },
+        "KS_EMSR267_Lithuania": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1162,
+          "mean_chip_fnr": 0.0,
+          "precision": 0.17942120365123018,
+          "iou": 0.17942120365123018
+        },
+        "KS_EMSR273_Albania": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1187,
+          "mean_chip_fnr": 0.0,
+          "precision": 0.07208859843576301,
+          "iou": 0.07208859843576301
+        },
+        "KS_EMSR417_Portugal": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1167,
+          "mean_chip_fnr": 0.0015224010439321444,
+          "precision": 0.208234996980179,
+          "iou": 0.20823435671641266
+        },
+        "KS_EMSR554_Australia": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1185,
+          "mean_chip_fnr": 0.03280254777070064,
+          "precision": 0.15672743144141416,
+          "iou": 0.15671476015658053
+        },
+        "KS_EMSR1111009_Pakistan": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1157,
+          "mean_chip_fnr": 0.15413285477676383,
+          "precision": 0.6064784043878217,
+          "iou": 0.580835677601951
+        },
+        "KS_EMSR1111011_Philippines": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1159,
+          "mean_chip_fnr": 0.007267768518617869,
+          "precision": 0.41203027258691777,
+          "iou": 0.4119055683731961
+        },
+        "KS_EMSR174_Skopje": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1195,
+          "mean_chip_fnr": 0.5117262844741957,
+          "precision": 0.8272679324894515,
+          "iou": 0.5536142877311874
+        },
+        "KS_EMSR321_Honduras": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1161,
+          "mean_chip_fnr": 0.18516029249075092,
+          "precision": 0.5449395954070809,
+          "iou": 0.514547741178798
+        },
+        "KS_EMSR497_Germany": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1131,
+          "mean_chip_fnr": 0.0327410298718596,
+          "precision": 0.35462867004958776,
+          "iou": 0.35354815977133186
+        },
+        "KS_EMSR562_Australia": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1175,
+          "mean_chip_fnr": 0.08852891358071162,
+          "precision": 0.7965616667475921,
+          "iou": 0.7845283349070427
+        },
+        "KS_EMSR1111007_Nepal": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1160,
+          "mean_chip_fnr": 0.1895745355134744,
+          "precision": 0.46469920743500065,
+          "iou": 0.4574759106069143
+        },
+        "KS_EMSR277_Greece": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1165,
+          "mean_chip_fnr": 0.0014963346276439323,
+          "precision": 0.2967327226118394,
+          "iou": 0.29671393171806165
+        },
+        "KS_EMSR324_France": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1134,
+          "mean_chip_fnr": 0.09669976479028983,
+          "precision": 0.21919483288392802,
+          "iou": 0.21845910336839747
+        },
+        "KS_EMSR427_Sweden": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1160,
+          "mean_chip_fnr": 0.19646885976234169,
+          "precision": 0.5253788368186936,
+          "iou": 0.48507389561312697
+        },
+        "KS_EMSR445_Romania": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1172,
+          "mean_chip_fnr": 0.004374190182304497,
+          "precision": 0.17830132690119296,
+          "iou": 0.17822175538659976
+        },
+        "KS_EMSR496_Italy": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1199,
+          "mean_chip_fnr": 0.0,
+          "precision": 0.09692465727366112,
+          "iou": 0.09692465727366112
+        },
+        "KS_EMSR1111005_Madagascar": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1153,
+          "mean_chip_fnr": 0.16452124208744456,
+          "precision": 0.6864489346668116,
+          "iou": 0.6762218057693595
+        },
+        "KS_EMSR1111006_Madagascar": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1162,
+          "mean_chip_fnr": 0.01594526971863196,
+          "precision": 0.29058171144649614,
+          "iou": 0.2903723485605032
+        },
+        "KS_EMSR205_SriLanka": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1172,
+          "mean_chip_fnr": 0.21828026142293566,
+          "precision": 0.4580530569873568,
+          "iou": 0.43111773775435863
+        },
+        "KS_EMSR275_Croatia": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1159,
+          "mean_chip_fnr": 0.015498663177015901,
+          "precision": 0.24031890977872988,
+          "iou": 0.24000511904088462
+        },
+        "KS_EMSR411_France": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1196,
+          "mean_chip_fnr": 0.056372559165595325,
+          "precision": 0.2926794043390817,
+          "iou": 0.2905610280646789
+        },
+        "KS_EMSR470_Togo": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1166,
+          "mean_chip_fnr": 0.00596251651889125,
+          "precision": 0.5434034811806021,
+          "iou": 0.5425285719169107
+        },
+        "KS_EMSR567_Australia": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1194,
+          "mean_chip_fnr": 0.04473799820944508,
+          "precision": 0.4053179331061058,
+          "iou": 0.4042630458685981
+        }
+      },
+      "iou_own": 0.6173150308392839,
+      "iou_crossfit": 0.6178564070930087,
+      "oracle": 0.659021369800276
+    },
+    "9/seed43": {
+      "cost": {
+        "KS_EMSR1111010_Peru": {
+          "threshold": 0.12,
+          "iou": 0.4192239918281357,
+          "precision": 0.41955796524811534,
+          "recall": 0.998104822209754
+        },
+        "KS_EMSR118_Spain": {
+          "threshold": 0.13,
+          "iou": 0.4821427313073344,
+          "precision": 0.5818618163016079,
+          "recall": 0.7377604582253258
+        },
+        "KS_EMSR498_France": {
+          "threshold": 0.13,
+          "iou": 0.5999005565624649,
+          "precision": 0.6355912041600109,
+          "recall": 0.9144072561914774
+        },
+        "KS_EMSR561_Malawi": {
+          "threshold": 0.13,
+          "iou": 0.8077037048150968,
+          "precision": 0.8361212714240228,
+          "recall": 0.9596201324456091
+        },
+        "KS_EMSR1111004_USA": {
+          "threshold": 0.12,
+          "iou": 0.5135063005785125,
+          "precision": 0.5266963009617015,
+          "recall": 0.9534993356108215
+        },
+        "KS_EMSR147_Cumbria": {
+          "threshold": 0.13,
+          "iou": 0.5316789352211914,
+          "precision": 0.5726478698500813,
+          "recall": 0.881398574106726
+        },
+        "KS_EMSR267_Lithuania": {
+          "threshold": 0.12,
+          "iou": 0.5197909362167222,
+          "precision": 0.5469151894566954,
+          "recall": 0.9128974083665546
+        },
+        "KS_EMSR273_Albania": {
+          "threshold": 0.13,
+          "iou": 0.4301398724889022,
+          "precision": 0.47992336227630344,
+          "recall": 0.8056984476406648
+        },
+        "KS_EMSR417_Portugal": {
+          "threshold": 0.13,
+          "iou": 0.8095317365681188,
+          "precision": 0.8506028815112534,
+          "recall": 0.9437120317246035
+        },
+        "KS_EMSR554_Australia": {
+          "threshold": 0.13,
+          "iou": 0.7747735725600937,
+          "precision": 0.8468473131231385,
+          "recall": 0.901023258608088
+        },
+        "KS_EMSR1111009_Pakistan": {
+          "threshold": 0.13,
+          "iou": 0.6941312022293527,
+          "precision": 0.7596105350817519,
+          "recall": 0.8895327276098647
+        },
+        "KS_EMSR1111011_Philippines": {
+          "threshold": 0.13,
+          "iou": 0.7324112485299629,
+          "precision": 0.7462709987786719,
+          "recall": 0.9752697454841652
+        },
+        "KS_EMSR174_Skopje": {
+          "threshold": 0.13,
+          "iou": 0.47154226228642554,
+          "precision": 0.8956870611835507,
+          "recall": 0.49894241130223094
+        },
+        "KS_EMSR321_Honduras": {
+          "threshold": 0.13,
+          "iou": 0.6238203822159046,
+          "precision": 0.7543029362616376,
+          "recall": 0.7829025204566431
+        },
+        "KS_EMSR497_Germany": {
+          "threshold": 0.12,
+          "iou": 0.6445825094724479,
+          "precision": 0.6658374190717267,
+          "recall": 0.9528132221788707
+        },
+        "KS_EMSR562_Australia": {
+          "threshold": 0.13,
+          "iou": 0.8876158774681246,
+          "precision": 0.9123026957192671,
+          "recall": 0.9704158576092959
+        },
+        "KS_EMSR1111007_Nepal": {
+          "threshold": 0.13,
+          "iou": 0.6182834994269726,
+          "precision": 0.687009495603026,
+          "recall": 0.8607355169600186
+        },
+        "KS_EMSR277_Greece": {
+          "threshold": 0.12,
+          "iou": 0.7558864172352351,
+          "precision": 0.7720266080284114,
+          "recall": 0.9730864323519453
+        },
+        "KS_EMSR324_France": {
+          "threshold": 0.12,
+          "iou": 0.4514353325551555,
+          "precision": 0.4613300142668553,
+          "recall": 0.9546438732478478
+        },
+        "KS_EMSR427_Sweden": {
+          "threshold": 0.13,
+          "iou": 0.5373726591325737,
+          "precision": 0.6957449205693469,
+          "recall": 0.7024456830849732
+        },
+        "KS_EMSR445_Romania": {
+          "threshold": 0.13,
+          "iou": 0.6051206282863159,
+          "precision": 0.6325300209775193,
+          "recall": 0.9331749367936885
+        },
+        "KS_EMSR496_Italy": {
+          "threshold": 0.13,
+          "iou": 0.4319345542880278,
+          "precision": 0.44215414995672686,
+          "recall": 0.9492070968754907
+        },
+        "KS_EMSR1111005_Madagascar": {
+          "threshold": 0.14,
+          "iou": 0.8103741168649187,
+          "precision": 0.939915456686196,
+          "recall": 0.854647914057968
+        },
+        "KS_EMSR1111006_Madagascar": {
+          "threshold": 0.13,
+          "iou": 0.7077238735575855,
+          "precision": 0.7389866069867469,
+          "recall": 0.9435956664945132
+        },
+        "KS_EMSR205_SriLanka": {
+          "threshold": 0.13,
+          "iou": 0.5170465073188809,
+          "precision": 0.6574460793762985,
+          "recall": 0.7077017072636518
+        },
+        "KS_EMSR275_Croatia": {
+          "threshold": 0.13,
+          "iou": 0.613504110828562,
+          "precision": 0.6548127837660824,
+          "recall": 0.9067606413232288
+        },
+        "KS_EMSR411_France": {
+          "threshold": 0.13,
+          "iou": 0.63523136118329,
+          "precision": 0.6796450004678081,
+          "recall": 0.9067225392296719
+        },
+        "KS_EMSR470_Togo": {
+          "threshold": 0.13,
+          "iou": 0.8656765178930438,
+          "precision": 0.9559136944273009,
+          "recall": 0.9016755611815936
+        },
+        "KS_EMSR567_Australia": {
+          "threshold": 0.13,
+          "iou": 0.7310182279166513,
+          "precision": 0.7410972749051707,
+          "recall": 0.9817353862428615
+        }
+      },
+      "conformal": {
+        "KS_EMSR1111010_Peru": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1170,
+          "mean_chip_fnr": 0.0028637506722323,
+          "precision": 0.3753506280816071,
+          "iou": 0.37531198925616693
+        },
+        "KS_EMSR118_Spain": {
+          "feasible": true,
+          "threshold": 0.05,
+          "n_calibration_chips": 1047,
+          "mean_chip_fnr": 0.2491458787706098,
+          "precision": 0.5446688373766102,
+          "iou": 0.47468016884223396
+        },
+        "KS_EMSR498_France": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1190,
+          "mean_chip_fnr": 0.08079391457113148,
+          "precision": 0.539306566313401,
+          "iou": 0.5253298473066401
+        },
+        "KS_EMSR561_Malawi": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1190,
+          "mean_chip_fnr": 0.021441886682614045,
+          "precision": 0.7669247223849757,
+          "iou": 0.7585538813944078
+        },
+        "KS_EMSR1111004_USA": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1104,
+          "mean_chip_fnr": 0.0,
+          "precision": 0.06635173001772064,
+          "iou": 0.06635173001772064
+        },
+        "KS_EMSR147_Cumbria": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1168,
+          "mean_chip_fnr": 0.0,
+          "precision": 0.04113523050749184,
+          "iou": 0.04113479407369004
+        },
+        "KS_EMSR267_Lithuania": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1162,
+          "mean_chip_fnr": 0.0,
+          "precision": 0.17942120365123018,
+          "iou": 0.17942120365123018
+        },
+        "KS_EMSR273_Albania": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1187,
+          "mean_chip_fnr": 0.0,
+          "precision": 0.0554222427318874,
+          "iou": 0.0554222427318874
+        },
+        "KS_EMSR417_Portugal": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1167,
+          "mean_chip_fnr": 0.0,
+          "precision": 0.16729397201086593,
+          "iou": 0.16729397201086593
+        },
+        "KS_EMSR554_Australia": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1185,
+          "mean_chip_fnr": 0.0,
+          "precision": 0.13580799208080194,
+          "iou": 0.13580799208080194
+        },
+        "KS_EMSR1111009_Pakistan": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1157,
+          "mean_chip_fnr": 0.14995411290699495,
+          "precision": 0.5382507929360404,
+          "iou": 0.5271990253668862
+        },
+        "KS_EMSR1111011_Philippines": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1159,
+          "mean_chip_fnr": 0.02619382692329127,
+          "precision": 0.40559813990622495,
+          "iou": 0.4050433352430253
+        },
+        "KS_EMSR174_Skopje": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1195,
+          "mean_chip_fnr": 0.5810138654963942,
+          "precision": 0.7739938080495357,
+          "iou": 0.502315760795532
+        },
+        "KS_EMSR321_Honduras": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1161,
+          "mean_chip_fnr": 0.1959808500653991,
+          "precision": 0.42912550968831464,
+          "iou": 0.40998966595989716
+        },
+        "KS_EMSR497_Germany": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1131,
+          "mean_chip_fnr": 0.0428348005297992,
+          "precision": 0.3187421098171605,
+          "iou": 0.3172730873467228
+        },
+        "KS_EMSR562_Australia": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1175,
+          "mean_chip_fnr": 0.05522218097324069,
+          "precision": 0.7180110726402273,
+          "iou": 0.7157332591766596
+        },
+        "KS_EMSR1111007_Nepal": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1160,
+          "mean_chip_fnr": 0.17928077815325721,
+          "precision": 0.4814649975025428,
+          "iou": 0.4736192771772365
+        },
+        "KS_EMSR277_Greece": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1165,
+          "mean_chip_fnr": 0.015932284733401525,
+          "precision": 0.36080323861618185,
+          "iou": 0.36035388522296885
+        },
+        "KS_EMSR324_France": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1134,
+          "mean_chip_fnr": 0.08308441089079417,
+          "precision": 0.2445627017502857,
+          "iou": 0.24377984893432592
+        },
+        "KS_EMSR427_Sweden": {
+          "feasible": true,
+          "threshold": 0.04,
+          "n_calibration_chips": 1160,
+          "mean_chip_fnr": 0.28378080226296537,
+          "precision": 0.42999369026395023,
+          "iou": 0.3810588888722098
+        },
+        "KS_EMSR445_Romania": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1172,
+          "mean_chip_fnr": 0.01198575454471954,
+          "precision": 0.28923937431772684,
+          "iou": 0.2884905252182055
+        },
+        "KS_EMSR496_Italy": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1199,
+          "mean_chip_fnr": 0.003521529658145317,
+          "precision": 0.17558829350012195,
+          "iou": 0.1755382045890597
+        },
+        "KS_EMSR1111005_Madagascar": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1153,
+          "mean_chip_fnr": 0.1014552992129263,
+          "precision": 0.6915257817244141,
+          "iou": 0.6863611746824828
+        },
+        "KS_EMSR1111006_Madagascar": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1162,
+          "mean_chip_fnr": 0.03393540313454323,
+          "precision": 0.4128400485190045,
+          "iou": 0.41127154024738155
+        },
+        "KS_EMSR205_SriLanka": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1172,
+          "mean_chip_fnr": 0.22755247283619923,
+          "precision": 0.49607589024334087,
+          "iou": 0.46164017924921025
+        },
+        "KS_EMSR275_Croatia": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1159,
+          "mean_chip_fnr": 0.04777209962093902,
+          "precision": 0.4428252372975991,
+          "iou": 0.4379197294405908
+        },
+        "KS_EMSR411_France": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1196,
+          "mean_chip_fnr": 0.03443454613679572,
+          "precision": 0.33827551108004367,
+          "iou": 0.3363943462725155
+        },
+        "KS_EMSR470_Togo": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1166,
+          "mean_chip_fnr": 0.004432697062612244,
+          "precision": 0.6067211325372937,
+          "iou": 0.6062402636899431
+        },
+        "KS_EMSR567_Australia": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1194,
+          "mean_chip_fnr": 0.02197018072821399,
+          "precision": 0.42577762077188025,
+          "iou": 0.42506885983628817
+        }
+      },
+      "iou_own": 0.6295331164943547,
+      "iou_crossfit": 0.628382883684,
+      "oracle": 0.6612881246281525
+    },
+    "9/seed44": {
+      "cost": {
+        "KS_EMSR1111010_Peru": {
+          "threshold": 0.12,
+          "iou": 0.4193430406454027,
+          "precision": 0.41955426354872066,
+          "recall": 0.9988008808305456
+        },
+        "KS_EMSR118_Spain": {
+          "threshold": 0.125,
+          "iou": 0.5105985260904523,
+          "precision": 0.6136287701873839,
+          "recall": 0.7525382681118477
+        },
+        "KS_EMSR498_France": {
+          "threshold": 0.12,
+          "iou": 0.6212084234014364,
+          "precision": 0.684025644963145,
+          "recall": 0.8712074908930886
+        },
+        "KS_EMSR561_Malawi": {
+          "threshold": 0.12,
+          "iou": 0.8019080017748854,
+          "precision": 0.8248628829198902,
+          "recall": 0.9664607788087025
+        },
+        "KS_EMSR1111004_USA": {
+          "threshold": 0.12,
+          "iou": 0.4095380858416824,
+          "precision": 0.448883875493058,
+          "recall": 0.8237044411017896
+        },
+        "KS_EMSR147_Cumbria": {
+          "threshold": 0.12,
+          "iou": 0.6011474547544369,
+          "precision": 0.6662348527784525,
+          "recall": 0.8602053119054422
+        },
+        "KS_EMSR267_Lithuania": {
+          "threshold": 0.12,
+          "iou": 0.5166953834471191,
+          "precision": 0.5278861215090177,
+          "recall": 0.9605886461347387
+        },
+        "KS_EMSR273_Albania": {
+          "threshold": 0.12,
+          "iou": 0.5334020062635243,
+          "precision": 0.5752298160725868,
+          "recall": 0.8800314806154689
+        },
+        "KS_EMSR417_Portugal": {
+          "threshold": 0.12,
+          "iou": 0.766403796815532,
+          "precision": 0.7720563332116704,
+          "recall": 0.9905374620317247
+        },
+        "KS_EMSR554_Australia": {
+          "threshold": 0.12,
+          "iou": 0.6970700093424257,
+          "precision": 0.7243408932816596,
+          "recall": 0.9487569710744216
+        },
+        "KS_EMSR1111009_Pakistan": {
+          "threshold": 0.12,
+          "iou": 0.6708584851020014,
+          "precision": 0.7282409066553774,
+          "recall": 0.8948903242200108
+        },
+        "KS_EMSR1111011_Philippines": {
+          "threshold": 0.12,
+          "iou": 0.7243948666447256,
+          "precision": 0.7343435372872538,
+          "recall": 0.9816412456763284
+        },
+        "KS_EMSR174_Skopje": {
+          "threshold": 0.12,
+          "iou": 0.4669119055830172,
+          "precision": 0.9213610586011343,
+          "recall": 0.4862912559364649
+        },
+        "KS_EMSR321_Honduras": {
+          "threshold": 0.12,
+          "iou": 0.6272626320043556,
+          "precision": 0.7354831996580312,
+          "recall": 0.8099932482237873
+        },
+        "KS_EMSR497_Germany": {
+          "threshold": 0.12,
+          "iou": 0.6269634293465539,
+          "precision": 0.6417151475313154,
+          "recall": 0.9646312717735848
+        },
+        "KS_EMSR562_Australia": {
+          "threshold": 0.12,
+          "iou": 0.8883280978948849,
+          "precision": 0.9184804739005662,
+          "recall": 0.9643616060181144
+        },
+        "KS_EMSR1111007_Nepal": {
+          "threshold": 0.13,
+          "iou": 0.6208450595763151,
+          "precision": 0.6897261752221922,
+          "recall": 0.8614324707619381
+        },
+        "KS_EMSR277_Greece": {
+          "threshold": 0.12,
+          "iou": 0.7634967575712851,
+          "precision": 0.780764665656752,
+          "recall": 0.9718479072636945
+        },
+        "KS_EMSR324_France": {
+          "threshold": 0.11,
+          "iou": 0.4149687195086954,
+          "precision": 0.4195699052367104,
+          "recall": 0.9742532776768843
+        },
+        "KS_EMSR427_Sweden": {
+          "threshold": 0.12,
+          "iou": 0.5312553237401901,
+          "precision": 0.6789731903096106,
+          "recall": 0.7094604330186175
+        },
+        "KS_EMSR445_Romania": {
+          "threshold": 0.12,
+          "iou": 0.5917799693420057,
+          "precision": 0.6156942373721426,
+          "recall": 0.9384081147765695
+        },
+        "KS_EMSR496_Italy": {
+          "threshold": 0.12,
+          "iou": 0.5829387893134934,
+          "precision": 0.6222811862601758,
+          "recall": 0.9021562778039462
+        },
+        "KS_EMSR1111005_Madagascar": {
+          "threshold": 0.15,
+          "iou": 0.7117202509599055,
+          "precision": 0.9671580839861307,
+          "recall": 0.7293470966092487
+        },
+        "KS_EMSR1111006_Madagascar": {
+          "threshold": 0.125,
+          "iou": 0.7266489594569059,
+          "precision": 0.774627269041935,
+          "recall": 0.9214578176790236
+        },
+        "KS_EMSR205_SriLanka": {
+          "threshold": 0.12,
+          "iou": 0.509781398869151,
+          "precision": 0.6913620500187178,
+          "recall": 0.6599767138921231
+        },
+        "KS_EMSR275_Croatia": {
+          "threshold": 0.12,
+          "iou": 0.6279839204197043,
+          "precision": 0.6834719519719045,
+          "recall": 0.8855202680890966
+        },
+        "KS_EMSR411_France": {
+          "threshold": 0.12,
+          "iou": 0.6453594532554258,
+          "precision": 0.7061350306109343,
+          "recall": 0.8823288159771755
+        },
+        "KS_EMSR470_Togo": {
+          "threshold": 0.13,
+          "iou": 0.8460514899052791,
+          "precision": 0.953932261118081,
+          "recall": 0.8820919229009416
+        },
+        "KS_EMSR567_Australia": {
+          "threshold": 0.12,
+          "iou": 0.7650626080578404,
+          "precision": 0.786579494879443,
+          "recall": 0.965479053545897
+        }
+      },
+      "conformal": {
+        "KS_EMSR1111010_Peru": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1170,
+          "mean_chip_fnr": 0.0006123857695384207,
+          "precision": 0.36450510003417835,
+          "iou": 0.36449164737076617
+        },
+        "KS_EMSR118_Spain": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1047,
+          "mean_chip_fnr": 0.21831481398121547,
+          "precision": 0.543531884788026,
+          "iou": 0.49053972996382017
+        },
+        "KS_EMSR498_France": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1190,
+          "mean_chip_fnr": 0.0869593518164191,
+          "precision": 0.5358053621889861,
+          "iou": 0.5211992812893883
+        },
+        "KS_EMSR561_Malawi": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1190,
+          "mean_chip_fnr": 0.013079925174218085,
+          "precision": 0.6954334377410459,
+          "iou": 0.6917545243878952
+        },
+        "KS_EMSR1111004_USA": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1104,
+          "mean_chip_fnr": 0.08366785984291106,
+          "precision": 0.235319764333086,
+          "iou": 0.23188978335401364
+        },
+        "KS_EMSR147_Cumbria": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1168,
+          "mean_chip_fnr": 0.05807527337983853,
+          "precision": 0.2780926864681251,
+          "iou": 0.27253749964324886
+        },
+        "KS_EMSR267_Lithuania": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1162,
+          "mean_chip_fnr": 0.003829545420651152,
+          "precision": 0.2782838161547277,
+          "iou": 0.27810545760214195
+        },
+        "KS_EMSR273_Albania": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1187,
+          "mean_chip_fnr": 0.005405163371077626,
+          "precision": 0.20055297969031297,
+          "iou": 0.20029567840490006
+        },
+        "KS_EMSR417_Portugal": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1167,
+          "mean_chip_fnr": 0.006091984209705615,
+          "precision": 0.403738870179491,
+          "iou": 0.4037213334934493
+        },
+        "KS_EMSR554_Australia": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1185,
+          "mean_chip_fnr": 0.039272711920550124,
+          "precision": 0.3103928757696769,
+          "iou": 0.3102074221369568
+        },
+        "KS_EMSR1111009_Pakistan": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1157,
+          "mean_chip_fnr": 0.0677587433160111,
+          "precision": 0.4677970450108995,
+          "iou": 0.46334232878202597
+        },
+        "KS_EMSR1111011_Philippines": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1159,
+          "mean_chip_fnr": 0.008527365577122234,
+          "precision": 0.38131354596327144,
+          "iou": 0.38117689156575085
+        },
+        "KS_EMSR174_Skopje": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1195,
+          "mean_chip_fnr": 0.5200709803803605,
+          "precision": 0.7933403016275944,
+          "iou": 0.5456879728850696
+        },
+        "KS_EMSR321_Honduras": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1161,
+          "mean_chip_fnr": 0.17267298086061705,
+          "precision": 0.3755042807622355,
+          "iou": 0.36325438142623484
+        },
+        "KS_EMSR497_Germany": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1131,
+          "mean_chip_fnr": 0.030396195889940105,
+          "precision": 0.22411394615265717,
+          "iou": 0.2238200574638564
+        },
+        "KS_EMSR562_Australia": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1175,
+          "mean_chip_fnr": 0.06878770962671532,
+          "precision": 0.6854350840472396,
+          "iou": 0.6831137429539048
+        },
+        "KS_EMSR1111007_Nepal": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1160,
+          "mean_chip_fnr": 0.06482479000567287,
+          "precision": 0.43493404935867946,
+          "iou": 0.43251880299145756
+        },
+        "KS_EMSR277_Greece": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1165,
+          "mean_chip_fnr": 0.0011396140068723128,
+          "precision": 0.30958334021673,
+          "iou": 0.30955132316323886
+        },
+        "KS_EMSR324_France": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1134,
+          "mean_chip_fnr": 0.02109960768922161,
+          "precision": 0.1751667110512144,
+          "iou": 0.1750786421392813
+        },
+        "KS_EMSR427_Sweden": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1160,
+          "mean_chip_fnr": 0.07893482531718074,
+          "precision": 0.1695691866394526,
+          "iou": 0.16844277205216518
+        },
+        "KS_EMSR445_Romania": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1172,
+          "mean_chip_fnr": 0.005496309582317561,
+          "precision": 0.20348611284095156,
+          "iou": 0.20329216366002792
+        },
+        "KS_EMSR496_Italy": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1199,
+          "mean_chip_fnr": 0.00585188397547129,
+          "precision": 0.15409109115994157,
+          "iou": 0.15401070816214293
+        },
+        "KS_EMSR1111005_Madagascar": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1153,
+          "mean_chip_fnr": 0.10737145755657378,
+          "precision": 0.6183509913975189,
+          "iou": 0.6143011663611324
+        },
+        "KS_EMSR1111006_Madagascar": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1162,
+          "mean_chip_fnr": 0.019946235676110088,
+          "precision": 0.2867299197014952,
+          "iou": 0.28647164368064365
+        },
+        "KS_EMSR205_SriLanka": {
+          "feasible": true,
+          "threshold": 0.03,
+          "n_calibration_chips": 1172,
+          "mean_chip_fnr": 0.2999945609147869,
+          "precision": 0.5576187572750956,
+          "iou": 0.4937804142650792
+        },
+        "KS_EMSR275_Croatia": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1159,
+          "mean_chip_fnr": 0.029661804462391556,
+          "precision": 0.2668884771325204,
+          "iou": 0.2662714136934099
+        },
+        "KS_EMSR411_France": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1196,
+          "mean_chip_fnr": 0.021405183773643914,
+          "precision": 0.2227873122831728,
+          "iou": 0.2224286296411707
+        },
+        "KS_EMSR470_Togo": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1166,
+          "mean_chip_fnr": 0.00015537772018965235,
+          "precision": 0.5217137875011881,
+          "iou": 0.5216955478131285
+        },
+        "KS_EMSR567_Australia": {
+          "feasible": true,
+          "threshold": 0.02,
+          "n_calibration_chips": 1194,
+          "mean_chip_fnr": 0.01616567111027283,
+          "precision": 0.36652101350326205,
+          "iou": 0.36628538157822915
+        }
+      },
+      "iou_own": 0.641368182975879,
+      "iou_crossfit": 0.6282733394802975,
+      "oracle": 0.6663771743832627
+    }
+  }
+}

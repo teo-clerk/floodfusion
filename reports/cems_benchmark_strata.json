@@ -1,0 +1,1600 @@
+{
+  "Drawn on radar satellites (the primary stratum)": {
+    "all": {
+      "units": [
+        "EMSR657",
+        "EMSR668",
+        "EMSR683",
+        "EMSR705",
+        "EMSR706",
+        "EMSR708",
+        "EMSR711",
+        "EMSR712",
+        "EMSR718",
+        "EMSR722",
+        "EMSR725",
+        "EMSR728",
+        "EMSR755",
+        "EMSR756",
+        "EMSR761",
+        "EMSR763",
+        "EMSR766",
+        "EMSR768",
+        "EMSR771",
+        "EMSR773",
+        "EMSR783",
+        "EMSR788",
+        "EMSR789",
+        "EMSR796",
+        "EMSR797",
+        "EMSR838",
+        "EMSR841",
+        "EMSR844",
+        "EMSR848",
+        "EMSR850",
+        "EMSR854",
+        "EMSR856",
+        "EMSR857",
+        "EMSR861",
+        "EMSR864",
+        "EMSR866",
+        "EMSR868",
+        "EMSR871"
+      ],
+      "models": [
+        {
+          "key": "s1f11_r4",
+          "name": "SAR U-Net (S1F11)",
+          "role": "test",
+          "iou": 0.2807256856375286,
+          "ci": [
+            0.2374806922469493,
+            0.32340994537326023
+          ],
+          "oracle": 0.2812237254744298,
+          "k": 38
+        },
+        {
+          "key": "s1f11_r9",
+          "name": "Fusion (S1F11)",
+          "role": "test",
+          "iou": 0.2575418989194672,
+          "ci": [
+            0.20952559420724187,
+            0.3067573215381185
+          ],
+          "oracle": 0.2598518310562006,
+          "k": 38
+        },
+        {
+          "key": "s1f11_tm",
+          "name": "TerraMind-small (S1F11)",
+          "role": "test",
+          "iou": 0.2262746212754003,
+          "ci": [
+            0.176987546578313,
+            0.27826096605860673
+          ],
+          "oracle": 0.27022663067801617,
+          "k": 38
+        },
+        {
+          "key": "ks_r4",
+          "name": "SAR U-Net (Kuro Siwo, flood)",
+          "role": "test",
+          "iou": 0.394481400026155,
+          "ci": [
+            0.33874541058264734,
+            0.4484298928056606
+          ],
+          "oracle": 0.4025546319284754,
+          "k": 38
+        },
+        {
+          "key": "ks_r9_flood",
+          "name": "Fusion (Kuro Siwo, flood labels)",
+          "role": "test",
+          "iou": 0.3967396178258148,
+          "ci": [
+            0.34195445534228125,
+            0.45159240916384047
+          ],
+          "oracle": 0.40628733948746837,
+          "k": 38
+        },
+        {
+          "key": "ks_r9_water",
+          "name": "Fusion (Kuro Siwo, water labels)",
+          "role": "test",
+          "iou": 0.3377309814668068,
+          "ci": [
+            0.2823321023973774,
+            0.3945912267635064
+          ],
+          "oracle": 0.35294286652358986,
+          "k": 38
+        },
+        {
+          "key": "r2",
+          "name": "Physics baseline (row 2)",
+          "role": "test",
+          "iou": 0.37062294248986755,
+          "ci": [
+            0.311792392834588,
+            0.4297679009503442
+          ],
+          "oracle": NaN,
+          "k": 38
+        },
+        {
+          "key": "r2s",
+          "name": "Physics baseline, seasonal reference (row 2s)",
+          "role": "test",
+          "iou": 0.3399159110228059,
+          "ci": [
+            0.28720983676343464,
+            0.393144405043919
+          ],
+          "oracle": NaN,
+          "k": 38
+        },
+        {
+          "key": "s1f11_r11",
+          "name": "Fusion (S1F11), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.27236399636629605,
+          "ci": [
+            0.22542078478374913,
+            0.31953123096783403
+          ],
+          "oracle": 0.2728661161050348,
+          "k": 38
+        },
+        {
+          "key": "s1f11_tm_sar",
+          "name": "TerraMind (S1F11), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.18739708507369204,
+          "ci": [
+            0.14316394736005464,
+            0.2340944026853482
+          ],
+          "oracle": 0.23358953518203757,
+          "k": 38
+        },
+        {
+          "key": "ks_r11_flood",
+          "name": "Fusion (Kuro Siwo, flood), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.3979170218593904,
+          "ci": [
+            0.3430285158435595,
+            0.45266563833609785
+          ],
+          "oracle": 0.4069442713122758,
+          "k": 38
+        },
+        {
+          "key": "ks_r11_water",
+          "name": "Fusion (Kuro Siwo, water), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.33544906359143256,
+          "ci": [
+            0.28035092209947887,
+            0.39189268953372247
+          ],
+          "oracle": 0.35076923303477114,
+          "k": 38
+        }
+      ]
+    },
+    "optical": {
+      "units": [
+        "EMSR668",
+        "EMSR725",
+        "EMSR768",
+        "EMSR838",
+        "EMSR844",
+        "EMSR854",
+        "EMSR857",
+        "EMSR868"
+      ],
+      "models": [
+        {
+          "key": "s1f11_r4",
+          "name": "SAR U-Net (S1F11)",
+          "role": "test",
+          "iou": 0.26861954932966414,
+          "ci": [
+            0.1856331830367478,
+            0.3420565047183189
+          ],
+          "oracle": 0.28155732855576415,
+          "k": 8
+        },
+        {
+          "key": "s1f11_r9",
+          "name": "Fusion (S1F11)",
+          "role": "test",
+          "iou": 0.3070644835150561,
+          "ci": [
+            0.1913696197717385,
+            0.43885034365101405
+          ],
+          "oracle": 0.30715654908432877,
+          "k": 8
+        },
+        {
+          "key": "s1f11_tm",
+          "name": "TerraMind-small (S1F11)",
+          "role": "test",
+          "iou": 0.31228054780024844,
+          "ci": [
+            0.19176868206446512,
+            0.4510383557157155
+          ],
+          "oracle": 0.31773776771425005,
+          "k": 8
+        },
+        {
+          "key": "ks_r4",
+          "name": "SAR U-Net (Kuro Siwo, flood)",
+          "role": "test",
+          "iou": 0.4072762436965637,
+          "ci": [
+            0.31622105483254326,
+            0.5182868116931165
+          ],
+          "oracle": 0.40738662016533045,
+          "k": 8
+        },
+        {
+          "key": "ks_r9_flood",
+          "name": "Fusion (Kuro Siwo, flood labels)",
+          "role": "test",
+          "iou": 0.40725377224384207,
+          "ci": [
+            0.3183364916843728,
+            0.5268863230382629
+          ],
+          "oracle": 0.4115143634656304,
+          "k": 8
+        },
+        {
+          "key": "ks_r9_water",
+          "name": "Fusion (Kuro Siwo, water labels)",
+          "role": "test",
+          "iou": 0.3528634966145599,
+          "ci": [
+            0.22594605248516506,
+            0.5019386470392124
+          ],
+          "oracle": 0.36050816223914334,
+          "k": 8
+        },
+        {
+          "key": "r2",
+          "name": "Physics baseline (row 2)",
+          "role": "test",
+          "iou": 0.3541808952183672,
+          "ci": [
+            0.24090201584488216,
+            0.4888643555484285
+          ],
+          "oracle": NaN,
+          "k": 8
+        },
+        {
+          "key": "r2s",
+          "name": "Physics baseline, seasonal reference (row 2s)",
+          "role": "test",
+          "iou": 0.3761929305557348,
+          "ci": [
+            0.2852292626819502,
+            0.5100991690878375
+          ],
+          "oracle": NaN,
+          "k": 8
+        },
+        {
+          "key": "s1f11_r11",
+          "name": "Fusion (S1F11), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.2690587018840163,
+          "ci": [
+            0.17560790451729458,
+            0.36942225205822554
+          ],
+          "oracle": 0.2752177995486649,
+          "k": 8
+        },
+        {
+          "key": "s1f11_tm_sar",
+          "name": "TerraMind (S1F11), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.22639560985050836,
+          "ci": [
+            0.12760816266612574,
+            0.3592562331378991
+          ],
+          "oracle": 0.2487104760275976,
+          "k": 8
+        },
+        {
+          "key": "ks_r11_flood",
+          "name": "Fusion (Kuro Siwo, flood), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.4098993965256166,
+          "ci": [
+            0.3208379367682391,
+            0.5286065564337568
+          ],
+          "oracle": 0.41301909843456264,
+          "k": 8
+        },
+        {
+          "key": "ks_r11_water",
+          "name": "Fusion (Kuro Siwo, water), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.34994372242719873,
+          "ci": [
+            0.22334328504274026,
+            0.4988887416177516
+          ],
+          "oracle": 0.3579608806783502,
+          "k": 8
+        }
+      ]
+    },
+    "partial": {
+      "units": [
+        "EMSR657",
+        "EMSR683",
+        "EMSR706",
+        "EMSR708",
+        "EMSR711",
+        "EMSR728",
+        "EMSR756",
+        "EMSR761",
+        "EMSR763",
+        "EMSR766",
+        "EMSR773",
+        "EMSR788",
+        "EMSR841",
+        "EMSR848",
+        "EMSR850"
+      ],
+      "models": [
+        {
+          "key": "s1f11_r4",
+          "name": "SAR U-Net (S1F11)",
+          "role": "test",
+          "iou": 0.31305981916038117,
+          "ci": [
+            0.23022816965155118,
+            0.3930117853900174
+          ],
+          "oracle": 0.31305981916038117,
+          "k": 15
+        },
+        {
+          "key": "s1f11_r9",
+          "name": "Fusion (S1F11)",
+          "role": "test",
+          "iou": 0.2543062632965753,
+          "ci": [
+            0.17954240816128736,
+            0.32815869868330694
+          ],
+          "oracle": 0.25513665195989726,
+          "k": 15
+        },
+        {
+          "key": "s1f11_tm",
+          "name": "TerraMind-small (S1F11)",
+          "role": "test",
+          "iou": 0.26236454087809535,
+          "ci": [
+            0.18748436169440894,
+            0.33370221710859527
+          ],
+          "oracle": 0.30539491044728223,
+          "k": 15
+        },
+        {
+          "key": "ks_r4",
+          "name": "SAR U-Net (Kuro Siwo, flood)",
+          "role": "test",
+          "iou": 0.4182964629979042,
+          "ci": [
+            0.31476454188783604,
+            0.5175218967015154
+          ],
+          "oracle": 0.43215899640633243,
+          "k": 15
+        },
+        {
+          "key": "ks_r9_flood",
+          "name": "Fusion (Kuro Siwo, flood labels)",
+          "role": "test",
+          "iou": 0.4228180310536692,
+          "ci": [
+            0.3205164934848461,
+            0.5212153154634034
+          ],
+          "oracle": 0.4354404185820344,
+          "k": 15
+        },
+        {
+          "key": "ks_r9_water",
+          "name": "Fusion (Kuro Siwo, water labels)",
+          "role": "test",
+          "iou": 0.3647184083606158,
+          "ci": [
+            0.26602520784029854,
+            0.4621247782435558
+          ],
+          "oracle": 0.38287513388885297,
+          "k": 15
+        },
+        {
+          "key": "r2",
+          "name": "Physics baseline (row 2)",
+          "role": "test",
+          "iou": 0.4080662189588594,
+          "ci": [
+            0.3042934621739362,
+            0.5061403443289778
+          ],
+          "oracle": NaN,
+          "k": 15
+        },
+        {
+          "key": "r2s",
+          "name": "Physics baseline, seasonal reference (row 2s)",
+          "role": "test",
+          "iou": 0.3392291588303498,
+          "ci": [
+            0.2517898014343052,
+            0.42537171909945853
+          ],
+          "oracle": NaN,
+          "k": 15
+        },
+        {
+          "key": "s1f11_r11",
+          "name": "Fusion (S1F11), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.30666449990301176,
+          "ci": [
+            0.22200986221019636,
+            0.3901562624209949
+          ],
+          "oracle": 0.30938629038745835,
+          "k": 15
+        },
+        {
+          "key": "s1f11_tm_sar",
+          "name": "TerraMind (S1F11), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.20853560094216508,
+          "ci": [
+            0.13580193815967348,
+            0.2835381685591366
+          ],
+          "oracle": 0.2530334123185448,
+          "k": 15
+        },
+        {
+          "key": "ks_r11_flood",
+          "name": "Fusion (Kuro Siwo, flood), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.42387321727603744,
+          "ci": [
+            0.321523562762866,
+            0.5223438681453692
+          ],
+          "oracle": 0.43587578185354325,
+          "k": 15
+        },
+        {
+          "key": "ks_r11_water",
+          "name": "Fusion (Kuro Siwo, water), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.36120311236567004,
+          "ci": [
+            0.26338538104524023,
+            0.4578377193222457
+          ],
+          "oracle": 0.379447459342928,
+          "k": 15
+        }
+      ]
+    },
+    "sar_only": {
+      "units": [
+        "EMSR705",
+        "EMSR712",
+        "EMSR718",
+        "EMSR722",
+        "EMSR755",
+        "EMSR771",
+        "EMSR783",
+        "EMSR789",
+        "EMSR796",
+        "EMSR797",
+        "EMSR856",
+        "EMSR861",
+        "EMSR864",
+        "EMSR866",
+        "EMSR871"
+      ],
+      "models": [
+        {
+          "key": "s1f11_r4",
+          "name": "SAR U-Net (S1F11)",
+          "role": "test",
+          "iou": 0.25484815814553696,
+          "ci": [
+            0.19714726321524373,
+            0.31474416523588117
+          ],
+          "oracle": 0.26541283034429625,
+          "k": 15
+        },
+        {
+          "key": "s1f11_r9",
+          "name": "Fusion (S1F11)",
+          "role": "test",
+          "iou": 0.23436548942471172,
+          "ci": [
+            0.16998441347913867,
+            0.3034420948980598
+          ],
+          "oracle": 0.24186075171343285,
+          "k": 15
+        },
+        {
+          "key": "s1f11_tm",
+          "name": "TerraMind-small (S1F11)",
+          "role": "test",
+          "iou": 0.14431487419278619,
+          "ci": [
+            0.08905183984722734,
+            0.2014455323829612
+          ],
+          "oracle": 0.2104598754092003,
+          "k": 15
+        },
+        {
+          "key": "ks_r4",
+          "name": "SAR U-Net (Kuro Siwo, flood)",
+          "role": "test",
+          "iou": 0.3638424204301879,
+          "ci": [
+            0.2815939846703074,
+            0.44234649104206714
+          ],
+          "oracle": 0.3777698727304929,
+          "k": 15
+        },
+        {
+          "key": "ks_r9_flood",
+          "name": "Fusion (Kuro Siwo, flood labels)",
+          "role": "test",
+          "iou": 0.36505365557501246,
+          "ci": [
+            0.2836628696658433,
+            0.44247474457181246
+          ],
+          "oracle": 0.3782569186816157,
+          "k": 15
+        },
+        {
+          "key": "ks_r9_water",
+          "name": "Fusion (Kuro Siwo, water labels)",
+          "role": "test",
+          "iou": 0.30267287982752955,
+          "ci": [
+            0.2340564608673172,
+            0.3698060956441548
+          ],
+          "oracle": 0.33308830497016545,
+          "k": 15
+        },
+        {
+          "key": "r2",
+          "name": "Physics baseline (row 2)",
+          "role": "test",
+          "iou": 0.34194875789900936,
+          "ci": [
+            0.25118979524033025,
+            0.4288565503191794
+          ],
+          "oracle": NaN,
+          "k": 15
+        },
+        {
+          "key": "r2s",
+          "name": "Physics baseline, seasonal reference (row 2s)",
+          "role": "test",
+          "iou": 0.3212549194643665,
+          "ci": [
+            0.24077785417984307,
+            0.4000612771760352
+          ],
+          "oracle": NaN,
+          "k": 15
+        },
+        {
+          "key": "s1f11_r11",
+          "name": "Fusion (S1F11), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.23982631655346287,
+          "ci": [
+            0.17573090286079043,
+            0.30709350576028444
+          ],
+          "oracle": 0.2480844339425014,
+          "k": 15
+        },
+        {
+          "key": "s1f11_tm_sar",
+          "name": "TerraMind (S1F11), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.145459355990917,
+          "ci": [
+            0.090165141932565,
+            0.20293642980372192
+          ],
+          "oracle": 0.21220447231797895,
+          "k": 15
+        },
+        {
+          "key": "ks_r11_flood",
+          "name": "Fusion (Kuro Siwo, flood), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.36557022662075606,
+          "ci": [
+            0.28424343537255625,
+            0.44276572872558173
+          ],
+          "oracle": 0.37866034323007786,
+          "k": 15
+        },
+        {
+          "key": "ks_r11_water",
+          "name": "Fusion (Kuro Siwo, water), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.3019645301047863,
+          "ci": [
+            0.23286896960461365,
+            0.3692065004705761
+          ],
+          "oracle": 0.3324413483612109,
+          "k": 15
+        }
+      ]
+    }
+  },
+  "Drawn on optical VHR satellites": {
+    "all": {
+      "units": [
+        "EMSR683",
+        "EMSR692",
+        "EMSR754",
+        "EMSR759",
+        "EMSR773",
+        "EMSR775",
+        "EMSR843"
+      ],
+      "models": [
+        {
+          "key": "s1f11_r4",
+          "name": "SAR U-Net (S1F11)",
+          "role": "test",
+          "iou": 0.11324620956269514,
+          "ci": [
+            0.04210983627563688,
+            0.18717273889038827
+          ],
+          "oracle": 0.12075272965434343,
+          "k": 7
+        },
+        {
+          "key": "s1f11_r9",
+          "name": "Fusion (S1F11)",
+          "role": "test",
+          "iou": 0.12189790273513125,
+          "ci": [
+            0.036564755670945685,
+            0.22153114067231108
+          ],
+          "oracle": 0.1267009006195696,
+          "k": 7
+        },
+        {
+          "key": "s1f11_tm",
+          "name": "TerraMind-small (S1F11)",
+          "role": "test",
+          "iou": 0.11311396668239317,
+          "ci": [
+            0.022502085615658272,
+            0.22172049010154452
+          ],
+          "oracle": 0.11432779711211069,
+          "k": 7
+        },
+        {
+          "key": "ks_r4",
+          "name": "SAR U-Net (Kuro Siwo, flood)",
+          "role": "test",
+          "iou": 0.1178705037912204,
+          "ci": [
+            0.044158943490569716,
+            0.19339506270475848
+          ],
+          "oracle": 0.11886344614853507,
+          "k": 7
+        },
+        {
+          "key": "ks_r9_flood",
+          "name": "Fusion (Kuro Siwo, flood labels)",
+          "role": "test",
+          "iou": 0.12744806355932228,
+          "ci": [
+            0.04464681404483443,
+            0.21477259492022577
+          ],
+          "oracle": 0.12744806355932228,
+          "k": 7
+        },
+        {
+          "key": "ks_r9_water",
+          "name": "Fusion (Kuro Siwo, water labels)",
+          "role": "test",
+          "iou": 0.10319244893698523,
+          "ci": [
+            0.03294026732213729,
+            0.17961519398971254
+          ],
+          "oracle": 0.10709790376088632,
+          "k": 7
+        },
+        {
+          "key": "r2",
+          "name": "Physics baseline (row 2)",
+          "role": "test",
+          "iou": 0.11619832167236556,
+          "ci": [
+            0.025035719741277756,
+            0.2174716676972401
+          ],
+          "oracle": NaN,
+          "k": 7
+        },
+        {
+          "key": "r2s",
+          "name": "Physics baseline, seasonal reference (row 2s)",
+          "role": "test",
+          "iou": 0.10951071594959752,
+          "ci": [
+            0.022603273525178387,
+            0.20770485263854285
+          ],
+          "oracle": NaN,
+          "k": 7
+        },
+        {
+          "key": "s1f11_r11",
+          "name": "Fusion (S1F11), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.10839073946702774,
+          "ci": [
+            0.034129576717210244,
+            0.18724794205797335
+          ],
+          "oracle": 0.11591246558776791,
+          "k": 7
+        },
+        {
+          "key": "s1f11_tm_sar",
+          "name": "TerraMind (S1F11), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.07827101257274831,
+          "ci": [
+            0.019241078440174548,
+            0.14040013889716113
+          ],
+          "oracle": 0.07827101257274831,
+          "k": 7
+        },
+        {
+          "key": "ks_r11_flood",
+          "name": "Fusion (Kuro Siwo, flood), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.12733096846066452,
+          "ci": [
+            0.0446354585944031,
+            0.21438862085719554
+          ],
+          "oracle": 0.12733096846066452,
+          "k": 7
+        },
+        {
+          "key": "ks_r11_water",
+          "name": "Fusion (Kuro Siwo, water), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.10270919977756224,
+          "ci": [
+            0.03328422765398738,
+            0.17793613685989756
+          ],
+          "oracle": 0.1067517095116901,
+          "k": 7
+        }
+      ]
+    },
+    "optical": {
+      "units": [
+        "EMSR683",
+        "EMSR759"
+      ],
+      "models": [
+        {
+          "key": "s1f11_r4",
+          "name": "SAR U-Net (S1F11)",
+          "role": "test",
+          "iou": 0.11812221444843356,
+          "ci": [
+            0.0,
+            0.23624442889686711
+          ],
+          "oracle": 0.11916549138581792,
+          "k": 2
+        },
+        {
+          "key": "s1f11_r9",
+          "name": "Fusion (S1F11)",
+          "role": "test",
+          "iou": 0.18914559552430243,
+          "ci": [
+            0.0,
+            0.37829119104860487
+          ],
+          "oracle": 0.2033529888867136,
+          "k": 2
+        },
+        {
+          "key": "s1f11_tm",
+          "name": "TerraMind-small (S1F11)",
+          "role": "test",
+          "iou": 0.19960239037250366,
+          "ci": [
+            0.0,
+            0.3992047807450073
+          ],
+          "oracle": 0.20403643553376524,
+          "k": 2
+        },
+        {
+          "key": "ks_r4",
+          "name": "SAR U-Net (Kuro Siwo, flood)",
+          "role": "test",
+          "iou": 0.11331195713328197,
+          "ci": [
+            0.0,
+            0.22662391426656395
+          ],
+          "oracle": 0.11708734964873602,
+          "k": 2
+        },
+        {
+          "key": "ks_r9_flood",
+          "name": "Fusion (Kuro Siwo, flood labels)",
+          "role": "test",
+          "iou": 0.1315287840552569,
+          "ci": [
+            0.0,
+            0.2630575681105138
+          ],
+          "oracle": 0.13152885851224808,
+          "k": 2
+        },
+        {
+          "key": "ks_r9_water",
+          "name": "Fusion (Kuro Siwo, water labels)",
+          "role": "test",
+          "iou": 0.13688790766005832,
+          "ci": [
+            0.0,
+            0.27377581532011663
+          ],
+          "oracle": 0.14177136573581817,
+          "k": 2
+        },
+        {
+          "key": "r2",
+          "name": "Physics baseline (row 2)",
+          "role": "test",
+          "iou": 0.1494519905719501,
+          "ci": [
+            0.0,
+            0.2989039811439002
+          ],
+          "oracle": NaN,
+          "k": 2
+        },
+        {
+          "key": "r2s",
+          "name": "Physics baseline, seasonal reference (row 2s)",
+          "role": "test",
+          "iou": 0.12536498976541938,
+          "ci": [
+            0.0,
+            0.25072997953083875
+          ],
+          "oracle": NaN,
+          "k": 2
+        },
+        {
+          "key": "s1f11_r11",
+          "name": "Fusion (S1F11), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.14001018897877804,
+          "ci": [
+            0.0,
+            0.2800203779575561
+          ],
+          "oracle": 0.1466014069410036,
+          "k": 2
+        },
+        {
+          "key": "s1f11_tm_sar",
+          "name": "TerraMind (S1F11), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.059933191740183245,
+          "ci": [
+            0.0,
+            0.11986638348036649
+          ],
+          "oracle": 0.06415286772997622,
+          "k": 2
+        },
+        {
+          "key": "ks_r11_flood",
+          "name": "Fusion (Kuro Siwo, flood), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.13115869528646423,
+          "ci": [
+            0.0,
+            0.26231739057292847
+          ],
+          "oracle": 0.13117612547176502,
+          "k": 2
+        },
+        {
+          "key": "ks_r11_water",
+          "name": "Fusion (Kuro Siwo, water), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.13399267444060248,
+          "ci": [
+            0.0,
+            0.26798534888120495
+          ],
+          "oracle": 0.13876521865533042,
+          "k": 2
+        }
+      ]
+    },
+    "partial": {
+      "units": [
+        "EMSR692",
+        "EMSR773",
+        "EMSR843"
+      ],
+      "models": [
+        {
+          "key": "s1f11_r4",
+          "name": "SAR U-Net (S1F11)",
+          "role": "test",
+          "iou": 0.09825628464315272,
+          "ci": [
+            0.06748087110064745,
+            0.15253258293148286
+          ],
+          "oracle": 0.18506589663186937,
+          "k": 3
+        },
+        {
+          "key": "s1f11_r9",
+          "name": "Fusion (S1F11)",
+          "role": "test",
+          "iou": 0.08531776323220659,
+          "ci": [
+            0.023189746300211412,
+            0.12329038241117131
+          ],
+          "oracle": 0.12341171462892449,
+          "k": 3
+        },
+        {
+          "key": "s1f11_tm",
+          "name": "TerraMind-small (S1F11)",
+          "role": "test",
+          "iou": 0.06216108545317826,
+          "ci": [
+            0.0055779853586904364,
+            0.13530468020416667
+          ],
+          "oracle": 0.09289627422442014,
+          "k": 3
+        },
+        {
+          "key": "ks_r4",
+          "name": "SAR U-Net (Kuro Siwo, flood)",
+          "role": "test",
+          "iou": 0.10303753481132934,
+          "ci": [
+            0.05253821583831823,
+            0.12953525057638637
+          ],
+          "oracle": 0.11873908601209666,
+          "k": 3
+        },
+        {
+          "key": "ks_r9_flood",
+          "name": "Fusion (Kuro Siwo, flood labels)",
+          "role": "test",
+          "iou": 0.10417589943794697,
+          "ci": [
+            0.04734836501227505,
+            0.13267438498399384
+          ],
+          "oracle": 0.10843125703474467,
+          "k": 3
+        },
+        {
+          "key": "ks_r9_water",
+          "name": "Fusion (Kuro Siwo, water labels)",
+          "role": "test",
+          "iou": 0.07686062375165367,
+          "ci": [
+            0.04289778237537984,
+            0.13688954915259482
+          ],
+          "oracle": 0.08524605727296193,
+          "k": 3
+        },
+        {
+          "key": "r2",
+          "name": "Physics baseline (row 2)",
+          "role": "test",
+          "iou": 0.058416679396314765,
+          "ci": [
+            0.03162725132342576,
+            0.10284749780781871
+          ],
+          "oracle": NaN,
+          "k": 3
+        },
+        {
+          "key": "r2s",
+          "name": "Physics baseline, seasonal reference (row 2s)",
+          "role": "test",
+          "iou": 0.057388517901678406,
+          "ci": [
+            0.013942639028786513,
+            0.12307645249568595
+          ],
+          "oracle": NaN,
+          "k": 3
+        },
+        {
+          "key": "s1f11_r11",
+          "name": "Fusion (S1F11), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.08655798663698132,
+          "ci": [
+            0.01986619861977756,
+            0.17078788395581176
+          ],
+          "oracle": 0.15468772323678043,
+          "k": 3
+        },
+        {
+          "key": "s1f11_tm_sar",
+          "name": "TerraMind (S1F11), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.07397365828555387,
+          "ci": [
+            0.004940388533618446,
+            0.17735789928930712
+          ],
+          "oracle": 0.10492436721585603,
+          "k": 3
+        },
+        {
+          "key": "ks_r11_flood",
+          "name": "Fusion (Kuro Siwo, flood), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.10414940338694056,
+          "ci": [
+            0.0472864917286547,
+            0.13275605316860625
+          ],
+          "oracle": 0.10846786799764968,
+          "k": 3
+        },
+        {
+          "key": "ks_r11_water",
+          "name": "Fusion (Kuro Siwo, water), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.07766319785930388,
+          "ci": [
+            0.041974236503111884,
+            0.13965898238562527
+          ],
+          "oracle": 0.08670192811448492,
+          "k": 3
+        }
+      ]
+    },
+    "sar_only": {
+      "units": [
+        "EMSR754",
+        "EMSR775"
+      ],
+      "models": [
+        {
+          "key": "s1f11_r4",
+          "name": "SAR U-Net (S1F11)",
+          "role": "test",
+          "iou": 0.13085509205627027,
+          "ci": [
+            0.0,
+            0.26171018411254054
+          ],
+          "oracle": 0.13186161482802158,
+          "k": 2
+        },
+        {
+          "key": "s1f11_r9",
+          "name": "Fusion (S1F11)",
+          "role": "test",
+          "iou": 0.10952041920034708,
+          "ci": [
+            0.0,
+            0.21904083840069416
+          ],
+          "oracle": 0.10952041920034708,
+          "k": 2
+        },
+        {
+          "key": "s1f11_tm",
+          "name": "TerraMind-small (S1F11)",
+          "role": "test",
+          "iou": 0.10305486483610504,
+          "ci": [
+            0.0,
+            0.20610972967221008
+          ],
+          "oracle": 0.10517164742190091,
+          "k": 2
+        },
+        {
+          "key": "ks_r4",
+          "name": "SAR U-Net (Kuro Siwo, flood)",
+          "role": "test",
+          "iou": 0.1446785039189954,
+          "ci": [
+            0.0,
+            0.2893570078379908
+          ],
+          "oracle": 0.14579751138238614,
+          "k": 2
+        },
+        {
+          "key": "ks_r9_flood",
+          "name": "Fusion (Kuro Siwo, flood labels)",
+          "role": "test",
+          "iou": 0.15827558924545065,
+          "ci": [
+            0.0,
+            0.3165511784909013
+          ],
+          "oracle": 0.1595703643940551,
+          "k": 2
+        },
+        {
+          "key": "ks_r9_water",
+          "name": "Fusion (Kuro Siwo, water labels)",
+          "role": "test",
+          "iou": 0.10899472799190947,
+          "ci": [
+            0.0,
+            0.21798945598381894
+          ],
+          "oracle": 0.10994746855998452,
+          "k": 2
+        },
+        {
+          "key": "r2",
+          "name": "Physics baseline (row 2)",
+          "role": "test",
+          "iou": 0.1696171161868572,
+          "ci": [
+            0.0,
+            0.3392342323737144
+          ],
+          "oracle": NaN,
+          "k": 2
+        },
+        {
+          "key": "r2s",
+          "name": "Physics baseline, seasonal reference (row 2s)",
+          "role": "test",
+          "iou": 0.17183973920565435,
+          "ci": [
+            0.0,
+            0.3436794784113087
+          ],
+          "oracle": NaN,
+          "k": 2
+        },
+        {
+          "key": "s1f11_r11",
+          "name": "Fusion (S1F11), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.10952041920034708,
+          "ci": [
+            0.0,
+            0.21904083840069416
+          ],
+          "oracle": 0.10952041920034708,
+          "k": 2
+        },
+        {
+          "key": "s1f11_tm_sar",
+          "name": "TerraMind (S1F11), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.10305486483610504,
+          "ci": [
+            0.0,
+            0.20610972967221008
+          ],
+          "oracle": 0.10517164742190091,
+          "k": 2
+        },
+        {
+          "key": "ks_r11_flood",
+          "name": "Fusion (Kuro Siwo, flood), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.15827558924545065,
+          "ci": [
+            0.0,
+            0.3165511784909013
+          ],
+          "oracle": 0.1595703643940551,
+          "k": 2
+        },
+        {
+          "key": "ks_r11_water",
+          "name": "Fusion (Kuro Siwo, water), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.10899472799190947,
+          "ci": [
+            0.0,
+            0.21798945598381894
+          ],
+          "oracle": 0.10994746855998452,
+          "k": 2
+        }
+      ]
+    }
+  },
+  "EMSR664 (seen in v1.0; every stratum)": {
+    "all": {
+      "units": [
+        "EMSR664"
+      ],
+      "models": [
+        {
+          "key": "s1f11_r4",
+          "name": "SAR U-Net (S1F11)",
+          "role": "test",
+          "iou": 0.4211912688108146,
+          "ci": [
+            NaN,
+            NaN
+          ],
+          "oracle": 0.4247980073087355,
+          "k": 1
+        },
+        {
+          "key": "s1f11_r9",
+          "name": "Fusion (S1F11)",
+          "role": "test",
+          "iou": 0.4396732638956077,
+          "ci": [
+            NaN,
+            NaN
+          ],
+          "oracle": 0.4499229728011726,
+          "k": 1
+        },
+        {
+          "key": "s1f11_tm",
+          "name": "TerraMind-small (S1F11)",
+          "role": "test",
+          "iou": 0.4706549976615708,
+          "ci": [
+            NaN,
+            NaN
+          ],
+          "oracle": 0.4706549976615708,
+          "k": 1
+        },
+        {
+          "key": "ks_r4",
+          "name": "SAR U-Net (Kuro Siwo, flood)",
+          "role": "test",
+          "iou": 0.6094641563929306,
+          "ci": [
+            NaN,
+            NaN
+          ],
+          "oracle": 0.6153956145749794,
+          "k": 1
+        },
+        {
+          "key": "ks_r9_flood",
+          "name": "Fusion (Kuro Siwo, flood labels)",
+          "role": "test",
+          "iou": 0.6059595988769214,
+          "ci": [
+            NaN,
+            NaN
+          ],
+          "oracle": 0.6225649891050083,
+          "k": 1
+        },
+        {
+          "key": "ks_r9_water",
+          "name": "Fusion (Kuro Siwo, water labels)",
+          "role": "test",
+          "iou": 0.5702742415535996,
+          "ci": [
+            NaN,
+            NaN
+          ],
+          "oracle": 0.5882828525726563,
+          "k": 1
+        },
+        {
+          "key": "r2",
+          "name": "Physics baseline (row 2)",
+          "role": "test",
+          "iou": 0.573346829399581,
+          "ci": [
+            NaN,
+            NaN
+          ],
+          "oracle": NaN,
+          "k": 1
+        },
+        {
+          "key": "r2s",
+          "name": "Physics baseline, seasonal reference (row 2s)",
+          "role": "test",
+          "iou": 0.3236433558286233,
+          "ci": [
+            NaN,
+            NaN
+          ],
+          "oracle": NaN,
+          "k": 1
+        },
+        {
+          "key": "s1f11_r11",
+          "name": "Fusion (S1F11), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.3635422663569841,
+          "ci": [
+            NaN,
+            NaN
+          ],
+          "oracle": 0.3691112444237169,
+          "k": 1
+        },
+        {
+          "key": "s1f11_tm_sar",
+          "name": "TerraMind (S1F11), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.15765993720279461,
+          "ci": [
+            NaN,
+            NaN
+          ],
+          "oracle": 0.2931112390105858,
+          "k": 1
+        },
+        {
+          "key": "ks_r11_flood",
+          "name": "Fusion (Kuro Siwo, flood), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.6068916079901442,
+          "ci": [
+            NaN,
+            NaN
+          ],
+          "oracle": 0.622885209188694,
+          "k": 1
+        },
+        {
+          "key": "ks_r11_water",
+          "name": "Fusion (Kuro Siwo, water), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.5641017447748192,
+          "ci": [
+            NaN,
+            NaN
+          ],
+          "oracle": 0.5869653435418768,
+          "k": 1
+        }
+      ]
+    },
+    "optical": {
+      "units": [
+        "EMSR664"
+      ],
+      "models": [
+        {
+          "key": "s1f11_r4",
+          "name": "SAR U-Net (S1F11)",
+          "role": "test",
+          "iou": 0.4211912688108146,
+          "ci": [
+            NaN,
+            NaN
+          ],
+          "oracle": 0.4247980073087355,
+          "k": 1
+        },
+        {
+          "key": "s1f11_r9",
+          "name": "Fusion (S1F11)",
+          "role": "test",
+          "iou": 0.4396732638956077,
+          "ci": [
+            NaN,
+            NaN
+          ],
+          "oracle": 0.4499229728011726,
+          "k": 1
+        },
+        {
+          "key": "s1f11_tm",
+          "name": "TerraMind-small (S1F11)",
+          "role": "test",
+          "iou": 0.4706549976615708,
+          "ci": [
+            NaN,
+            NaN
+          ],
+          "oracle": 0.4706549976615708,
+          "k": 1
+        },
+        {
+          "key": "ks_r4",
+          "name": "SAR U-Net (Kuro Siwo, flood)",
+          "role": "test",
+          "iou": 0.6094641563929306,
+          "ci": [
+            NaN,
+            NaN
+          ],
+          "oracle": 0.6153956145749794,
+          "k": 1
+        },
+        {
+          "key": "ks_r9_flood",
+          "name": "Fusion (Kuro Siwo, flood labels)",
+          "role": "test",
+          "iou": 0.6059595988769214,
+          "ci": [
+            NaN,
+            NaN
+          ],
+          "oracle": 0.6225649891050083,
+          "k": 1
+        },
+        {
+          "key": "ks_r9_water",
+          "name": "Fusion (Kuro Siwo, water labels)",
+          "role": "test",
+          "iou": 0.5702742415535996,
+          "ci": [
+            NaN,
+            NaN
+          ],
+          "oracle": 0.5882828525726563,
+          "k": 1
+        },
+        {
+          "key": "r2",
+          "name": "Physics baseline (row 2)",
+          "role": "test",
+          "iou": 0.573346829399581,
+          "ci": [
+            NaN,
+            NaN
+          ],
+          "oracle": NaN,
+          "k": 1
+        },
+        {
+          "key": "r2s",
+          "name": "Physics baseline, seasonal reference (row 2s)",
+          "role": "test",
+          "iou": 0.3236433558286233,
+          "ci": [
+            NaN,
+            NaN
+          ],
+          "oracle": NaN,
+          "k": 1
+        },
+        {
+          "key": "s1f11_r11",
+          "name": "Fusion (S1F11), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.3635422663569841,
+          "ci": [
+            NaN,
+            NaN
+          ],
+          "oracle": 0.3691112444237169,
+          "k": 1
+        },
+        {
+          "key": "s1f11_tm_sar",
+          "name": "TerraMind (S1F11), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.15765993720279461,
+          "ci": [
+            NaN,
+            NaN
+          ],
+          "oracle": 0.2931112390105858,
+          "k": 1
+        },
+        {
+          "key": "ks_r11_flood",
+          "name": "Fusion (Kuro Siwo, flood), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.6068916079901442,
+          "ci": [
+            NaN,
+            NaN
+          ],
+          "oracle": 0.622885209188694,
+          "k": 1
+        },
+        {
+          "key": "ks_r11_water",
+          "name": "Fusion (Kuro Siwo, water), SAR-only everywhere",
+          "role": "descriptive",
+          "iou": 0.5641017447748192,
+          "ci": [
+            NaN,
+            NaN
+          ],
+          "oracle": 0.5869653435418768,
+          "k": 1
+        }
+      ]
+    }
+  }
+}

@@ -52,6 +52,8 @@ service-account*.json
 # Large figures produced by evaluation are regenerated; the Markdown reports
 # under reports/ are committed as the reproducibility record (P1-M4, P1-M5).
 /reports/figures/
+# The v1.1 re-run of the synthetic figures (unreferenced; assets/ keeps v1.0's, the same to ±0.015 IoU).
+/assets/v11/
 /reports/products/
 # The explainer site is built from site/ and reports/ by scripts/build_site.py.
 /_site/
