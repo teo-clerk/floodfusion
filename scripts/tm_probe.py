@@ -8,8 +8,8 @@ TerraMind-fair variant: base + LoRA, base frozen, small + LoRA.
 **The projection.** A pooled cross-validation run takes about row 9's measured Kuro Siwo run (:data:`ROW9_KS_RUN_S`,
 the mean of v1.1's) × the pool's size relative to Kuro Siwo × the variant's time per batch relative to row 9.
 
-**The rule.** The first variant, in the order above, whose projection is at most :data:`CAP_H` hours and whose peak
-VRAM is at most :data:`VRAM_CAP_GB` is the fair opponent.
+**The rule.** Among the variants whose peak VRAM is at most :data:`VRAM_CAP_GB`, the first in the order above whose
+projection is at most :data:`CAP_H` hours is the fair opponent; if none is that fast, the last of them (the cheapest).
 """
 
 from __future__ import annotations
@@ -106,9 +106,10 @@ def main(argv: list[str] | None = None) -> int:
     base_run_h = ROW9_KS_RUN_S * args.pool_chips / KS_TRAIN_CHIPS / 3600
     for t in timings.values():
         t["projected_run_h"] = base_run_h * t["s_per_batch"] / timings["row09"]["s_per_batch"]
-    chosen = next((v for v in VARIANTS if timings[v]["projected_run_h"] <= CAP_H
-                   and timings[v]["peak_gb"] <= VRAM_CAP_GB), None)
-    report = {"rule": f"first of {list(VARIANTS)} with projected pooled run <= {CAP_H} h and peak <= {VRAM_CAP_GB} GB",
+    fits = [v for v in VARIANTS if timings[v]["peak_gb"] <= VRAM_CAP_GB]
+    chosen = next((v for v in fits if timings[v]["projected_run_h"] <= CAP_H), fits[-1] if fits else None)
+    report = {"rule": f"first of {list(VARIANTS)} with peak <= {VRAM_CAP_GB} GB and projected pooled run <= {CAP_H} h; "
+                      "else the last that fits in VRAM",
               "pool_chips": args.pool_chips, "row9_projected_run_h": base_run_h, "timings": timings, "chosen": chosen}
     args.out.write_text(json.dumps(report, indent=1) + "\n", encoding="utf-8")
     print(json.dumps(report, indent=1))
