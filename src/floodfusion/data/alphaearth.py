@@ -213,16 +213,20 @@ def orientation_check(emb: np.ndarray, water: np.ndarray) -> dict[str, float]:
     """How well a nearest-centroid rule separates ``water`` from land in ``emb`` as read, and flipped upside down.
 
     AlphaEarth separates open water from land easily. Read the right way up the score is high; flipped, the
-    embeddings no longer sit over their pixels and it collapses towards 0.5.
+    embeddings no longer sit over their pixels and it collapses towards 0.5. The centroids come from one half of a
+    checkerboard and are scored on the other, so 64 noisy dimensions cannot fit chance structure.
     """
+    rows, cols = np.indices(water.shape)
+    fit = (rows + cols) % 2 == 0          # centroids from one half of a checkerboard, scored on the other
+
     def auc(e: np.ndarray) -> float:
         ok = np.isfinite(e).all(axis=0)
         w, land = water & ok, ~water & ok
-        if w.sum() < 50 or land.sum() < 50:
+        if (w & fit).sum() < 25 or (land & fit).sum() < 25 or (w & ~fit).sum() < 25 or (land & ~fit).sum() < 25:
             return float("nan")
-        cw, cl = e[:, w].mean(axis=1), e[:, land].mean(axis=1)
+        cw, cl = e[:, w & fit].mean(axis=1), e[:, land & fit].mean(axis=1)
         score = np.tensordot(cw - cl, e, axes=1)
-        s_w, s_l = score[w], score[land]
+        s_w, s_l = score[w & ~fit], score[land & ~fit]
         ranks = np.argsort(np.argsort(np.concatenate([s_w, s_l]))) + 1.0
         return float((ranks[: len(s_w)].sum() - len(s_w) * (len(s_w) + 1) / 2) / (len(s_w) * len(s_l)))
 
