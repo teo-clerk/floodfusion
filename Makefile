@@ -21,7 +21,7 @@ SEED_PROTOCOL ?= auto
 .PHONY: help setup lock preflight test test-fast test-all test-gpu cov lint synth ingest splits \
         baseline train-p1 vram-budget ablation table predict demo clean \
         s1f11 s1f11-download s1f11-ingest s1f11-splits s1f11-cv s1f11-table stress forli \
-        kurosiwo-data cems-data seasonal v11-splits v11-synthetic v11-runs v11-tables v11-cems
+        kurosiwo-data cems-data seasonal gfm v11-splits v11-synthetic v11-runs v11-tables v11-cems
 
 help:  ## List targets
 	@grep -E '^[a-zA-Z0-9_-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -128,6 +128,9 @@ seasonal:  ## Seasonal Sentinel-1 references beside every Sen1Floods11, Kuro Siw
 	$(PY) -m floodfusion.data.seasonal --root $(S1F11_ROOT)
 	$(PY) -m floodfusion.data.seasonal --root $(KS_ROOT)
 	for d in $(CEMS_ROOT)/EMSR*_AOI*; do $(PY) -m floodfusion.data.seasonal --root $$d || exit 1; done
+
+gfm:  ## Copernicus GFM layers (the v1.2 comparator) beside every CEMS benchmark stack; resumable
+	$(PY) -m floodfusion.data.gfm --root $(CEMS_ROOT)/EMSR*_AOI*
 
 v11-splits:  ## Kuro Siwo grouped five-fold + the all-groups model, for both label sets
 	$(PY) -m floodfusion.crossval splits --data-root $(KS_ROOT) --overlay $(KS_OVERLAY) --scheme kfold
