@@ -61,3 +61,88 @@ def test_tiles_accumulate_per_model_and_seed() -> None:
     assert entry["models"]["ks_r9"]["seed42"] == [[2 * c for c in row] for row in one]
     assert sum(entry["hist"]["ks_r9"]["seed42"]["all"]) == 2 * int((~np.isnan(prob) & valid).sum())
     assert set(entry) == {"models", "hist"}                             # units() sums "models" only
+
+
+def _case(tmp_path, n_tiles=2):
+    import json
+
+    pair = {"key": "EMSR700_AOI01", "activation": "EMSR700", "aoi": 1, "product": "P", "stratum": "sar",
+            "sensors": ["ICEYE"], "offset_h": 1.0, "pass_time": "t", "product_time": "t",
+            "region": "r.geojson", "label": "l.geojson"}
+    root = tmp_path / "EMSR700_AOI01"
+    for i in range(n_tiles):
+        d = root / "events" / f"t{i}"
+        d.mkdir(parents=True)
+        (d / "stack.tif").write_bytes(b"")
+        (d / "event.json").write_text("{}")
+    (root / "pair.json").write_text(json.dumps(pair))
+    return tmp_path
+
+
+def test_score_loop_keeps_v1_1_counts_histograms_and_gfm_gaps(tmp_path, monkeypatch) -> None:
+    from floodfusion.case_study import _Model
+    from floodfusion.cems_scores import ModelSpec
+
+    prob, label, scored, valid = _tile(3)
+    monkeypatch.setattr(v12, "tile_masks", lambda stack, pair: (valid, scored, label, np.zeros_like(scored)))
+    model = _Model("m", lambda stack: prob, 0.25, True)
+    import floodfusion.cems_scores as v11
+    import floodfusion.data.gfm as gfm_mod
+    monkeypatch.setattr(v11, "_models", lambda spec, device: [("m", "seed42", model)])
+    gfm_layers = {"ensemble_flood": np.where(label, 1, 0).astype(np.uint8),
+                  "ensemble_likelihood": np.full(prob.shape, 60, np.uint8)}
+    gfm_layers["ensemble_flood"][:, -4:] = 255                           # GFM has no value on the last columns
+    monkeypatch.setattr(gfm_mod, "read_sidecar", lambda d: gfm_layers)
+    spec = {"models": [ModelSpec("m", "Model", ("runs/x/seed42",)), ModelSpec("gfm", "GFM", (), "gfm")],
+            "exclude": (), "primary_stratum": "sar"}
+    monkeypatch.setattr(v12, "model_priors", lambda s: {"m": {"seed42": {"tau": 0.25, "pi0": 0.3}}})
+    out = v12.score(spec, _case(tmp_path), "cpu")
+    entry = out["pairs"]["EMSR700_AOI01"]
+    assert entry["models"]["m"]["seed42"] == [[2 * c for c in r] for r in v12.tile_counts(prob, 0.25, True, label, scored)]
+    covered = scored.copy()
+    covered[:, -4:] = False
+    assert entry["gfm_missing_px"] == 2 * int((scored & ~covered).sum())
+    assert entry["models"]["gfm"]["gfm"][0][0] == 2 * int((label & covered).sum())   # GFM hits = its flood on covered
+    assert entry["models"]["gfm"]["gfm"][0][2] == 0                     # gaps are not misses
+    path = tmp_path / "s.json.gz"
+    v12.write_scores(out, path)
+    assert v12.load_scores(path)["pairs"]["EMSR700_AOI01"]["scored_px"] == entry["scored_px"]
+
+
+def test_summary_applies_the_gfm_coverage_rule_and_self_calibrates() -> None:
+    prob, label, scored, valid = _tile(4)
+    entry_a: dict = {"pair": {"activation": "EMSR1", "stratum": "sar"}, "scored_px": int(scored.sum()),
+                     "gfm_missing_px": 0}
+    entry_b: dict = {"pair": {"activation": "EMSR2", "stratum": "sar"}, "scored_px": int(scored.sum()),
+                     "gfm_missing_px": int(scored.sum()) // 2}            # GFM covers half: out of GFM's rows
+    for entry in (entry_a, entry_b):
+        for key, run in (("m", "seed42"), ("gfm", "gfm")):
+            v12.add_tile(entry, key, run, v12.tile_counts(prob, 0.25, True, label, scored),
+                         v12.tile_histograms(prob, label, scored, valid))
+    scores = {"pairs": {"a": entry_a, "b": entry_b}, "activations": {},
+              "priors": {"m": {"seed42": {"tau": 0.25, "pi0": 0.3}}},
+              "models": {"m": {"name": "Model"}, "gfm": {"name": "GFM"}}}
+    table = v12.summary(scores, {"exclude": (), "primary_stratum": "sar"})
+    assert table["models"]["m"]["k"] == 2 and table["models"]["gfm"]["k"] == 1
+    m = table["models"]["m"]
+    assert 0 < m["iou_tau"] <= m["iou_oracle"] + 1e-9 and 0 < m["ap"] <= 1
+    assert np.isfinite(m["iou_selfcal"]) and np.isnan(table["models"]["gfm"]["iou_selfcal"])   # GFM: no prior
+    assert "| Model | 2 |" in v12._markdown([table])
+
+
+def test_regression_against_v1_1_names_every_differing_count() -> None:
+    v11 = {"pairs": {"a": {"models": {"m": {"seed42": [[1, 2, 3, 4]]}}}}}
+    assert v12.check_against_v11({"pairs": {"a": {"models": {"m": {"seed42": [[1, 2, 3, 4]]}, "gfm": {}}}}}, v11) == []
+    assert v12.check_against_v11({"pairs": {"a": {"models": {"m": {"seed42": [[1, 2, 3, 5]]}}}}}, v11) == ["a/m/seed42"]
+    assert v12.check_against_v11({"pairs": {}}, v11) == ["a/m/seed42"]
+
+
+def test_the_v12_spec_holds_every_v11_model_plus_the_corrected_terramind_and_gfm() -> None:
+    from floodfusion.cems_scores import load_spec
+
+    v11, spec = load_spec("configs/datasets/cems_models.yaml"), load_spec("configs/datasets/cems_models_v12.yaml")
+    keys = [m.key for m in spec["models"]]
+    assert keys[: len(v11["models"])] == [m.key for m in v11["models"]]
+    assert keys[len(v11["models"]):] == ["s1f11_tm_fixed", "gfm"] and spec["tests"] == []
+    assert {k: spec[k] for k in ("exclude", "primary_stratum", "overlapping_pairs")} == \
+        {k: v11[k] for k in ("exclude", "primary_stratum", "overlapping_pairs")}

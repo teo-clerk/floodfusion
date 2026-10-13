@@ -1,0 +1,71 @@
+# v1.2 preview scoring of the CEMS benchmark (descriptive; reports/v1_2_deviations.md): every v1.1 model, the
+# corrected TerraMind of the v1.1 erratum, and Copernicus GFM, with score histograms (floodfusion.cems_scores_v12).
+# Same pairs, strata and units as configs/datasets/cems_models.yaml. The counts of the v1.1 models must equal the
+# committed reports/cems_benchmark_scores.json (checked by `report`). No confirmatory test: this benchmark has been
+# seen; v1.2's tests are the blind ones.
+
+primary_stratum: sar
+exclude: [EMSR664]
+optical_usable: 0.5
+sar_only_below: 0.1
+configs_dir: configs
+overlays: [configs/overlays/sen1floods11.yaml]
+overlapping_pairs: [EMSR773_AOI06, EMSR856_AOI07, EMSR864_AOI05, EMSR868_AOI01, EMSR868_AOI02]
+
+models:
+  # Trained on Sen1Floods11's published split (all ten events; the deployable models of v1.0's kind).
+  - {key: s1f11_r4, name: "SAR U-Net (S1F11)",
+     runs: [runs/v11/sen1floods11/official/official/row04_unet_sar_only/seed42,
+            runs/v11/sen1floods11/official/official/row04_unet_sar_only/seed43,
+            runs/v11/sen1floods11/official/official/row04_unet_sar_only/seed44]}
+  - {key: s1f11_r9, name: "Fusion (S1F11)",
+     runs: [runs/v11/sen1floods11/official/official/row09_fusion_crossattn/seed42,
+            runs/v11/sen1floods11/official/official/row09_fusion_crossattn/seed43,
+            runs/v11/sen1floods11/official/official/row09_fusion_crossattn/seed44]}
+  - {key: s1f11_tm, name: "TerraMind-small (S1F11)",
+     runs: [runs/v11/sen1floods11/official/official/cmp_terramind_small/seed42,
+            runs/v11/sen1floods11/official/official/cmp_terramind_small/seed43,
+            runs/v11/sen1floods11/official/official/cmp_terramind_small/seed44]}
+  # Trained on Kuro Siwo, every group but the validation fold ("all" protocol).
+  - {key: ks_r4, name: "SAR U-Net (Kuro Siwo, flood)",
+     runs: [runs/v11/kurosiwo/all/all/row04_unet_sar_only/seed42,
+            runs/v11/kurosiwo/all/all/row04_unet_sar_only/seed43,
+            runs/v11/kurosiwo/all/all/row04_unet_sar_only/seed44]}
+  - {key: ks_r9_flood, name: "Fusion (Kuro Siwo, flood labels)",
+     runs: [runs/v11/kurosiwo/all/all/row09_fusion_crossattn/seed42,
+            runs/v11/kurosiwo/all/all/row09_fusion_crossattn/seed43,
+            runs/v11/kurosiwo/all/all/row09_fusion_crossattn/seed44]}
+  - {key: ks_r9_water, name: "Fusion (Kuro Siwo, water labels)",
+     runs: [runs/v11/kurosiwo_water/all/all/row09_fusion_crossattn/seed42,
+            runs/v11/kurosiwo_water/all/all/row09_fusion_crossattn/seed43,
+            runs/v11/kurosiwo_water/all/all/row09_fusion_crossattn/seed44]}
+  # The physics baseline, its offset chosen on Sen1Floods11's published validation split.
+  - {key: r2, name: "Physics baseline (row 2)", kind: baseline,
+     runs: [runs/v11/sen1floods11/official/official/row02_baseline_adaptive/baseline]}
+  - {key: r2s, name: "Physics baseline, seasonal reference (row 2s)", kind: baseline,
+     runs: [runs/v11/sen1floods11/official/official/row02s_seasonal/baseline]}
+
+  # Descriptive companions (no test names them): each model with an optical input, run SAR-only everywhere.
+  - {key: s1f11_r11, name: "Fusion (S1F11), SAR-only everywhere", role: descriptive,
+     runs: [runs/v11/sen1floods11/official/official/row11_fusion_eval_sar_only/seed42,
+            runs/v11/sen1floods11/official/official/row11_fusion_eval_sar_only/seed43,
+            runs/v11/sen1floods11/official/official/row11_fusion_eval_sar_only/seed44]}
+  - {key: s1f11_tm_sar, name: "TerraMind (S1F11), SAR-only everywhere", role: descriptive,
+     runs: [runs/v11/sen1floods11/official/official/cmp_terramind_small__eval_sar_only/seed42,
+            runs/v11/sen1floods11/official/official/cmp_terramind_small__eval_sar_only/seed43,
+            runs/v11/sen1floods11/official/official/cmp_terramind_small__eval_sar_only/seed44]}
+  - {key: ks_r11_flood, name: "Fusion (Kuro Siwo, flood), SAR-only everywhere", role: descriptive,
+     runs: [runs/v11/kurosiwo/all/all/row11_fusion_eval_sar_only/seed42,
+            runs/v11/kurosiwo/all/all/row11_fusion_eval_sar_only/seed43,
+            runs/v11/kurosiwo/all/all/row11_fusion_eval_sar_only/seed44]}
+  - {key: ks_r11_water, name: "Fusion (Kuro Siwo, water), SAR-only everywhere", role: descriptive,
+     runs: [runs/v11/kurosiwo_water/all/all/row11_fusion_eval_sar_only/seed42,
+            runs/v11/kurosiwo_water/all/all/row11_fusion_eval_sar_only/seed43,
+            runs/v11/kurosiwo_water/all/all/row11_fusion_eval_sar_only/seed44]}
+  # v1.2 additions.
+  - {key: s1f11_tm_fixed, name: "TerraMind-small (S1F11), corrected", role: descriptive,
+     runs: [runs/v12/erratum/sen1floods11/official/official/cmp_terramind_small/seed42,
+            runs/v12/erratum/sen1floods11/official/official/cmp_terramind_small/seed43,
+            runs/v12/erratum/sen1floods11/official/official/cmp_terramind_small/seed44]}
+  - {key: gfm, name: "Copernicus GFM (ensemble)", kind: gfm, role: descriptive, runs: []}
+tests: []

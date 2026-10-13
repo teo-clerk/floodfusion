@@ -21,7 +21,7 @@ SEED_PROTOCOL ?= auto
 .PHONY: help setup lock preflight test test-fast test-all test-gpu cov lint synth ingest splits \
         baseline train-p1 vram-budget ablation table predict demo clean \
         s1f11 s1f11-download s1f11-ingest s1f11-splits s1f11-cv s1f11-table stress forli \
-        kurosiwo-data cems-data seasonal gfm erratum v11-splits v11-synthetic v11-runs v11-tables v11-cems
+        kurosiwo-data cems-data seasonal gfm erratum v12-cems-preview v11-splits v11-synthetic v11-runs v11-tables v11-cems
 
 help:  ## List targets
 	@grep -E '^[a-zA-Z0-9_-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -135,6 +135,9 @@ gfm:  ## Copernicus GFM layers (the v1.2 comparator) beside every CEMS benchmark
 
 erratum:  ## v1.1 erratum: TerraMind re-trained with modality dropout (Sen1Floods11) and P4 re-scored (~3 GPU-h)
 	scripts/v12_queue.sh erratum
+
+v12-cems-preview:  ## v1.1 models + corrected TerraMind + Copernicus GFM on CEMS 2023-26, with histograms (GPU)
+	scripts/v12_queue.sh cems-preview
 
 v11-splits:  ## Kuro Siwo grouped five-fold + the all-groups model, for both label sets
 	$(PY) -m floodfusion.crossval splits --data-root $(KS_ROOT) --overlay $(KS_OVERLAY) --scheme kfold

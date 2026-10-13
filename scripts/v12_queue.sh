@@ -2,8 +2,10 @@
 # floodfusion v1.2 — the GPU jobs, one after another (decisions: reports/v1_2_deviations.md). Resumable: finished
 # runs are skipped, so a stopped queue is restarted with the same command.
 #
-#   scripts/v12_queue.sh erratum   # v1.1 erratum: TerraMind re-trained as its protocol describes it (Sen1Floods11,
-#                                  # published split + leave-one-event-out, 3 seeds), then P4 re-scored on CEMS
+#   scripts/v12_queue.sh erratum       # v1.1 erratum: TerraMind re-trained as its protocol describes it (Sen1Floods11,
+#                                      # published split + leave-one-event-out, 3 seeds), then P4 re-scored on CEMS
+#   scripts/v12_queue.sh cems-preview  # every v1.1 model + the corrected TerraMind + Copernicus GFM on CEMS 2023-26,
+#                                      # with score histograms (descriptive; needs `erratum` and `make gfm` first)
 #
 # One floodfusion GPU job at a time: the queue holds a lock that every v1.2 GPU job takes.
 set -euo pipefail
@@ -33,8 +35,14 @@ case "${1:-}" in
     $PY -m floodfusion.cems_scores report --spec configs/datasets/cems_models_erratum.yaml \
       --scores reports/v1_1_erratum_scores.json --out reports/v1_1_erratum_p4.md
     ;;
+  cems-preview)
+    $PY -m floodfusion.cems_scores_v12 score --spec configs/datasets/cems_models_v12.yaml \
+      --out reports/v12_cems_scores.json.gz
+    $PY -m floodfusion.cems_scores_v12 report --spec configs/datasets/cems_models_v12.yaml \
+      --scores reports/v12_cems_scores.json.gz --out reports/v12_cems_preview.md
+    ;;
   *)
-    echo "usage: $0 erratum-official|erratum" >&2
+    echo "usage: $0 erratum-official|erratum|cems-preview" >&2
     exit 2
     ;;
 esac
