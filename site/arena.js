@@ -96,7 +96,7 @@
       stat(table ? String(Object.keys(table.models).length) : null, "models on the board"),
       stat(table ? String(table.units.length) : null, "Copernicus flood activations with reference flood"),
       stat(sb.status === "ok" ? `${sb.gfm_pairs}/${sb.n_pairs}` : null, "radar-drawn pairs GFM covers (≥ 95 %)"),
-      stat(`${blind.k_clusters ?? 0}/8`, "blind-test clusters scored"),
+      stat(`${blind.k_activations ?? 0}/20`, "blind-test activations scored"),
     );
   }
 
@@ -245,8 +245,8 @@
     const rows = (b.floods || []).map((f) => h("tr", {}, h("td", {}, f.code), h("td", {}, f.date), h("td", {}, f.status)));
     panel.replaceChildren(
       h("p", {}, h("b", {}, b.status_text)),
-      progress("activations", b.k_activations ?? 0, 10),
-      progress("clusters", b.k_clusters ?? 0, 8),
+      progress("activations", b.k_activations ?? 0, 20),
+      progress("clusters", b.k_clusters ?? 0, 15),
       rows.length ? h("div", { class: "table-wrap" }, h("table", { class: "data-table" },
         h("thead", {}, h("tr", {}, h("th", {}, "Activation"), h("th", {}, "Event"), h("th", {}, "Status"))),
         h("tbody", {}, rows))) : null,

@@ -74,11 +74,12 @@ def test_sealed_scores_are_hashed_into_the_ledger_and_tampering_is_caught(tmp_pa
 
 def test_stopping_rule_needs_clusters_and_activations_or_the_end_date(tmp_path: Path) -> None:
     ledger = pr.Ledger(tmp_path / "ledger.jsonl")
-    for n in range(10):
+    n_units = pr.MIN_ACTIVATIONS
+    for n in range(n_units):
         ledger.append({"key": f"EMSR{900 + n}_AOI01", "activation": f"EMSR{900 + n}", "status": "scored"})
-    one_cluster = {f"EMSR{900 + n}": "C" for n in range(10)}
-    assert not pr.stopping_rule_met(ledger, date(2027, 6, 1), one_cluster)
-    assert pr.stopping_rule_met(ledger, date(2027, 6, 1), {})            # ten clusters of one
+    few_clusters = {f"EMSR{900 + n}": f"C{n % (pr.MIN_CLUSTERS - 1)}" for n in range(n_units)}
+    assert not pr.stopping_rule_met(ledger, date(2027, 6, 1), few_clusters)
+    assert pr.stopping_rule_met(ledger, date(2027, 6, 1), {})            # every activation its own cluster
     assert pr.stopping_rule_met(pr.Ledger(tmp_path / "empty.jsonl"), date(2028, 1, 1), {})
 
 

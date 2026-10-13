@@ -56,8 +56,11 @@ FIRST_CODE = 899
 STOP_AFTER_NON_PUBLIC = 20
 MISSING_TTL_DAYS = 7
 SETTLE_DAYS = 30
-MIN_CLUSTERS = 8
-MIN_ACTIVATIONS = 10
+#: Analysed when this many clusters and activations are scored, or at END_DATE. With v1.1's per-activation spread
+#: (SD ~0.077), 20 activations detect ~0.06 IoU at 80 % power (Holm's smallest level); 10 would detect ~0.10 only
+#: (reports/v1_2_deviations.md, fixed before any blind flood was looked at).
+MIN_CLUSTERS = 15
+MIN_ACTIVATIONS = 20
 END_DATE = date(2027, 12, 31)
 #: What the freeze pins in git (plus every checkpoint by sha256).
 FROZEN_PATHS = ("src", "configs", "pyproject.toml", "uv.lock", "Makefile")
