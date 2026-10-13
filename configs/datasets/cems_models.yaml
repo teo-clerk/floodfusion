@@ -1,0 +1,75 @@
+# The CEMS benchmark's models and confirmatory tests — pre-registered (reports/protocol_v1_1.md).
+# Read by floodfusion.cems_scores. Every model scores every eligible pair zero-shot, at the τ* and
+# calibration of its own training data (its SAR-only calibration where a window had no optical);
+# seeds pool per unit. Fixed before any model is scored. Amendment 1 (2026-10-11, before any v1.1 run):
+# descriptive companion models and the pairs overlapping Kuro Siwo training areas (sensitivity).
+
+primary_stratum: sar            # products drawn on radar satellites: the conservative test of fusion
+exclude: [EMSR664]              # Forlì: already seen in v1.0 (reported descriptively)
+optical_usable: 0.5             # a unit is "optical" if >= 50 % of its scored pixels have clear optical
+sar_only_below: 0.1             # ... and "SAR-only" if < 10 %
+configs_dir: configs
+overlays: [configs/overlays/sen1floods11.yaml]
+# Pairs whose region intersects a Kuro Siwo training AOI (EMSR279 Spain, 273 Albania, 417 Portugal, 277 Greece):
+# a sensitivity analysis drops them (by place, not by event, these were seen).
+overlapping_pairs: [EMSR773_AOI06, EMSR856_AOI07, EMSR864_AOI05, EMSR868_AOI01, EMSR868_AOI02]
+
+models:
+  # Trained on Sen1Floods11's published split (all ten events; the deployable models of v1.0's kind).
+  - {key: s1f11_r4, name: "SAR U-Net (S1F11)",
+     runs: [runs/v11/sen1floods11/official/official/row04_unet_sar_only/seed42,
+            runs/v11/sen1floods11/official/official/row04_unet_sar_only/seed43,
+            runs/v11/sen1floods11/official/official/row04_unet_sar_only/seed44]}
+  - {key: s1f11_r9, name: "Fusion (S1F11)",
+     runs: [runs/v11/sen1floods11/official/official/row09_fusion_crossattn/seed42,
+            runs/v11/sen1floods11/official/official/row09_fusion_crossattn/seed43,
+            runs/v11/sen1floods11/official/official/row09_fusion_crossattn/seed44]}
+  - {key: s1f11_tm, name: "TerraMind-small (S1F11)",
+     runs: [runs/v11/sen1floods11/official/official/cmp_terramind_small/seed42,
+            runs/v11/sen1floods11/official/official/cmp_terramind_small/seed43,
+            runs/v11/sen1floods11/official/official/cmp_terramind_small/seed44]}
+  # Trained on Kuro Siwo, every group but the validation fold ("all" protocol).
+  - {key: ks_r4, name: "SAR U-Net (Kuro Siwo, flood)",
+     runs: [runs/v11/kurosiwo/all/all/row04_unet_sar_only/seed42,
+            runs/v11/kurosiwo/all/all/row04_unet_sar_only/seed43,
+            runs/v11/kurosiwo/all/all/row04_unet_sar_only/seed44]}
+  - {key: ks_r9_flood, name: "Fusion (Kuro Siwo, flood labels)",
+     runs: [runs/v11/kurosiwo/all/all/row09_fusion_crossattn/seed42,
+            runs/v11/kurosiwo/all/all/row09_fusion_crossattn/seed43,
+            runs/v11/kurosiwo/all/all/row09_fusion_crossattn/seed44]}
+  - {key: ks_r9_water, name: "Fusion (Kuro Siwo, water labels)",
+     runs: [runs/v11/kurosiwo_water/all/all/row09_fusion_crossattn/seed42,
+            runs/v11/kurosiwo_water/all/all/row09_fusion_crossattn/seed43,
+            runs/v11/kurosiwo_water/all/all/row09_fusion_crossattn/seed44]}
+  # The physics baseline, its offset chosen on Sen1Floods11's published validation split.
+  - {key: r2, name: "Physics baseline (row 2)", kind: baseline,
+     runs: [runs/v11/sen1floods11/official/official/row02_baseline_adaptive/baseline]}
+  - {key: r2s, name: "Physics baseline, seasonal reference (row 2s)", kind: baseline,
+     runs: [runs/v11/sen1floods11/official/official/row02s_seasonal/baseline]}
+
+  # Descriptive companions (no test names them): each model with an optical input, run SAR-only everywhere.
+  - {key: s1f11_r11, name: "Fusion (S1F11), SAR-only everywhere", role: descriptive,
+     runs: [runs/v11/sen1floods11/official/official/row11_fusion_eval_sar_only/seed42,
+            runs/v11/sen1floods11/official/official/row11_fusion_eval_sar_only/seed43,
+            runs/v11/sen1floods11/official/official/row11_fusion_eval_sar_only/seed44]}
+  - {key: s1f11_tm_sar, name: "TerraMind (S1F11), SAR-only everywhere", role: descriptive,
+     runs: [runs/v11/sen1floods11/official/official/cmp_terramind_small__eval_sar_only/seed42,
+            runs/v11/sen1floods11/official/official/cmp_terramind_small__eval_sar_only/seed43,
+            runs/v11/sen1floods11/official/official/cmp_terramind_small__eval_sar_only/seed44]}
+  - {key: ks_r11_flood, name: "Fusion (Kuro Siwo, flood), SAR-only everywhere", role: descriptive,
+     runs: [runs/v11/kurosiwo/all/all/row11_fusion_eval_sar_only/seed42,
+            runs/v11/kurosiwo/all/all/row11_fusion_eval_sar_only/seed43,
+            runs/v11/kurosiwo/all/all/row11_fusion_eval_sar_only/seed44]}
+  - {key: ks_r11_water, name: "Fusion (Kuro Siwo, water), SAR-only everywhere", role: descriptive,
+     runs: [runs/v11/kurosiwo_water/all/all/row11_fusion_eval_sar_only/seed42,
+            runs/v11/kurosiwo_water/all/all/row11_fusion_eval_sar_only/seed43,
+            runs/v11/kurosiwo_water/all/all/row11_fusion_eval_sar_only/seed44]}
+tests:
+  - {id: P1, question: "Fusion helps on independent maps where optical is usable (H2)",
+     a: s1f11_r4, b: s1f11_r9, subset: optical}
+  - {id: P2, question: "Without optical, fusion is no worse than the SAR U-Net (R2 in practice, H3)",
+     a: s1f11_r4, b: s1f11_r9, subset: sar_only, margin: 0.05}
+  - {id: P3, question: "The flood-label recipe beats the water-label recipe on independent maps (H1)",
+     a: ks_r9_water, b: ks_r9_flood, subset: all}
+  - {id: P4, question: "The task-specific fusion model vs the foundation model (H4)",
+     a: s1f11_tm, b: s1f11_r9, subset: all}

@@ -1,0 +1,8 @@
+# v1.1 variant 9b (descriptive ablation, docs: reports/protocol_v1_1.md).
+# Row 9 with the gate starting half open (sigmoid(0) = 0.5) instead of near SAR-only (-2 -> 0.12).
+# Tests the fusion module's claim that the negative initial bias is load-bearing.
+extends: ../row09_fusion_crossattn.yaml
+name: "row09b_gate_bias0"
+ablation_row: 0   # outside the 13-row grid; keyed by name in the reports
+model:
+  gate_bias_init: 0.0

@@ -221,6 +221,11 @@ class DataConfig:
     #: simulated pixels; the dataclass default exists for unit tests and notebooks.
     chip_source: str = "auto"
 
+    #: Probability that a training sample with optical gets a synthetic cloud field pasted onto
+    #: part of it (quality 0, bright reflectance), on top of modality dropout (v1.1 row 9c).
+    #: Never applied outside training. 0 disables it (every v1.0 row).
+    cloud_augment_p: float = 0.0
+
     CHIP_SOURCES: ClassVar[frozenset[str]] = frozenset({"auto", "raster", "synthetic"})
 
     def __post_init__(self) -> None:
@@ -238,6 +243,8 @@ class DataConfig:
                 f"chip_source must be one of {sorted(self.CHIP_SOURCES)}, "
                 f"got {self.chip_source!r}"
             )
+        if not 0.0 <= self.cloud_augment_p <= 1.0:
+            raise ValueError("cloud_augment_p must lie in [0, 1]")
         if self.chip_size % 16 != 0:
             raise ValueError(
                 "chip_size must be a multiple of 16: the encoder halves resolution four "
@@ -283,6 +290,11 @@ class ModelConfig:
     #: earn its use of optical (``docs/07`` section 8.3).
     gate_bias_init: float = -2.0
 
+    #: Which stream queries the cross-attention. ``optical`` (the reference): Q from optical,
+    #: K = V from SAR, so every retrievable value is a SAR feature. ``sar``: the reverse
+    #: assignment the fusion module's docstring calls for as an ablation (v1.1 row 9r).
+    fusion_query: str = "optical"
+
     #: Architectures the ablation grid uses. ``threshold_baseline`` is not a network at
     #: all — rows 1--3 run on CPU through :mod:`floodfusion.baselines`.
     ARCHITECTURES: ClassVar[frozenset[str]] = frozenset(
@@ -316,6 +328,8 @@ class ModelConfig:
             )
         if not 0.0 <= self.modality_dropout_p <= 1.0:
             raise ValueError("modality_dropout_p must lie in [0, 1]")
+        if self.fusion_query not in ("optical", "sar"):
+            raise ValueError(f"fusion_query must be 'optical' or 'sar', got {self.fusion_query!r}")
 
 
 # ---------------------------------------------------------------------------
@@ -452,6 +466,17 @@ class BaselineConfig:
     #: without admitting permanently dark surfaces. Not applied to row 1.
     region_grow_margin_db: float = 1.5
 
+    #: The change term's reference (v1.1): ``recent`` — the ingest's latest same-orbit pass up to
+    #: 60 days before (every v1.0 row); ``seasonal`` — the median of same-orbit passes around the
+    #: same date a year earlier (:mod:`floodfusion.data.seasonal`), the recent one where an event
+    #: has none (the fallback is counted).
+    reference: str = "recent"
+
+    #: A scene whose histogram offers no bimodal tile (v1.0: 428 of 680 Sen1Floods11 chips) falls
+    #: back to its own global Otsu (``otsu``, v1.0) or to the median accepted threshold of the
+    #: other scenes of its event (``event``, v1.1: the scene context a 5 km chip lacks).
+    threshold_fallback: str = "otsu"
+
     THRESHOLD_MODES: ClassVar[frozenset[str]] = frozenset({"global_otsu", "tile_adaptive"})
 
     def __post_init__(self) -> None:
@@ -469,6 +494,10 @@ class BaselineConfig:
             raise ValueError("min_component_weight must lie in (0, 0.5)")
         if self.region_grow_margin_db < 0.0:
             raise ValueError("region_grow_margin_db must be non-negative")
+        if self.reference not in ("recent", "seasonal"):
+            raise ValueError(f"baseline.reference must be 'recent' or 'seasonal', got {self.reference!r}")
+        if self.threshold_fallback not in ("otsu", "event"):
+            raise ValueError(f"baseline.threshold_fallback must be 'otsu' or 'event', got {self.threshold_fallback!r}")
 
 
 @dataclass(frozen=True)

@@ -47,7 +47,7 @@ import argparse
 import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, fields
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -135,6 +135,8 @@ class EventConfig:
     orbit_state: str | None = None
     #: The pre-event reference must also predate this (a region flooded twice).
     reference_before: date | None = None
+    #: Sentinel-2 is searched this many days either side of the flood window (0: the window only).
+    optical_window_days: int = 0
     notes: str = ""
 
     def query(self) -> EventQuery:
@@ -147,6 +149,8 @@ class EventConfig:
             pre_event_window_days=self.pre_event_window_days,
             relative_orbit=self.relative_orbit, orbit_state=self.orbit_state,
             reference_before=at(self.reference_before),
+            optical_start=at(self.flood_start - timedelta(days=self.optical_window_days)),
+            optical_end=at(self.flood_end + timedelta(days=self.optical_window_days)),
         )
 
 

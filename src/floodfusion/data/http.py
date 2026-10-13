@@ -27,7 +27,7 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 from urllib.parse import urlparse
 
-__all__ = ["TransientHTTPError", "capped_get", "check_https_url", "check_local_path", "redact",
+__all__ = ["HTTPStatusError", "TransientHTTPError", "capped_get", "check_https_url", "check_local_path", "redact",
            "redacted_traceback"]
 
 LOGGER = logging.getLogger(__name__)
@@ -38,6 +38,14 @@ _RETRY_STATUS = (429, 500, 502, 503, 504)
 
 class TransientHTTPError(OSError):
     """A failure worth retrying: 429/5xx, a reset connection, a timeout."""
+
+
+class HTTPStatusError(OSError):
+    """A definite HTTP refusal (4xx other than 429), with its ``status``."""
+
+    def __init__(self, message: str, status: int) -> None:
+        super().__init__(message)
+        self.status = status
 
 
 def check_https_url(url: str, *, hosts: Sequence[str] = (), suffixes: Sequence[str] = (),
@@ -162,5 +170,6 @@ def _get_once(url: str, *, check: Callable[[str], str], cap: int, params: Mappin
 def _raise_for(status: int, label: str) -> None:
     if status == 200:
         return
-    error = TransientHTTPError if status in _RETRY_STATUS else OSError
-    raise error(f"HTTP {status} for {label}")
+    if status in _RETRY_STATUS:
+        raise TransientHTTPError(f"HTTP {status} for {label}")
+    raise HTTPStatusError(f"HTTP {status} for {label}", status)

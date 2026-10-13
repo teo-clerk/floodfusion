@@ -394,3 +394,44 @@ class TestNumerics:
     def test_inner_dim_is_heads_times_head_dim(self, model_config: ModelConfig) -> None:
         fusion = _fusion(model_config)
         assert fusion.inner_dim == model_config.attention_heads * model_config.attention_head_dim
+
+
+# ---------------------------------------------------------------------------
+# v1.1 row 9r: the reverse assignment (Q from SAR, K = V from optical)
+# ---------------------------------------------------------------------------
+class TestReverseAssignment:
+    C_OPT = 48   # distinct from C_S, so a swapped projection width cannot pass silently
+
+    @staticmethod
+    def _reverse() -> CrossAttentionFusion:
+        from dataclasses import replace
+
+        cfg = replace(ModelConfig(), fusion_query="sar", attention_heads=2, attention_head_dim=16)
+        return CrossAttentionFusion(C_S, TestReverseAssignment.C_OPT, cfg)
+
+    def _inputs(self):
+        g = torch.Generator().manual_seed(3)
+        return (torch.randn(B, C_S, HW, HW + 4, generator=g), torch.randn(B, self.C_OPT, HW, HW + 4, generator=g),
+                torch.rand(B, 1, HW, HW + 4, generator=g))
+
+    def test_queries_come_from_sar_and_values_from_optical(self) -> None:
+        fusion = self._reverse()
+        assert fusion.q_proj.in_features == C_S and fusion.k_proj.in_features == self.C_OPT
+        assert fusion.v_proj.in_features == self.C_OPT and fusion.out_proj.out_features == C_S
+        sar, opt, quality = self._inputs()
+        fused, gate = fusion(sar, opt, quality)
+        assert fused.shape == sar.shape and gate.shape == quality.shape
+        other, _ = fusion(sar, opt + 1.0, quality)
+        assert not torch.allclose(fused, other)   # the retrieved values are optical
+
+    def test_zero_gate_is_still_bit_identical_to_sar_only(self) -> None:
+        fusion = self._reverse()
+        with torch.no_grad():
+            fusion.gate.out.bias.fill_(-1e9)
+        sar, opt, quality = self._inputs()
+        fused, _ = fusion(sar, opt, quality)
+        assert torch.equal(fused, sar)
+
+    def test_an_unknown_query_stream_is_refused(self) -> None:
+        with pytest.raises(ValueError, match="fusion_query"):
+            ModelConfig(fusion_query="both")

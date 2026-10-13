@@ -109,6 +109,11 @@ MAX_OPEN_HANDLES = 32
 
 #: Spatial tensors that every augmentation must transform identically.
 _SPATIAL_KEYS = ("sar", "optical", "terrain", "label", "valid", "optical_quality", "landcover")
+#: Synthetic clouds (``data.cloud_augment_p``): share of the chip covered, cloud-top reflectance,
+#: and the smoothing scale of the random field (px).
+CLOUD_COVER = (0.1, 0.7)
+CLOUD_REFLECTANCE = (0.3, 0.8)
+CLOUD_SMOOTH_PX = 16
 
 
 class SyntheticChipWarning(RuntimeWarning):
@@ -291,6 +296,30 @@ class FloodChipDataset(Dataset[dict[str, Any]]):
         out["landcover"] = torch.from_numpy(physical.landcover[None].copy())
         return out
 
+    def _paste_cloud(self, sample: dict[str, Any]) -> dict[str, Any]:
+        """A synthetic cloud on part of the optical chip (v1.1 row 9c): quality 0, bright reflectance.
+
+        A smooth random field, thresholded to cover :data:`CLOUD_COVER` of the chip, marks the
+        cloud; under it every optical band becomes a smooth bright value (SWIR a little darker,
+        as for real cloud tops) and the quality drops to 0 — what the encoder meets on a real
+        partly cloudy chip. The SAR, the label and the validity are untouched.
+        """
+        import torch.nn.functional as F
+
+        quality = sample["optical_quality"]
+        _, h, w = quality.shape
+        cover = float(torch.empty(()).uniform_(*CLOUD_COVER))
+        coarse = (max(2, h // CLOUD_SMOOTH_PX), max(2, w // CLOUD_SMOOTH_PX))
+        field = F.interpolate(torch.randn(1, 1, *coarse), size=(h, w), mode="bilinear", align_corners=False)[0]
+        cloud = field > torch.quantile(field.flatten(), 1.0 - cover)
+        lo, hi = CLOUD_REFLECTANCE
+        bright = F.interpolate(torch.rand(1, 1, *coarse), size=(h, w), mode="bilinear", align_corners=False)[0]
+        bright = lo + (hi - lo) * bright
+        cloud_bands = torch.cat([bright, bright, 0.8 * bright, torch.full_like(bright, 0.2 / 1.8)], dim=0)
+        sample["optical"] = torch.where(cloud, cloud_bands.to(sample["optical"].dtype), sample["optical"])
+        sample["optical_quality"] = torch.where(cloud, torch.zeros_like(quality), quality)
+        return sample
+
     def _augment(self, sample: dict[str, Any]) -> dict[str, Any]:
         """Flips and 90-degree rotations, drawn once, applied to every spatial tensor."""
         k = int(torch.randint(0, 4, ()).item())
@@ -316,6 +345,9 @@ class FloodChipDataset(Dataset[dict[str, Any]]):
         available = bool(record.optical_available) and bool((quality > 0).any())
         if not available:
             sample["optical_quality"] = torch.zeros_like(quality)
+        if self.training and available and self.data_cfg.cloud_augment_p > 0 and \
+                float(torch.rand(())) < self.data_cfg.cloud_augment_p:
+            sample = self._paste_cloud(sample)
         sample["optical_available"] = torch.tensor(available)
         sample["synthetic"] = torch.tensor(self._use_synthetic(record))
         sample["chip_id"] = record.chip_id

@@ -78,6 +78,7 @@ class SceneLayers:
     permanent: np.ndarray
     label: np.ndarray
     scored: np.ndarray  # valid pixels with a label
+    reference: str = "recent"   # the change term's reference actually used: recent | seasonal
 
 
 def _filtered_db(db: np.ndarray, cfg: ExperimentConfig) -> np.ndarray:
@@ -100,19 +101,39 @@ def load_scene(stack_path: Path, cfg: ExperimentConfig) -> SceneLayers:
     chip = decode_physical(raw, cfg.grid, cfg.norm)
     v = chip.validity.astype(np.int64)
     has_optical = bool(np.isfinite(chip.mndwi).any())
+    pre_db, reference = chip.gamma0_db[2], "recent"
+    if cfg.baseline.reference == "seasonal":
+        import json
+
+        from floodfusion.data.seasonal import read_seasonal
+
+        record = Path(stack_path).parent / "seasonal.json"
+        if not record.is_file():   # never built: fail closed, or 2s would silently be 2e
+            raise FileNotFoundError(f"{record}: no seasonal reference record — run `make seasonal` first")
+        if json.loads(record.read_text(encoding="utf-8")).get("status") == "ok":
+            seasonal = read_seasonal(Path(stack_path).parent)
+            if seasonal is None:
+                raise FileNotFoundError(f"{record.parent}: seasonal.json says ok but seasonal.tif is missing")
+            pre_db, reference = seasonal[0], "seasonal"
+        # else: fewer than MIN_SCENES acquisitions a year earlier — the recent reference, counted.
     return SceneLayers(
-        vv_post_db=_filtered_db(chip.gamma0_db[0], cfg), vv_pre_db=_filtered_db(chip.gamma0_db[2], cfg),
+        vv_post_db=_filtered_db(chip.gamma0_db[0], cfg), vv_pre_db=_filtered_db(pre_db, cfg),
         mndwi=chip.mndwi if has_optical else None,
         optical_valid=(chip.optical_quality >= CLEAR_QUALITY) & np.isfinite(chip.mndwi) if has_optical else None,
         slope=np.nan_to_num(chip.slope_deg, nan=0.0), hand=np.nan_to_num(chip.hand_m, nan=0.0),
         layover=(v & int(ValidityFlag.LAYOVER)) > 0, shadow=(v & int(ValidityFlag.SHADOW)) > 0,
         permanent=(v & int(ValidityFlag.PERMANENT_WATER)) > 0,
-        label=chip.label == 1.0, scored=(v == 0) & np.isfinite(chip.label),
+        label=chip.label == 1.0, scored=(v == 0) & np.isfinite(chip.label), reference=reference,
     )
 
 
-def threshold_surface(scene: SceneLayers, cfg: ExperimentConfig) -> tuple[np.ndarray, dict[str, Any]]:
-    """Global Otsu (row 1) or the tile-adaptive surface, with the Otsu fallback recorded."""
+def threshold_surface(scene: SceneLayers, cfg: ExperimentConfig, *,
+                      fallback_db: float | None = None) -> tuple[np.ndarray, dict[str, Any]]:
+    """Global Otsu (row 1) or the tile-adaptive surface, with the fallback recorded.
+
+    A scene with no accepted tile falls back to ``fallback_db`` when given (its event's pooled
+    threshold, ``baseline.threshold_fallback: event``), else to its own global Otsu.
+    """
     from floodfusion.baselines import otsu_threshold, tile_adaptive_threshold
 
     usable = scene.scored & np.isfinite(scene.vv_post_db)
@@ -127,8 +148,11 @@ def threshold_surface(scene: SceneLayers, cfg: ExperimentConfig) -> tuple[np.nda
     info = {"mode": "tile_adaptive", "accepted_fraction": result.accepted_fraction, "otsu_db": global_t}
     surface = result.threshold_surface
     if not np.isfinite(surface).any():
+        if fallback_db is not None and math.isfinite(fallback_db):
+            return np.full(scene.vv_post_db.shape, fallback_db), {**info, "fallback": "event", "event_db": fallback_db}
         LOGGER.warning("no tile accepted: falling back to the global Otsu threshold %.2f dB", global_t)
         return np.full(scene.vv_post_db.shape, global_t), {**info, "fallback": "global_otsu"}
+    info["accepted_median_db"] = float(np.median(surface[np.isfinite(surface)]))
     return np.where(np.isfinite(surface), surface, global_t), info
 
 
@@ -192,6 +216,8 @@ def run_baseline_row(cfg: ExperimentConfig, data_root: Path, out_dir: Path, *, a
 
     data = load_training_data(cfg, data_root)
     windows = {"val": _windows_by_event(data.val), "test": _windows_by_event(data.test)}
+    pooled = _event_thresholds(windows, cfg) if cfg.baseline.threshold_fallback == "event" else {}
+    group_of = {path: ws[0][0] for by_event in windows.values() for path, ws in by_event.items() if ws}
     sweep: dict[str, list[dict[str, ConfusionMatrix]]] = {s: [{} for _ in OFFSETS_DB] for s in windows}
     variants: dict[str, dict[str, ConfusionMatrix]] = defaultdict(dict)
     scene_info: dict[str, Any] = {}
@@ -199,8 +225,8 @@ def run_baseline_row(cfg: ExperimentConfig, data_root: Path, out_dir: Path, *, a
     for path in sorted(set(windows["val"]) | set(windows["test"])):
         started = time.perf_counter()
         scene = load_scene(path, cfg)
-        surface, info = threshold_surface(scene, cfg)
-        scene_info[path.parent.name] = info
+        surface, info = threshold_surface(scene, cfg, fallback_db=pooled.get(group_of.get(path)))
+        scene_info[path.parent.name] = {**info, "reference": scene.reference}
         for k, offset in enumerate(OFFSETS_DB):
             pred = flood_map(scene, surface, cfg, offset_db=float(offset))
             for split, by_event in windows.items():
@@ -226,6 +252,23 @@ def run_baseline_row(cfg: ExperimentConfig, data_root: Path, out_dir: Path, *, a
                          "note": "CPU wall time of one decision-rule evaluation per 256^2 chip, scene-amortised"}
     _write_outputs(cfg, data, out_dir, result)
     return result
+
+
+def _event_thresholds(windows: Mapping[str, Mapping[Path, Sequence[Any]]], cfg: ExperimentConfig) -> dict[str, float]:
+    """``{group: median accepted threshold of its scenes}`` — the event context a lone chip lacks.
+
+    Unsupervised: only the SAR of the event's scenes enters (no label value), as a scene-level
+    method would see the whole acquisition.
+    """
+    accepted: dict[str, list[float]] = defaultdict(list)
+    for by_event in windows.values():
+        for path, ws in by_event.items():
+            if not ws:
+                continue
+            _, info = threshold_surface(load_scene(path, cfg), cfg)
+            if "accepted_median_db" in info:
+                accepted[ws[0][0]].append(info["accepted_median_db"])
+    return {group: float(np.median(values)) for group, values in accepted.items()}
 
 
 def _attribution(test_windows: Mapping[Path, Any], scene_info: Mapping[str, Any], cfg: ExperimentConfig,

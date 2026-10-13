@@ -1,0 +1,3848 @@
+{
+ "events": [
+  "S1F11_Bolivia",
+  "S1F11_Ghana",
+  "S1F11_India",
+  "S1F11_Mekong",
+  "S1F11_Nigeria",
+  "S1F11_Pakistan",
+  "S1F11_Somalia",
+  "S1F11_Spain",
+  "S1F11_Sri-Lanka",
+  "S1F11_USA"
+ ],
+ "a1_contribution": {
+  "row09_fusion_crossattn/seed42": {
+   "q<0.25/water": {
+    "contribution": 1.2392834901809693,
+    "gate_opt": 0.255952413380146,
+    "gate_miss": 0.17884918302297592,
+    "n_tokens": 17601
+   },
+   "q<0.25/land": {
+    "contribution": 1.6083304464817048,
+    "gate_opt": 0.41784109026193617,
+    "gate_miss": 0.18875932246446608,
+    "n_tokens": 120418
+   },
+   "0.25<=q<0.75/water": {
+    "contribution": 1.2589765250682832,
+    "gate_opt": 0.24891671687364578,
+    "gate_miss": 0.18355880230665206,
+    "n_tokens": 3405
+   },
+   "0.25<=q<0.75/land": {
+    "contribution": 1.657373183965683,
+    "gate_opt": 0.42500959187746046,
+    "gate_miss": 0.18861279040575027,
+    "n_tokens": 23316
+   },
+   "q>=0.75/water": {
+    "contribution": 1.1853562474250794,
+    "gate_opt": 0.24841063544154168,
+    "gate_miss": 0.18580453842878342,
+    "n_tokens": 18531
+   },
+   "q>=0.75/land": {
+    "contribution": 1.5764624416828155,
+    "gate_opt": 0.42895990163087844,
+    "gate_miss": 0.19252487868070603,
+    "n_tokens": 364569
+   }
+  },
+  "row09_fusion_crossattn/seed43": {
+   "q<0.25/water": {
+    "contribution": 0.9694411039352417,
+    "gate_opt": 0.2126414030790329,
+    "gate_miss": 0.16764967367053032,
+    "n_tokens": 17601
+   },
+   "q<0.25/land": {
+    "contribution": 1.9125175952911377,
+    "gate_opt": 0.4393529713153839,
+    "gate_miss": 0.17165680825710297,
+    "n_tokens": 120418
+   },
+   "0.25<=q<0.75/water": {
+    "contribution": 1.004459497332573,
+    "gate_opt": 0.21161592304706572,
+    "gate_miss": 0.16730675622820854,
+    "n_tokens": 3405
+   },
+   "0.25<=q<0.75/land": {
+    "contribution": 2.083528983592987,
+    "gate_opt": 0.4613276481628418,
+    "gate_miss": 0.17075033187866212,
+    "n_tokens": 23316
+   },
+   "q>=0.75/water": {
+    "contribution": 1.0225711464881897,
+    "gate_opt": 0.22687576115131378,
+    "gate_miss": 0.16870245411992074,
+    "n_tokens": 18531
+   },
+   "q>=0.75/land": {
+    "contribution": 2.0187358021736146,
+    "gate_opt": 0.47754629254341124,
+    "gate_miss": 0.17358430624008178,
+    "n_tokens": 364569
+   }
+  },
+  "row09_fusion_crossattn/seed44": {
+   "q<0.25/water": {
+    "contribution": 1.7101142883300782,
+    "gate_opt": 0.4918760061264038,
+    "gate_miss": 0.13834117501974105,
+    "n_tokens": 17601
+   },
+   "q<0.25/land": {
+    "contribution": 0.831983408331871,
+    "gate_opt": 0.2504896461963654,
+    "gate_miss": 0.15683647245168686,
+    "n_tokens": 120418
+   },
+   "0.25<=q<0.75/water": {
+    "contribution": 1.7893325448036195,
+    "gate_opt": 0.5145044088363647,
+    "gate_miss": 0.1403244726359844,
+    "n_tokens": 3405
+   },
+   "0.25<=q<0.75/land": {
+    "contribution": 0.7377693623304367,
+    "gate_opt": 0.22912184447050093,
+    "gate_miss": 0.15723258703947068,
+    "n_tokens": 23316
+   },
+   "q>=0.75/water": {
+    "contribution": 1.6653392434120178,
+    "gate_opt": 0.48983036875724795,
+    "gate_miss": 0.1417885661125183,
+    "n_tokens": 18531
+   },
+   "q>=0.75/land": {
+    "contribution": 0.703255781531334,
+    "gate_opt": 0.2173761546611786,
+    "gate_miss": 0.16085041016340257,
+    "n_tokens": 364569
+   }
+  }
+ },
+ "a3": {
+  "decomposition": {
+   "S1F11_Bolivia": {
+    "dark a year earlier": 10005,
+    "dry a year earlier, dark at the recent reference": 93693,
+    "dry at both references": 115731,
+    "no seasonal reference": 0,
+    "flood": 219429
+   },
+   "S1F11_Ghana": {
+    "dark a year earlier": 10372,
+    "dry a year earlier, dark at the recent reference": 110734,
+    "dry at both references": 154785,
+    "no seasonal reference": 0,
+    "flood": 275891
+   },
+   "S1F11_India": {
+    "dark a year earlier": 74,
+    "dry a year earlier, dark at the recent reference": 190,
+    "dry at both references": 4874,
+    "no seasonal reference": 593853,
+    "flood": 598991
+   },
+   "S1F11_Mekong": {
+    "dark a year earlier": 161234,
+    "dry a year earlier, dark at the recent reference": 178793,
+    "dry at both references": 182463,
+    "no seasonal reference": 0,
+    "flood": 522490
+   },
+   "S1F11_Nigeria": {
+    "dark a year earlier": 91651,
+    "dry a year earlier, dark at the recent reference": 98405,
+    "dry at both references": 187229,
+    "no seasonal reference": 0,
+    "flood": 377285
+   },
+   "S1F11_Pakistan": {
+    "dark a year earlier": 0,
+    "dry a year earlier, dark at the recent reference": 0,
+    "dry at both references": 0,
+    "no seasonal reference": 167502,
+    "flood": 167502
+   },
+   "S1F11_Somalia": {
+    "dark a year earlier": 11376,
+    "dry a year earlier, dark at the recent reference": 15229,
+    "dry at both references": 54352,
+    "no seasonal reference": 45588,
+    "flood": 126545
+   },
+   "S1F11_Spain": {
+    "dark a year earlier": 25088,
+    "dry a year earlier, dark at the recent reference": 19935,
+    "dry at both references": 264576,
+    "no seasonal reference": 0,
+    "flood": 309599
+   },
+   "S1F11_Sri-Lanka": {
+    "dark a year earlier": 0,
+    "dry a year earlier, dark at the recent reference": 0,
+    "dry at both references": 0,
+    "no seasonal reference": 125057,
+    "flood": 125057
+   },
+   "S1F11_USA": {
+    "dark a year earlier": 67661,
+    "dry a year earlier, dark at the recent reference": 51149,
+    "dry at both references": 174490,
+    "no seasonal reference": 3,
+    "flood": 293303
+   }
+  },
+  "strata": {
+   "cmp_terramind_small/seed42": {
+    "new water (dark after, not before)": [
+     395683,
+     53938,
+     48520
+    ],
+    "already dark at the recent reference": [
+     1218507,
+     157274,
+     118078
+    ],
+    "not dark after (radar cannot see it as open water)": [
+     857905,
+     584242,
+     638412
+    ]
+   },
+   "row04_unet_sar_only/seed42": {
+    "new water (dark after, not before)": [
+     323684,
+     204441,
+     120519
+    ],
+    "already dark at the recent reference": [
+     1089790,
+     514479,
+     246795
+    ],
+    "not dark after (radar cannot see it as open water)": [
+     650754,
+     1382683,
+     845563
+    ]
+   },
+   "row09_fusion_crossattn/seed42": {
+    "new water (dark after, not before)": [
+     410756,
+     52061,
+     33447
+    ],
+    "already dark at the recent reference": [
+     1229908,
+     160132,
+     106677
+    ],
+    "not dark after (radar cannot see it as open water)": [
+     942238,
+     538727,
+     554079
+    ]
+   },
+   "row09_fusion_crossattn/seed43": {
+    "new water (dark after, not before)": [
+     414008,
+     54222,
+     30195
+    ],
+    "already dark at the recent reference": [
+     1269846,
+     166181,
+     66739
+    ],
+    "not dark after (radar cannot see it as open water)": [
+     959953,
+     500459,
+     536364
+    ]
+   },
+   "row09_fusion_crossattn/seed44": {
+    "new water (dark after, not before)": [
+     399177,
+     42969,
+     45026
+    ],
+    "already dark at the recent reference": [
+     1171697,
+     153404,
+     164888
+    ],
+    "not dark after (radar cannot see it as open water)": [
+     887408,
+     443126,
+     608909
+    ]
+   },
+   "row11_fusion_eval_sar_only/seed42": {
+    "new water (dark after, not before)": [
+     318860,
+     205259,
+     125343
+    ],
+    "already dark at the recent reference": [
+     1046497,
+     500083,
+     290088
+    ],
+    "not dark after (radar cannot see it as open water)": [
+     710142,
+     1579011,
+     786175
+    ]
+   },
+   "row11_fusion_eval_sar_only/seed43": {
+    "new water (dark after, not before)": [
+     389062,
+     187435,
+     55141
+    ],
+    "already dark at the recent reference": [
+     1113960,
+     450033,
+     222625
+    ],
+    "not dark after (radar cannot see it as open water)": [
+     710165,
+     1399936,
+     786152
+    ]
+   },
+   "row11_fusion_eval_sar_only/seed44": {
+    "new water (dark after, not before)": [
+     374649,
+     191824,
+     69554
+    ],
+    "already dark at the recent reference": [
+     1035373,
+     497011,
+     301212
+    ],
+    "not dark after (radar cannot see it as open water)": [
+     662705,
+     1296016,
+     833612
+    ]
+   }
+  }
+ },
+ "a4_registration": {
+  "cmp_terramind_small/seed42": {
+   "as published": {
+    "S1F11_Bolivia": [
+     192128,
+     33240,
+     27301
+    ],
+    "S1F11_Ghana": [
+     229733,
+     63078,
+     46158
+    ],
+    "S1F11_India": [
+     402844,
+     163567,
+     196147
+    ],
+    "S1F11_Mekong": [
+     486915,
+     45032,
+     35575
+    ],
+    "S1F11_Nigeria": [
+     317065,
+     35341,
+     60220
+    ],
+    "S1F11_Pakistan": [
+     133896,
+     160736,
+     33606
+    ],
+    "S1F11_Somalia": [
+     49353,
+     17463,
+     77192
+    ],
+    "S1F11_Spain": [
+     238818,
+     99452,
+     70781
+    ],
+    "S1F11_Sri-Lanka": [
+     66436,
+     58777,
+     58621
+    ],
+    "S1F11_USA": [
+     163591,
+     51490,
+     129712
+    ]
+   },
+   "edges \u00b12 px ignored": {
+    "S1F11_Bolivia": [
+     156679,
+     14091,
+     14624
+    ],
+    "S1F11_Ghana": [
+     198551,
+     52136,
+     25894
+    ],
+    "S1F11_India": [
+     310228,
+     95262,
+     42566
+    ],
+    "S1F11_Mekong": [
+     408355,
+     10965,
+     9601
+    ],
+    "S1F11_Nigeria": [
+     262450,
+     10390,
+     21346
+    ],
+    "S1F11_Pakistan": [
+     107192,
+     146372,
+     11161
+    ],
+    "S1F11_Somalia": [
+     38411,
+     12030,
+     37928
+    ],
+    "S1F11_Spain": [
+     155255,
+     34662,
+     16616
+    ],
+    "S1F11_Sri-Lanka": [
+     46829,
+     43558,
+     27501
+    ],
+    "S1F11_USA": [
+     115953,
+     23241,
+     27441
+    ]
+   },
+   "labels unshifted": {
+    "S1F11_Bolivia": [
+     183264,
+     39376,
+     30076
+    ],
+    "S1F11_Ghana": [
+     227481,
+     63626,
+     45475
+    ],
+    "S1F11_India": [
+     396634,
+     164964,
+     195474
+    ],
+    "S1F11_Mekong": [
+     486915,
+     45032,
+     35575
+    ],
+    "S1F11_Nigeria": [
+     312731,
+     37050,
+     60121
+    ],
+    "S1F11_Pakistan": [
+     133176,
+     160158,
+     33074
+    ],
+    "S1F11_Somalia": [
+     49353,
+     17463,
+     77192
+    ],
+    "S1F11_Spain": [
+     235663,
+     99917,
+     70833
+    ],
+    "S1F11_Sri-Lanka": [
+     63787,
+     60548,
+     59574
+    ],
+    "S1F11_USA": [
+     155896,
+     57441,
+     131020
+    ]
+   }
+  },
+  "row04_unet_sar_only/seed42": {
+   "as published": {
+    "S1F11_Bolivia": [
+     185515,
+     65561,
+     33914
+    ],
+    "S1F11_Ghana": [
+     140967,
+     48255,
+     134924
+    ],
+    "S1F11_India": [
+     481504,
+     398879,
+     117487
+    ],
+    "S1F11_Mekong": [
+     475774,
+     79262,
+     46716
+    ],
+    "S1F11_Nigeria": [
+     77665,
+     6969,
+     299620
+    ],
+    "S1F11_Pakistan": [
+     24776,
+     77849,
+     142726
+    ],
+    "S1F11_Somalia": [
+     57719,
+     256411,
+     68826
+    ],
+    "S1F11_Spain": [
+     123209,
+     113377,
+     186390
+    ],
+    "S1F11_Sri-Lanka": [
+     57189,
+     64031,
+     67868
+    ],
+    "S1F11_USA": [
+     246664,
+     714015,
+     46639
+    ]
+   },
+   "edges \u00b12 px ignored": {
+    "S1F11_Bolivia": [
+     147337,
+     40287,
+     23966
+    ],
+    "S1F11_Ghana": [
+     122184,
+     40648,
+     102261
+    ],
+    "S1F11_India": [
+     327996,
+     260963,
+     24798
+    ],
+    "S1F11_Mekong": [
+     397789,
+     39243,
+     20167
+    ],
+    "S1F11_Nigeria": [
+     61806,
+     2354,
+     221990
+    ],
+    "S1F11_Pakistan": [
+     16168,
+     74174,
+     102185
+    ],
+    "S1F11_Somalia": [
+     41801,
+     244953,
+     34538
+    ],
+    "S1F11_Spain": [
+     73288,
+     84917,
+     98583
+    ],
+    "S1F11_Sri-Lanka": [
+     40627,
+     52141,
+     33703
+    ],
+    "S1F11_USA": [
+     134999,
+     606694,
+     8395
+    ]
+   },
+   "labels unshifted": {
+    "S1F11_Bolivia": [
+     177184,
+     71055,
+     36156
+    ],
+    "S1F11_Ghana": [
+     138981,
+     49144,
+     133975
+    ],
+    "S1F11_India": [
+     473525,
+     399686,
+     118583
+    ],
+    "S1F11_Mekong": [
+     475774,
+     79262,
+     46716
+    ],
+    "S1F11_Nigeria": [
+     75297,
+     8401,
+     297555
+    ],
+    "S1F11_Pakistan": [
+     24487,
+     77681,
+     141763
+    ],
+    "S1F11_Somalia": [
+     57719,
+     256411,
+     68826
+    ],
+    "S1F11_Spain": [
+     117250,
+     117434,
+     189246
+    ],
+    "S1F11_Sri-Lanka": [
+     54920,
+     65263,
+     68441
+    ],
+    "S1F11_USA": [
+     232976,
+     718022,
+     53940
+    ]
+   }
+  },
+  "row09_fusion_crossattn/seed42": {
+   "as published": {
+    "S1F11_Bolivia": [
+     181454,
+     18739,
+     37975
+    ],
+    "S1F11_Ghana": [
+     207347,
+     48392,
+     68544
+    ],
+    "S1F11_India": [
+     500277,
+     230424,
+     98714
+    ],
+    "S1F11_Mekong": [
+     466279,
+     26008,
+     56211
+    ],
+    "S1F11_Nigeria": [
+     219823,
+     16611,
+     157462
+    ],
+    "S1F11_Pakistan": [
+     113202,
+     81543,
+     54300
+    ],
+    "S1F11_Somalia": [
+     107694,
+     32498,
+     18851
+    ],
+    "S1F11_Spain": [
+     225705,
+     43279,
+     83894
+    ],
+    "S1F11_Sri-Lanka": [
+     84683,
+     43774,
+     40374
+    ],
+    "S1F11_USA": [
+     252318,
+     128330,
+     40985
+    ]
+   },
+   "edges \u00b12 px ignored": {
+    "S1F11_Bolivia": [
+     153203,
+     7642,
+     18100
+    ],
+    "S1F11_Ghana": [
+     180407,
+     41717,
+     44038
+    ],
+    "S1F11_India": [
+     332794,
+     107187,
+     20000
+    ],
+    "S1F11_Mekong": [
+     400368,
+     4403,
+     17588
+    ],
+    "S1F11_Nigeria": [
+     183705,
+     4137,
+     100091
+    ],
+    "S1F11_Pakistan": [
+     93041,
+     72813,
+     25312
+    ],
+    "S1F11_Somalia": [
+     72055,
+     14660,
+     4284
+    ],
+    "S1F11_Spain": [
+     154746,
+     9961,
+     17125
+    ],
+    "S1F11_Sri-Lanka": [
+     58479,
+     29548,
+     15851
+    ],
+    "S1F11_USA": [
+     138842,
+     45872,
+     4552
+    ]
+   },
+   "labels unshifted": {
+    "S1F11_Bolivia": [
+     172463,
+     25299,
+     40877
+    ],
+    "S1F11_Ghana": [
+     204979,
+     49273,
+     67977
+    ],
+    "S1F11_India": [
+     482735,
+     242884,
+     109373
+    ],
+    "S1F11_Mekong": [
+     466279,
+     26008,
+     56211
+    ],
+    "S1F11_Nigeria": [
+     216356,
+     18183,
+     156496
+    ],
+    "S1F11_Pakistan": [
+     112147,
+     81868,
+     54103
+    ],
+    "S1F11_Somalia": [
+     107694,
+     32498,
+     18851
+    ],
+    "S1F11_Spain": [
+     216877,
+     49804,
+     89619
+    ],
+    "S1F11_Sri-Lanka": [
+     79889,
+     47431,
+     43472
+    ],
+    "S1F11_USA": [
+     230893,
+     146227,
+     56023
+    ]
+   }
+  },
+  "row09_fusion_crossattn/seed43": {
+   "as published": {
+    "S1F11_Bolivia": [
+     173076,
+     20024,
+     46353
+    ],
+    "S1F11_Ghana": [
+     201175,
+     46964,
+     74716
+    ],
+    "S1F11_India": [
+     493720,
+     211579,
+     105271
+    ],
+    "S1F11_Mekong": [
+     489379,
+     36816,
+     33111
+    ],
+    "S1F11_Nigeria": [
+     279276,
+     15145,
+     98009
+    ],
+    "S1F11_Pakistan": [
+     111195,
+     70428,
+     56307
+    ],
+    "S1F11_Somalia": [
+     109222,
+     46378,
+     17323
+    ],
+    "S1F11_Spain": [
+     228695,
+     44677,
+     80904
+    ],
+    "S1F11_Sri-Lanka": [
+     81049,
+     36577,
+     44008
+    ],
+    "S1F11_USA": [
+     248944,
+     105719,
+     44359
+    ]
+   },
+   "edges \u00b12 px ignored": {
+    "S1F11_Bolivia": [
+     146535,
+     8789,
+     24768
+    ],
+    "S1F11_Ghana": [
+     176905,
+     41368,
+     47540
+    ],
+    "S1F11_India": [
+     338518,
+     97975,
+     14276
+    ],
+    "S1F11_Mekong": [
+     410447,
+     7107,
+     7509
+    ],
+    "S1F11_Nigeria": [
+     239156,
+     3695,
+     44640
+    ],
+    "S1F11_Pakistan": [
+     90479,
+     61644,
+     27874
+    ],
+    "S1F11_Somalia": [
+     72560,
+     26438,
+     3779
+    ],
+    "S1F11_Spain": [
+     155467,
+     10189,
+     16404
+    ],
+    "S1F11_Sri-Lanka": [
+     56204,
+     22948,
+     18126
+    ],
+    "S1F11_USA": [
+     138754,
+     34313,
+     4640
+    ]
+   },
+   "labels unshifted": {
+    "S1F11_Bolivia": [
+     165207,
+     25651,
+     48133
+    ],
+    "S1F11_Ghana": [
+     198844,
+     47856,
+     74112
+    ],
+    "S1F11_India": [
+     481842,
+     218409,
+     110266
+    ],
+    "S1F11_Mekong": [
+     489379,
+     36816,
+     33111
+    ],
+    "S1F11_Nigeria": [
+     274870,
+     17276,
+     97982
+    ],
+    "S1F11_Pakistan": [
+     109925,
+     71001,
+     56325
+    ],
+    "S1F11_Somalia": [
+     109222,
+     46378,
+     17323
+    ],
+    "S1F11_Spain": [
+     219026,
+     51962,
+     87470
+    ],
+    "S1F11_Sri-Lanka": [
+     76588,
+     40039,
+     46773
+    ],
+    "S1F11_USA": [
+     227805,
+     123515,
+     59111
+    ]
+   }
+  },
+  "row09_fusion_crossattn/seed44": {
+   "as published": {
+    "S1F11_Bolivia": [
+     119640,
+     5790,
+     99789
+    ],
+    "S1F11_Ghana": [
+     173782,
+     37349,
+     102109
+    ],
+    "S1F11_India": [
+     492097,
+     188779,
+     106894
+    ],
+    "S1F11_Mekong": [
+     462393,
+     34654,
+     60097
+    ],
+    "S1F11_Nigeria": [
+     269371,
+     15401,
+     107914
+    ],
+    "S1F11_Pakistan": [
+     105536,
+     90805,
+     61966
+    ],
+    "S1F11_Somalia": [
+     107619,
+     28268,
+     18926
+    ],
+    "S1F11_Spain": [
+     215464,
+     31845,
+     94135
+    ],
+    "S1F11_Sri-Lanka": [
+     83914,
+     45874,
+     41143
+    ],
+    "S1F11_USA": [
+     221178,
+     79866,
+     72125
+    ]
+   },
+   "edges \u00b12 px ignored": {
+    "S1F11_Bolivia": [
+     106298,
+     1690,
+     65005
+    ],
+    "S1F11_Ghana": [
+     150908,
+     32194,
+     73537
+    ],
+    "S1F11_India": [
+     338389,
+     81803,
+     14405
+    ],
+    "S1F11_Mekong": [
+     384237,
+     5795,
+     33719
+    ],
+    "S1F11_Nigeria": [
+     231320,
+     4203,
+     52476
+    ],
+    "S1F11_Pakistan": [
+     86146,
+     82140,
+     32207
+    ],
+    "S1F11_Somalia": [
+     72187,
+     11166,
+     4152
+    ],
+    "S1F11_Spain": [
+     152662,
+     6217,
+     19209
+    ],
+    "S1F11_Sri-Lanka": [
+     57722,
+     31059,
+     16608
+    ],
+    "S1F11_USA": [
+     127109,
+     25765,
+     16285
+    ]
+   },
+   "labels unshifted": {
+    "S1F11_Bolivia": [
+     115956,
+     8154,
+     97384
+    ],
+    "S1F11_Ghana": [
+     171730,
+     38120,
+     101226
+    ],
+    "S1F11_India": [
+     478177,
+     197988,
+     113931
+    ],
+    "S1F11_Mekong": [
+     462393,
+     34654,
+     60097
+    ],
+    "S1F11_Nigeria": [
+     265135,
+     17505,
+     107717
+    ],
+    "S1F11_Pakistan": [
+     104711,
+     90856,
+     61539
+    ],
+    "S1F11_Somalia": [
+     107619,
+     28268,
+     18926
+    ],
+    "S1F11_Spain": [
+     208148,
+     36993,
+     98348
+    ],
+    "S1F11_Sri-Lanka": [
+     79169,
+     49432,
+     44192
+    ],
+    "S1F11_USA": [
+     202039,
+     96401,
+     84877
+    ]
+   }
+  },
+  "row11_fusion_eval_sar_only/seed42": {
+   "as published": {
+    "S1F11_Bolivia": [
+     193951,
+     95712,
+     25478
+    ],
+    "S1F11_Ghana": [
+     178641,
+     50548,
+     97250
+    ],
+    "S1F11_India": [
+     448810,
+     527697,
+     150181
+    ],
+    "S1F11_Mekong": [
+     504190,
+     123870,
+     18300
+    ],
+    "S1F11_Nigeria": [
+     39160,
+     7536,
+     338125
+    ],
+    "S1F11_Pakistan": [
+     20054,
+     38071,
+     147448
+    ],
+    "S1F11_Somalia": [
+     94225,
+     637873,
+     32320
+    ],
+    "S1F11_Spain": [
+     98644,
+     54071,
+     210955
+    ],
+    "S1F11_Sri-Lanka": [
+     72255,
+     104953,
+     52802
+    ],
+    "S1F11_USA": [
+     232001,
+     362270,
+     61302
+    ]
+   },
+   "edges \u00b12 px ignored": {
+    "S1F11_Bolivia": [
+     154202,
+     67574,
+     17101
+    ],
+    "S1F11_Ghana": [
+     156458,
+     43396,
+     67987
+    ],
+    "S1F11_India": [
+     296540,
+     378883,
+     56254
+    ],
+    "S1F11_Mekong": [
+     412202,
+     69238,
+     5754
+    ],
+    "S1F11_Nigeria": [
+     27432,
+     2921,
+     256364
+    ],
+    "S1F11_Pakistan": [
+     13143,
+     35207,
+     105210
+    ],
+    "S1F11_Somalia": [
+     63896,
+     613144,
+     12443
+    ],
+    "S1F11_Spain": [
+     60046,
+     34944,
+     111825
+    ],
+    "S1F11_Sri-Lanka": [
+     48994,
+     87072,
+     25336
+    ],
+    "S1F11_USA": [
+     130011,
+     275042,
+     13383
+    ]
+   },
+   "labels unshifted": {
+    "S1F11_Bolivia": [
+     185341,
+     100257,
+     27999
+    ],
+    "S1F11_Ghana": [
+     176526,
+     51298,
+     96430
+    ],
+    "S1F11_India": [
+     439655,
+     528929,
+     152453
+    ],
+    "S1F11_Mekong": [
+     504190,
+     123870,
+     18300
+    ],
+    "S1F11_Nigeria": [
+     37829,
+     8372,
+     335023
+    ],
+    "S1F11_Pakistan": [
+     19419,
+     38457,
+     146831
+    ],
+    "S1F11_Somalia": [
+     94225,
+     637873,
+     32320
+    ],
+    "S1F11_Spain": [
+     93846,
+     57673,
+     212650
+    ],
+    "S1F11_Sri-Lanka": [
+     69309,
+     106386,
+     54052
+    ],
+    "S1F11_USA": [
+     216363,
+     372033,
+     70553
+    ]
+   }
+  },
+  "row11_fusion_eval_sar_only/seed43": {
+   "as published": {
+    "S1F11_Bolivia": [
+     195353,
+     66269,
+     24076
+    ],
+    "S1F11_Ghana": [
+     155640,
+     44247,
+     120251
+    ],
+    "S1F11_India": [
+     498290,
+     570598,
+     100701
+    ],
+    "S1F11_Mekong": [
+     471949,
+     67709,
+     50541
+    ],
+    "S1F11_Nigeria": [
+     83053,
+     16879,
+     294232
+    ],
+    "S1F11_Pakistan": [
+     23903,
+     30710,
+     143599
+    ],
+    "S1F11_Somalia": [
+     87393,
+     518325,
+     39152
+    ],
+    "S1F11_Spain": [
+     183708,
+     51875,
+     125891
+    ],
+    "S1F11_Sri-Lanka": [
+     68517,
+     92810,
+     56540
+    ],
+    "S1F11_USA": [
+     241224,
+     324927,
+     52079
+    ]
+   },
+   "edges \u00b12 px ignored": {
+    "S1F11_Bolivia": [
+     156796,
+     40788,
+     14507
+    ],
+    "S1F11_Ghana": [
+     135938,
+     37583,
+     88507
+    ],
+    "S1F11_India": [
+     327549,
+     403612,
+     25245
+    ],
+    "S1F11_Mekong": [
+     397667,
+     31907,
+     20289
+    ],
+    "S1F11_Nigeria": [
+     64672,
+     9167,
+     219124
+    ],
+    "S1F11_Pakistan": [
+     15597,
+     27725,
+     102756
+    ],
+    "S1F11_Somalia": [
+     60138,
+     496244,
+     16201
+    ],
+    "S1F11_Spain": [
+     129275,
+     26659,
+     42596
+    ],
+    "S1F11_Sri-Lanka": [
+     45969,
+     75017,
+     28361
+    ],
+    "S1F11_USA": [
+     136264,
+     237753,
+     7130
+    ]
+   },
+   "labels unshifted": {
+    "S1F11_Bolivia": [
+     186816,
+     71720,
+     26524
+    ],
+    "S1F11_Ghana": [
+     153505,
+     45215,
+     119451
+    ],
+    "S1F11_India": [
+     489570,
+     571053,
+     102538
+    ],
+    "S1F11_Mekong": [
+     471949,
+     67709,
+     50541
+    ],
+    "S1F11_Nigeria": [
+     81060,
+     17908,
+     291792
+    ],
+    "S1F11_Pakistan": [
+     23314,
+     31086,
+     142936
+    ],
+    "S1F11_Somalia": [
+     87393,
+     518325,
+     39152
+    ],
+    "S1F11_Spain": [
+     177325,
+     56401,
+     129171
+    ],
+    "S1F11_Sri-Lanka": [
+     65414,
+     94503,
+     57947
+    ],
+    "S1F11_USA": [
+     225692,
+     334644,
+     61224
+    ]
+   }
+  },
+  "row11_fusion_eval_sar_only/seed44": {
+   "as published": {
+    "S1F11_Bolivia": [
+     143798,
+     40216,
+     75631
+    ],
+    "S1F11_Ghana": [
+     128854,
+     39516,
+     147037
+    ],
+    "S1F11_India": [
+     485352,
+     429515,
+     113639
+    ],
+    "S1F11_Mekong": [
+     504722,
+     103517,
+     17768
+    ],
+    "S1F11_Nigeria": [
+     28297,
+     7601,
+     348988
+    ],
+    "S1F11_Pakistan": [
+     41973,
+     94700,
+     125529
+    ],
+    "S1F11_Somalia": [
+     91684,
+     619633,
+     34861
+    ],
+    "S1F11_Spain": [
+     167345,
+     30402,
+     142254
+    ],
+    "S1F11_Sri-Lanka": [
+     71865,
+     105671,
+     53192
+    ],
+    "S1F11_USA": [
+     219992,
+     238388,
+     73311
+    ]
+   },
+   "edges \u00b12 px ignored": {
+    "S1F11_Bolivia": [
+     117842,
+     25980,
+     53461
+    ],
+    "S1F11_Ghana": [
+     111376,
+     33021,
+     113069
+    ],
+    "S1F11_India": [
+     330043,
+     291689,
+     22751
+    ],
+    "S1F11_Mekong": [
+     410072,
+     48932,
+     7884
+    ],
+    "S1F11_Nigeria": [
+     18455,
+     3287,
+     265341
+    ],
+    "S1F11_Pakistan": [
+     30547,
+     90648,
+     87806
+    ],
+    "S1F11_Somalia": [
+     62534,
+     596392,
+     13805
+    ],
+    "S1F11_Spain": [
+     124732,
+     13524,
+     47139
+    ],
+    "S1F11_Sri-Lanka": [
+     47980,
+     87406,
+     26350
+    ],
+    "S1F11_USA": [
+     126023,
+     167456,
+     17371
+    ]
+   },
+   "labels unshifted": {
+    "S1F11_Bolivia": [
+     136903,
+     45311,
+     76437
+    ],
+    "S1F11_Ghana": [
+     127011,
+     40398,
+     145945
+    ],
+    "S1F11_India": [
+     476736,
+     431169,
+     115372
+    ],
+    "S1F11_Mekong": [
+     504722,
+     103517,
+     17768
+    ],
+    "S1F11_Nigeria": [
+     27166,
+     8342,
+     345686
+    ],
+    "S1F11_Pakistan": [
+     41363,
+     94735,
+     124887
+    ],
+    "S1F11_Somalia": [
+     91684,
+     619633,
+     34861
+    ],
+    "S1F11_Spain": [
+     162046,
+     34158,
+     144450
+    ],
+    "S1F11_Sri-Lanka": [
+     68297,
+     107714,
+     55064
+    ],
+    "S1F11_USA": [
+     203860,
+     250103,
+     83056
+    ]
+   }
+  }
+ },
+ "a5_conformal": {
+  "cmp_terramind_small/seed42": {
+   "S1F11_Bolivia": {
+    "feasible": true,
+    "threshold": 0.012276747852197456,
+    "n_calibration_chips": 397,
+    "mean_chip_fnr": 0.08201083381964946,
+    "precision": 0.49522753250868595,
+    "iou": 0.494531301209013
+   },
+   "S1F11_Ghana": {
+    "feasible": true,
+    "threshold": 0.011105036815632166,
+    "n_calibration_chips": 385,
+    "mean_chip_fnr": 0.0,
+    "precision": 0.15458863243837337,
+    "iou": 0.15458863243837337
+   },
+   "S1F11_India": {
+    "feasible": true,
+    "threshold": 0.010045155619488594,
+    "n_calibration_chips": 337,
+    "mean_chip_fnr": 4.227675082011287e-05,
+    "precision": 0.13446203264221213,
+    "iou": 0.1344609759580539
+   },
+   "S1F11_Mekong": {
+    "feasible": true,
+    "threshold": 0.011105036815632166,
+    "n_calibration_chips": 391,
+    "mean_chip_fnr": 0.00027914924767246974,
+    "precision": 0.3720359916696769,
+    "iou": 0.37201770284750246
+   },
+   "S1F11_Nigeria": {
+    "feasible": true,
+    "threshold": 0.011105036815632166,
+    "n_calibration_chips": 390,
+    "mean_chip_fnr": 0.002712745098900161,
+    "precision": 0.3940740632352157,
+    "iou": 0.39400570357900105
+   },
+   "S1F11_Pakistan": {
+    "feasible": true,
+    "threshold": 0.011105036815632166,
+    "n_calibration_chips": 390,
+    "mean_chip_fnr": 4.984051036682616e-05,
+    "precision": 0.12229539246677744,
+    "iou": 0.12229530310215792
+   },
+   "S1F11_Somalia": {
+    "feasible": true,
+    "threshold": 0.012276747852197456,
+    "n_calibration_chips": 390,
+    "mean_chip_fnr": 0.24000567002233453,
+    "precision": 0.2709684805006487,
+    "iou": 0.2628776888531031
+   },
+   "S1F11_Spain": {
+    "feasible": true,
+    "threshold": 0.011105036815632166,
+    "n_calibration_chips": 372,
+    "mean_chip_fnr": 0.006625406619677808,
+    "precision": 0.13916067476755214,
+    "iou": 0.13914876830964099
+   },
+   "S1F11_Sri-Lanka": {
+    "feasible": true,
+    "threshold": 0.012276747852197456,
+    "n_calibration_chips": 385,
+    "mean_chip_fnr": 0.15287203831246698,
+    "precision": 0.21154276062495342,
+    "iou": 0.20940018581190847
+   },
+   "S1F11_USA": {
+    "feasible": true,
+    "threshold": 0.015004101831337078,
+    "n_calibration_chips": 289,
+    "mean_chip_fnr": 0.25683859045450474,
+    "precision": 0.16975312443480126,
+    "iou": 0.16639100147480348
+   }
+  },
+  "row04_unet_sar_only/seed42": {
+   "S1F11_Bolivia": {
+    "feasible": true,
+    "threshold": 0.02738987206189277,
+    "n_calibration_chips": 397,
+    "mean_chip_fnr": 0.1388114529537607,
+    "precision": 0.5087704002526026,
+    "iou": 0.5046052093436321
+   },
+   "S1F11_Ghana": {
+    "feasible": true,
+    "threshold": 0.02738987206189277,
+    "n_calibration_chips": 385,
+    "mean_chip_fnr": 0.0,
+    "precision": 0.15449688659191796,
+    "iou": 0.15449688659191796
+   },
+   "S1F11_India": {
+    "feasible": true,
+    "threshold": 0.02738987206189277,
+    "n_calibration_chips": 337,
+    "mean_chip_fnr": 0.07108824552179371,
+    "precision": 0.1700554895365176,
+    "iou": 0.16969243649354995
+   },
+   "S1F11_Mekong": {
+    "feasible": true,
+    "threshold": 0.02738987206189277,
+    "n_calibration_chips": 391,
+    "mean_chip_fnr": 0.009352643471093644,
+    "precision": 0.46783732087422786,
+    "iou": 0.4678180412477346
+   },
+   "S1F11_Nigeria": {
+    "feasible": true,
+    "threshold": 0.02738987206189277,
+    "n_calibration_chips": 390,
+    "mean_chip_fnr": 2.5202121010504245e-06,
+    "precision": 0.27823789404114196,
+    "iou": 0.27823768880509436
+   },
+   "S1F11_Pakistan": {
+    "feasible": true,
+    "threshold": 0.02738987206189277,
+    "n_calibration_chips": 390,
+    "mean_chip_fnr": 0.1507394134924537,
+    "precision": 0.22739341058271403,
+    "iou": 0.20565491619146362
+   },
+   "S1F11_Somalia": {
+    "feasible": true,
+    "threshold": 0.02738987206189277,
+    "n_calibration_chips": 390,
+    "mean_chip_fnr": 0.05948006292226751,
+    "precision": 0.115134470357922,
+    "iou": 0.1147988638086971
+   },
+   "S1F11_Spain": {
+    "feasible": true,
+    "threshold": 0.02738987206189277,
+    "n_calibration_chips": 372,
+    "mean_chip_fnr": 0.15580654700661736,
+    "precision": 0.44529942665898553,
+    "iou": 0.43404663046949854
+   },
+   "S1F11_Sri-Lanka": {
+    "feasible": true,
+    "threshold": 0.03027982334416631,
+    "n_calibration_chips": 385,
+    "mean_chip_fnr": 0.2982482651524372,
+    "precision": 0.33354128587637405,
+    "iou": 0.2971447143901845
+   },
+   "S1F11_USA": {
+    "feasible": true,
+    "threshold": 0.024775742019359837,
+    "n_calibration_chips": 289,
+    "mean_chip_fnr": 0.056270019267497993,
+    "precision": 0.05072057965164989,
+    "iou": 0.050666759872886484
+   }
+  },
+  "row09_fusion_crossattn/seed42": {
+   "S1F11_Bolivia": {
+    "feasible": true,
+    "threshold": 0.024775742019359837,
+    "n_calibration_chips": 397,
+    "mean_chip_fnr": 0.1947504526435441,
+    "precision": 0.4956181757497735,
+    "iou": 0.4823659346982719
+   },
+   "S1F11_Ghana": {
+    "feasible": true,
+    "threshold": 0.02738987206189277,
+    "n_calibration_chips": 385,
+    "mean_chip_fnr": 0.2387903139193904,
+    "precision": 0.3875270104433221,
+    "iou": 0.3847420229856297
+   },
+   "S1F11_India": {
+    "feasible": true,
+    "threshold": 0.020272158976387625,
+    "n_calibration_chips": 337,
+    "mean_chip_fnr": 0.03742381860688347,
+    "precision": 0.1802877009742775,
+    "iou": 0.180069686115839
+   },
+   "S1F11_Mekong": {
+    "feasible": true,
+    "threshold": 0.02241110842806374,
+    "n_calibration_chips": 391,
+    "mean_chip_fnr": 0.0,
+    "precision": 0.36656479612321047,
+    "iou": 0.36656479612321047
+   },
+   "S1F11_Nigeria": {
+    "feasible": true,
+    "threshold": 0.02241110842806374,
+    "n_calibration_chips": 390,
+    "mean_chip_fnr": 0.03158600809135031,
+    "precision": 0.3632924834928223,
+    "iou": 0.36164764150439704
+   },
+   "S1F11_Pakistan": {
+    "feasible": true,
+    "threshold": 0.02241110842806374,
+    "n_calibration_chips": 390,
+    "mean_chip_fnr": 0.01728582374402084,
+    "precision": 0.17645569512527234,
+    "iou": 0.1761768204605319
+   },
+   "S1F11_Somalia": {
+    "feasible": true,
+    "threshold": 0.02738987206189277,
+    "n_calibration_chips": 390,
+    "mean_chip_fnr": 0.23500680323360645,
+    "precision": 0.3864493604802923,
+    "iou": 0.376520368003764
+   },
+   "S1F11_Spain": {
+    "feasible": true,
+    "threshold": 0.024775742019359837,
+    "n_calibration_chips": 372,
+    "mean_chip_fnr": 0.1170975757309232,
+    "precision": 0.43457443691553055,
+    "iou": 0.43140765796123487
+   },
+   "S1F11_Sri-Lanka": {
+    "feasible": true,
+    "threshold": 0.03027982334416631,
+    "n_calibration_chips": 385,
+    "mean_chip_fnr": 0.31457464572366145,
+    "precision": 0.6343601055658408,
+    "iou": 0.534757848948216
+   },
+   "S1F11_USA": {
+    "feasible": true,
+    "threshold": 0.018337354035078374,
+    "n_calibration_chips": 289,
+    "mean_chip_fnr": 0.04361244973966899,
+    "precision": 0.048059217819467634,
+    "iou": 0.048010698337886605
+   }
+  },
+  "row09_fusion_crossattn/seed43": {
+   "S1F11_Bolivia": {
+    "feasible": true,
+    "threshold": 0.02738987206189277,
+    "n_calibration_chips": 397,
+    "mean_chip_fnr": 0.10696810950164826,
+    "precision": 0.4729569060773481,
+    "iou": 0.46737627838210277
+   },
+   "S1F11_Ghana": {
+    "feasible": true,
+    "threshold": 0.02738987206189277,
+    "n_calibration_chips": 385,
+    "mean_chip_fnr": 0.0,
+    "precision": 0.15477210384424936,
+    "iou": 0.15477210384424936
+   },
+   "S1F11_India": {
+    "feasible": true,
+    "threshold": 0.02738987206189277,
+    "n_calibration_chips": 337,
+    "mean_chip_fnr": 0.07477986302636162,
+    "precision": 0.17477706525104492,
+    "iou": 0.1744308908004924
+   },
+   "S1F11_Mekong": {
+    "feasible": true,
+    "threshold": 0.02738987206189277,
+    "n_calibration_chips": 391,
+    "mean_chip_fnr": 0.06359319011961069,
+    "precision": 0.725149590659868,
+    "iou": 0.7242590776360499
+   },
+   "S1F11_Nigeria": {
+    "feasible": true,
+    "threshold": 0.02738987206189277,
+    "n_calibration_chips": 390,
+    "mean_chip_fnr": 0.1151628271264929,
+    "precision": 0.5740632817610024,
+    "iou": 0.5680462936264977
+   },
+   "S1F11_Pakistan": {
+    "feasible": true,
+    "threshold": 0.03027982334416631,
+    "n_calibration_chips": 390,
+    "mean_chip_fnr": 0.20911347205096517,
+    "precision": 0.5080942860779777,
+    "iou": 0.4542679355048184
+   },
+   "S1F11_Somalia": {
+    "feasible": true,
+    "threshold": 0.03027982334416631,
+    "n_calibration_chips": 390,
+    "mean_chip_fnr": 0.21110564745471638,
+    "precision": 0.21632195258079404,
+    "iou": 0.214178686805713
+   },
+   "S1F11_Spain": {
+    "feasible": true,
+    "threshold": 0.03027982334416631,
+    "n_calibration_chips": 372,
+    "mean_chip_fnr": 0.13724390432795813,
+    "precision": 0.35783459650103916,
+    "iou": 0.35590322814348446
+   },
+   "S1F11_Sri-Lanka": {
+    "feasible": true,
+    "threshold": 0.03027982334416631,
+    "n_calibration_chips": 385,
+    "mean_chip_fnr": 0.30854394956890663,
+    "precision": 0.6441935483870967,
+    "iou": 0.5227272727272727
+   },
+   "S1F11_USA": {
+    "feasible": true,
+    "threshold": 0.020272158976387625,
+    "n_calibration_chips": 289,
+    "mean_chip_fnr": 0.0024424778761061943,
+    "precision": 0.038017147308562406,
+    "iou": 0.03801680690588958
+   }
+  },
+  "row09_fusion_crossattn/seed44": {
+   "S1F11_Bolivia": {
+    "feasible": true,
+    "threshold": 0.02738987206189277,
+    "n_calibration_chips": 397,
+    "mean_chip_fnr": 0.0,
+    "precision": 0.2444441473598838,
+    "iou": 0.2444441473598838
+   },
+   "S1F11_Ghana": {
+    "feasible": true,
+    "threshold": 0.02738987206189277,
+    "n_calibration_chips": 385,
+    "mean_chip_fnr": 0.0,
+    "precision": 0.1546843061198496,
+    "iou": 0.1546843061198496
+   },
+   "S1F11_India": {
+    "feasible": true,
+    "threshold": 0.024775742019359837,
+    "n_calibration_chips": 337,
+    "mean_chip_fnr": 0.013658426109465242,
+    "precision": 0.14512488358371797,
+    "iou": 0.14505721207467578
+   },
+   "S1F11_Mekong": {
+    "feasible": true,
+    "threshold": 0.02738987206189277,
+    "n_calibration_chips": 391,
+    "mean_chip_fnr": 0.07467742607147944,
+    "precision": 0.5495103373231773,
+    "iou": 0.5488858720551203
+   },
+   "S1F11_Nigeria": {
+    "feasible": true,
+    "threshold": 0.03027982334416631,
+    "n_calibration_chips": 390,
+    "mean_chip_fnr": 0.08624092148903117,
+    "precision": 0.4852993428656342,
+    "iou": 0.4790982612528264
+   },
+   "S1F11_Pakistan": {
+    "feasible": true,
+    "threshold": 0.03027982334416631,
+    "n_calibration_chips": 390,
+    "mean_chip_fnr": 0.2351711247362015,
+    "precision": 0.4034992136021135,
+    "iou": 0.3930407790322177
+   },
+   "S1F11_Somalia": {
+    "feasible": true,
+    "threshold": 0.03027982334416631,
+    "n_calibration_chips": 390,
+    "mean_chip_fnr": 0.2607549260159803,
+    "precision": 0.45188214899314316,
+    "iou": 0.43546630868478947
+   },
+   "S1F11_Spain": {
+    "feasible": true,
+    "threshold": 0.03027982334416631,
+    "n_calibration_chips": 372,
+    "mean_chip_fnr": 0.1828136153033343,
+    "precision": 0.448955544295296,
+    "iou": 0.4425061468627358
+   },
+   "S1F11_Sri-Lanka": {
+    "feasible": true,
+    "threshold": 0.03027982334416631,
+    "n_calibration_chips": 385,
+    "mean_chip_fnr": 0.2931729277550351,
+    "precision": 0.6219721485159174,
+    "iou": 0.5317772291165833
+   },
+   "S1F11_USA": {
+    "feasible": true,
+    "threshold": 0.020272158976387625,
+    "n_calibration_chips": 289,
+    "mean_chip_fnr": 0.0065317233314793124,
+    "precision": 0.038597494387817476,
+    "iou": 0.038595743519299584
+   }
+  },
+  "row11_fusion_eval_sar_only/seed42": {
+   "S1F11_Bolivia": {
+    "feasible": true,
+    "threshold": 0.020272158976387625,
+    "n_calibration_chips": 397,
+    "mean_chip_fnr": 0.00016165521889340527,
+    "precision": 0.25141256209142837,
+    "iou": 0.2514105455178799
+   },
+   "S1F11_Ghana": {
+    "feasible": true,
+    "threshold": 0.018337354035078374,
+    "n_calibration_chips": 385,
+    "mean_chip_fnr": 0.0,
+    "precision": 0.15449688659191796,
+    "iou": 0.15449688659191796
+   },
+   "S1F11_India": {
+    "feasible": true,
+    "threshold": 0.02241110842806374,
+    "n_calibration_chips": 337,
+    "mean_chip_fnr": 0.23722971396215858,
+    "precision": 0.2479238547235636,
+    "iou": 0.24457284799320136
+   },
+   "S1F11_Mekong": {
+    "feasible": true,
+    "threshold": 0.018337354035078374,
+    "n_calibration_chips": 391,
+    "mean_chip_fnr": 5.617346365576902e-05,
+    "precision": 0.39068933735516614,
+    "iou": 0.3906884605227623
+   },
+   "S1F11_Nigeria": {
+    "feasible": true,
+    "threshold": 0.018337354035078374,
+    "n_calibration_chips": 390,
+    "mean_chip_fnr": 0.0,
+    "precision": 0.27777495491395543,
+    "iou": 0.27777495491395543
+   },
+   "S1F11_Pakistan": {
+    "feasible": true,
+    "threshold": 0.020272158976387625,
+    "n_calibration_chips": 390,
+    "mean_chip_fnr": 0.09654690341105397,
+    "precision": 0.19437840248822197,
+    "iou": 0.1891225505137915
+   },
+   "S1F11_Somalia": {
+    "feasible": true,
+    "threshold": 0.020272158976387625,
+    "n_calibration_chips": 390,
+    "mean_chip_fnr": 0.10487189588690876,
+    "precision": 0.1248915319274279,
+    "iou": 0.12476526486672412
+   },
+   "S1F11_Spain": {
+    "feasible": true,
+    "threshold": 0.020272158976387625,
+    "n_calibration_chips": 372,
+    "mean_chip_fnr": 0.21688664430894794,
+    "precision": 0.4500980708668612,
+    "iou": 0.4409450111069836
+   },
+   "S1F11_Sri-Lanka": {
+    "feasible": true,
+    "threshold": 0.020272158976387625,
+    "n_calibration_chips": 385,
+    "mean_chip_fnr": 0.18374354519041058,
+    "precision": 0.2670148785234478,
+    "iou": 0.2550594759781334
+   },
+   "S1F11_USA": {
+    "feasible": true,
+    "threshold": 0.015004101831337078,
+    "n_calibration_chips": 289,
+    "mean_chip_fnr": 0.0,
+    "precision": 0.0375587546475644,
+    "iou": 0.0375587546475644
+   }
+  },
+  "row11_fusion_eval_sar_only/seed43": {
+   "S1F11_Bolivia": {
+    "feasible": true,
+    "threshold": 0.013572088082974531,
+    "n_calibration_chips": 397,
+    "mean_chip_fnr": 0.01274660911992565,
+    "precision": 0.3084214230417341,
+    "iou": 0.3082921091582389
+   },
+   "S1F11_Ghana": {
+    "feasible": true,
+    "threshold": 0.013572088082974531,
+    "n_calibration_chips": 385,
+    "mean_chip_fnr": 0.0,
+    "precision": 0.15449688659191796,
+    "iou": 0.15449688659191796
+   },
+   "S1F11_India": {
+    "feasible": true,
+    "threshold": 0.012276747852197456,
+    "n_calibration_chips": 337,
+    "mean_chip_fnr": 2.387318563789152e-05,
+    "precision": 0.13401748335313027,
+    "iou": 0.13401745336292875
+   },
+   "S1F11_Mekong": {
+    "feasible": true,
+    "threshold": 0.013572088082974531,
+    "n_calibration_chips": 391,
+    "mean_chip_fnr": 0.014774507808681238,
+    "precision": 0.45905421397560364,
+    "iou": 0.45900618988466824
+   },
+   "S1F11_Nigeria": {
+    "feasible": true,
+    "threshold": 0.013572088082974531,
+    "n_calibration_chips": 390,
+    "mean_chip_fnr": 0.0,
+    "precision": 0.2779980970896969,
+    "iou": 0.2779980970896969
+   },
+   "S1F11_Pakistan": {
+    "feasible": true,
+    "threshold": 0.013572088082974531,
+    "n_calibration_chips": 390,
+    "mean_chip_fnr": 0.02760384350458396,
+    "precision": 0.16115000978657515,
+    "iou": 0.1609860639623184
+   },
+   "S1F11_Somalia": {
+    "feasible": true,
+    "threshold": 0.013572088082974531,
+    "n_calibration_chips": 390,
+    "mean_chip_fnr": 0.05731465427939723,
+    "precision": 0.11671422132676114,
+    "iou": 0.11666995090297996
+   },
+   "S1F11_Spain": {
+    "feasible": true,
+    "threshold": 0.015004101831337078,
+    "n_calibration_chips": 372,
+    "mean_chip_fnr": 0.13334699886103993,
+    "precision": 0.2694195786557872,
+    "iou": 0.2682884485057534
+   },
+   "S1F11_Sri-Lanka": {
+    "feasible": true,
+    "threshold": 0.013572088082974531,
+    "n_calibration_chips": 385,
+    "mean_chip_fnr": 0.08371687419289099,
+    "precision": 0.17178515571093428,
+    "iou": 0.17043859749209864
+   },
+   "S1F11_USA": {
+    "feasible": true,
+    "threshold": 0.02241110842806374,
+    "n_calibration_chips": 289,
+    "mean_chip_fnr": 0.25615393299538686,
+    "precision": 0.17119235309404646,
+    "iou": 0.1681254174359339
+   }
+  },
+  "row11_fusion_eval_sar_only/seed44": {
+   "S1F11_Bolivia": {
+    "feasible": true,
+    "threshold": 0.020272158976387625,
+    "n_calibration_chips": 397,
+    "mean_chip_fnr": 0.0,
+    "precision": 0.24436383723481386,
+    "iou": 0.24436383723481386
+   },
+   "S1F11_Ghana": {
+    "feasible": true,
+    "threshold": 0.020272158976387625,
+    "n_calibration_chips": 385,
+    "mean_chip_fnr": 0.0,
+    "precision": 0.15449688659191796,
+    "iou": 0.15449688659191796
+   },
+   "S1F11_India": {
+    "feasible": true,
+    "threshold": 0.018337354035078374,
+    "n_calibration_chips": 337,
+    "mean_chip_fnr": 0.009222314625693182,
+    "precision": 0.14704077786841932,
+    "iou": 0.14699785220948447
+   },
+   "S1F11_Mekong": {
+    "feasible": true,
+    "threshold": 0.020272158976387625,
+    "n_calibration_chips": 391,
+    "mean_chip_fnr": 0.007741909872431098,
+    "precision": 0.4065336007524276,
+    "iou": 0.4065029004112971
+   },
+   "S1F11_Nigeria": {
+    "feasible": true,
+    "threshold": 0.020272158976387625,
+    "n_calibration_chips": 390,
+    "mean_chip_fnr": 0.020948711502700838,
+    "precision": 0.3394186337040891,
+    "iou": 0.3374583704889989
+   },
+   "S1F11_Pakistan": {
+    "feasible": true,
+    "threshold": 0.020272158976387625,
+    "n_calibration_chips": 390,
+    "mean_chip_fnr": 0.13473089872936253,
+    "precision": 0.24196294043252184,
+    "iou": 0.23367937440469996
+   },
+   "S1F11_Somalia": {
+    "feasible": true,
+    "threshold": 0.020272158976387625,
+    "n_calibration_chips": 390,
+    "mean_chip_fnr": 0.10525507729355865,
+    "precision": 0.12532411149735265,
+    "iou": 0.1251871429312871
+   },
+   "S1F11_Spain": {
+    "feasible": true,
+    "threshold": 0.02241110842806374,
+    "n_calibration_chips": 372,
+    "mean_chip_fnr": 0.25587966673695184,
+    "precision": 0.4015816648874752,
+    "iou": 0.3939285466231414
+   },
+   "S1F11_Sri-Lanka": {
+    "feasible": true,
+    "threshold": 0.020272158976387625,
+    "n_calibration_chips": 385,
+    "mean_chip_fnr": 0.18168428181844753,
+    "precision": 0.2711477725096417,
+    "iou": 0.257701469861569
+   },
+   "S1F11_USA": {
+    "feasible": true,
+    "threshold": 0.02241110842806374,
+    "n_calibration_chips": 289,
+    "mean_chip_fnr": 0.15241603600419532,
+    "precision": 0.1009003182450942,
+    "iou": 0.10032946551643693
+   }
+  }
+ },
+ "a2_clouds": {
+  "_donors": {
+   "S1F11_Bolivia": {
+    "0.2": 40,
+    "0.4": 40,
+    "0.6": 40,
+    "0.8": 24
+   },
+   "S1F11_Ghana": {
+    "0.2": 40,
+    "0.4": 40,
+    "0.6": 40,
+    "0.8": 38
+   },
+   "S1F11_India": {
+    "0.2": 40,
+    "0.4": 40,
+    "0.6": 40,
+    "0.8": 28
+   },
+   "S1F11_Mekong": {
+    "0.2": 40,
+    "0.4": 40,
+    "0.6": 40,
+    "0.8": 29
+   },
+   "S1F11_Nigeria": {
+    "0.2": 40,
+    "0.4": 40,
+    "0.6": 40,
+    "0.8": 29
+   },
+   "S1F11_Pakistan": {
+    "0.2": 40,
+    "0.4": 40,
+    "0.6": 40,
+    "0.8": 29
+   },
+   "S1F11_Somalia": {
+    "0.2": 40,
+    "0.4": 40,
+    "0.6": 40,
+    "0.8": 29
+   },
+   "S1F11_Spain": {
+    "0.2": 40,
+    "0.4": 40,
+    "0.6": 40,
+    "0.8": 29
+   },
+   "S1F11_Sri-Lanka": {
+    "0.2": 40,
+    "0.4": 40,
+    "0.6": 40,
+    "0.8": 29
+   },
+   "S1F11_USA": {
+    "0.2": 40,
+    "0.4": 40,
+    "0.6": 40,
+    "0.8": 17
+   }
+  },
+  "0.0/none": {
+   "S1F11_Bolivia": {
+    "masked": [
+     0,
+     0,
+     0
+    ],
+    "clear": [
+     3626,
+     1992,
+     1645
+    ]
+   },
+   "S1F11_Ghana": {
+    "masked": [
+     0,
+     0,
+     0
+    ],
+    "clear": [
+     23128,
+     4756,
+     27050
+    ]
+   },
+   "S1F11_India": {
+    "masked": [
+     0,
+     0,
+     0
+    ],
+    "clear": [
+     18793,
+     15178,
+     7475
+    ]
+   },
+   "S1F11_Mekong": {
+    "masked": [
+     0,
+     0,
+     0
+    ],
+    "clear": [
+     2160,
+     860,
+     291
+    ]
+   },
+   "S1F11_Nigeria": {
+    "masked": [
+     0,
+     0,
+     0
+    ],
+    "clear": [
+     41161,
+     2612,
+     13607
+    ]
+   },
+   "S1F11_Pakistan": {
+    "masked": [
+     0,
+     0,
+     0
+    ],
+    "clear": [
+     1662,
+     516,
+     2274
+    ]
+   },
+   "S1F11_Somalia": {
+    "masked": [
+     0,
+     0,
+     0
+    ],
+    "clear": [
+     1,
+     161,
+     5
+    ]
+   },
+   "S1F11_Spain": {
+    "masked": [
+     0,
+     0,
+     0
+    ],
+    "clear": [
+     29519,
+     16883,
+     11719
+    ]
+   },
+   "S1F11_Sri-Lanka": {
+    "masked": [
+     0,
+     0,
+     0
+    ],
+    "clear": [
+     6669,
+     7006,
+     7743
+    ]
+   },
+   "S1F11_USA": {
+    "masked": [
+     0,
+     0,
+     0
+    ],
+    "clear": [
+     40991,
+     39047,
+     16264
+    ]
+   }
+  },
+  "0.2/missing": {
+   "S1F11_Bolivia": {
+    "masked": [
+     129,
+     14905,
+     197
+    ],
+    "clear": [
+     3587,
+     2374,
+     1358
+    ]
+   },
+   "_distance": {
+    "0-16": [
+     25314,
+     2555316
+    ],
+    "16-32": [
+     10919,
+     2368220
+    ],
+    "32-64": [
+     20918,
+     4153491
+    ],
+    "64-128": [
+     31694,
+     5117945
+    ],
+    "128-1000000000.0": [
+     22893,
+     3552788
+    ]
+   },
+   "S1F11_Ghana": {
+    "masked": [
+     4893,
+     94801,
+     928
+    ],
+    "clear": [
+     18806,
+     4807,
+     25551
+    ]
+   },
+   "S1F11_India": {
+    "masked": [
+     300,
+     4931,
+     44
+    ],
+    "clear": [
+     18191,
+     14783,
+     7733
+    ]
+   },
+   "S1F11_Mekong": {
+    "masked": [
+     0,
+     2957,
+     0
+    ],
+    "clear": [
+     2121,
+     885,
+     330
+    ]
+   },
+   "S1F11_Nigeria": {
+    "masked": [
+     623,
+     7953,
+     307
+    ],
+    "clear": [
+     40276,
+     2309,
+     13562
+    ]
+   },
+   "S1F11_Pakistan": {
+    "masked": [
+     0,
+     17299,
+     0
+    ],
+    "clear": [
+     1104,
+     1898,
+     2832
+    ]
+   },
+   "S1F11_Somalia": {
+    "masked": [
+     0,
+     811,
+     0
+    ],
+    "clear": [
+     3,
+     181,
+     3
+    ]
+   },
+   "S1F11_Spain": {
+    "masked": [
+     355,
+     16770,
+     189
+    ],
+    "clear": [
+     26863,
+     14926,
+     13831
+    ]
+   },
+   "S1F11_Sri-Lanka": {
+    "masked": [
+     539,
+     15776,
+     478
+    ],
+    "clear": [
+     5595,
+     6341,
+     7800
+    ]
+   },
+   "S1F11_USA": {
+    "masked": [
+     1603,
+     139936,
+     84
+    ],
+    "clear": [
+     38519,
+     43679,
+     17049
+    ]
+   }
+  },
+  "0.2/real": {
+   "S1F11_Bolivia": {
+    "masked": [
+     150,
+     7627,
+     176
+    ],
+    "clear": [
+     3549,
+     1648,
+     1396
+    ]
+   },
+   "_distance": {
+    "0-16": [
+     15305,
+     2555316
+    ],
+    "16-32": [
+     10806,
+     2368220
+    ],
+    "32-64": [
+     20860,
+     4153491
+    ],
+    "64-128": [
+     31803,
+     5117945
+    ],
+    "128-1000000000.0": [
+     22823,
+     3552788
+    ]
+   },
+   "S1F11_Ghana": {
+    "masked": [
+     1256,
+     24925,
+     4565
+    ],
+    "clear": [
+     19402,
+     4923,
+     24955
+    ]
+   },
+   "S1F11_India": {
+    "masked": [
+     300,
+     2346,
+     44
+    ],
+    "clear": [
+     18261,
+     14750,
+     7663
+    ]
+   },
+   "S1F11_Mekong": {
+    "masked": [
+     0,
+     21,
+     0
+    ],
+    "clear": [
+     2131,
+     866,
+     320
+    ]
+   },
+   "S1F11_Nigeria": {
+    "masked": [
+     671,
+     9530,
+     259
+    ],
+    "clear": [
+     40757,
+     2361,
+     13081
+    ]
+   },
+   "S1F11_Pakistan": {
+    "masked": [
+     0,
+     8068,
+     0
+    ],
+    "clear": [
+     1111,
+     1355,
+     2825
+    ]
+   },
+   "S1F11_Somalia": {
+    "masked": [
+     0,
+     36,
+     0
+    ],
+    "clear": [
+     3,
+     200,
+     3
+    ]
+   },
+   "S1F11_Spain": {
+    "masked": [
+     154,
+     9798,
+     390
+    ],
+    "clear": [
+     27853,
+     15116,
+     12841
+    ]
+   },
+   "S1F11_Sri-Lanka": {
+    "masked": [
+     674,
+     12579,
+     343
+    ],
+    "clear": [
+     5572,
+     6213,
+     7823
+    ]
+   },
+   "S1F11_USA": {
+    "masked": [
+     609,
+     31198,
+     1078
+    ],
+    "clear": [
+     38961,
+     37223,
+     16607
+    ]
+   }
+  },
+  "0.4/missing": {
+   "S1F11_Bolivia": {
+    "masked": [
+     1139,
+     15928,
+     257
+    ],
+    "clear": [
+     2575,
+     2038,
+     1300
+    ]
+   },
+   "_distance": {
+    "0-16": [
+     47645,
+     5871799
+    ],
+    "16-32": [
+     23006,
+     3771707
+    ],
+    "32-64": [
+     29104,
+     4161491
+    ],
+    "64-128": [
+     18841,
+     3189316
+    ],
+    "128-1000000000.0": [
+     15960,
+     2103306
+    ]
+   },
+   "S1F11_Ghana": {
+    "masked": [
+     6799,
+     223706,
+     3095
+    ],
+    "clear": [
+     16585,
+     5607,
+     23699
+    ]
+   },
+   "S1F11_India": {
+    "masked": [
+     3599,
+     22188,
+     285
+    ],
+    "clear": [
+     14369,
+     11025,
+     8015
+    ]
+   },
+   "S1F11_Mekong": {
+    "masked": [
+     645,
+     8901,
+     187
+    ],
+    "clear": [
+     1381,
+     835,
+     238
+    ]
+   },
+   "S1F11_Nigeria": {
+    "masked": [
+     1724,
+     14341,
+     4471
+    ],
+    "clear": [
+     37867,
+     3263,
+     10706
+    ]
+   },
+   "S1F11_Pakistan": {
+    "masked": [
+     0,
+     70946,
+     0
+    ],
+    "clear": [
+     1112,
+     2492,
+     2824
+    ]
+   },
+   "S1F11_Somalia": {
+    "masked": [
+     0,
+     492,
+     0
+    ],
+    "clear": [
+     2,
+     162,
+     4
+    ]
+   },
+   "S1F11_Spain": {
+    "masked": [
+     1102,
+     40363,
+     1543
+    ],
+    "clear": [
+     24276,
+     13636,
+     14317
+    ]
+   },
+   "S1F11_Sri-Lanka": {
+    "masked": [
+     520,
+     89063,
+     671
+    ],
+    "clear": [
+     5747,
+     7617,
+     7474
+    ]
+   },
+   "S1F11_USA": {
+    "masked": [
+     1962,
+     257469,
+     1215
+    ],
+    "clear": [
+     37633,
+     40173,
+     16445
+    ]
+   }
+  },
+  "0.4/real": {
+   "S1F11_Bolivia": {
+    "masked": [
+     900,
+     7167,
+     496
+    ],
+    "clear": [
+     2562,
+     1441,
+     1313
+    ]
+   },
+   "_distance": {
+    "0-16": [
+     43889,
+     5871799
+    ],
+    "16-32": [
+     23124,
+     3771707
+    ],
+    "32-64": [
+     29761,
+     4161491
+    ],
+    "64-128": [
+     19317,
+     3189316
+    ],
+    "128-1000000000.0": [
+     16153,
+     2103306
+    ]
+   },
+   "S1F11_Ghana": {
+    "masked": [
+     5140,
+     238153,
+     4754
+    ],
+    "clear": [
+     17017,
+     11096,
+     23267
+    ]
+   },
+   "S1F11_India": {
+    "masked": [
+     2246,
+     7931,
+     1638
+    ],
+    "clear": [
+     14985,
+     12103,
+     7399
+    ]
+   },
+   "S1F11_Mekong": {
+    "masked": [
+     278,
+     2404,
+     554
+    ],
+    "clear": [
+     1390,
+     743,
+     229
+    ]
+   },
+   "S1F11_Nigeria": {
+    "masked": [
+     974,
+     4112,
+     5221
+    ],
+    "clear": [
+     38536,
+     2819,
+     10037
+    ]
+   },
+   "S1F11_Pakistan": {
+    "masked": [
+     0,
+     24536,
+     0
+    ],
+    "clear": [
+     1114,
+     1277,
+     2822
+    ]
+   },
+   "S1F11_Somalia": {
+    "masked": [
+     0,
+     79,
+     0
+    ],
+    "clear": [
+     2,
+     171,
+     4
+    ]
+   },
+   "S1F11_Spain": {
+    "masked": [
+     109,
+     16461,
+     2536
+    ],
+    "clear": [
+     25347,
+     13548,
+     13246
+    ]
+   },
+   "S1F11_Sri-Lanka": {
+    "masked": [
+     130,
+     7563,
+     1061
+    ],
+    "clear": [
+     5991,
+     6076,
+     7230
+    ]
+   },
+   "S1F11_USA": {
+    "masked": [
+     858,
+     102342,
+     2319
+    ],
+    "clear": [
+     38127,
+     38786,
+     15951
+    ]
+   }
+  },
+  "0.6/missing": {
+   "S1F11_Bolivia": {
+    "masked": [
+     1567,
+     20905,
+     480
+    ],
+    "clear": [
+     1927,
+     2098,
+     1297
+    ]
+   },
+   "_distance": {
+    "0-16": [
+     119774,
+     9638759
+    ],
+    "16-32": [
+     16751,
+     3291305
+    ],
+    "32-64": [
+     8245,
+     1477512
+    ],
+    "64-128": [
+     1184,
+     309171
+    ],
+    "128-1000000000.0": [
+     0,
+     12996
+    ]
+   },
+   "S1F11_Ghana": {
+    "masked": [
+     15918,
+     185667,
+     11459
+    ],
+    "clear": [
+     8547,
+     3423,
+     14254
+    ]
+   },
+   "S1F11_India": {
+    "masked": [
+     11432,
+     78363,
+     2539
+    ],
+    "clear": [
+     7796,
+     7732,
+     4501
+    ]
+   },
+   "S1F11_Mekong": {
+    "masked": [
+     891,
+     25789,
+     80
+    ],
+    "clear": [
+     1111,
+     1014,
+     369
+    ]
+   },
+   "S1F11_Nigeria": {
+    "masked": [
+     9303,
+     13450,
+     15040
+    ],
+    "clear": [
+     23726,
+     2002,
+     6699
+    ]
+   },
+   "S1F11_Pakistan": {
+    "masked": [
+     1024,
+     231334,
+     438
+    ],
+    "clear": [
+     38,
+     4408,
+     2436
+    ]
+   },
+   "S1F11_Somalia": {
+    "masked": [
+     2,
+     5908,
+     2
+    ],
+    "clear": [
+     0,
+     209,
+     2
+    ]
+   },
+   "S1F11_Spain": {
+    "masked": [
+     8154,
+     118936,
+     11923
+    ],
+    "clear": [
+     9466,
+     12566,
+     11695
+    ]
+   },
+   "S1F11_Sri-Lanka": {
+    "masked": [
+     4737,
+     276507,
+     3257
+    ],
+    "clear": [
+     2011,
+     6793,
+     4407
+    ]
+   },
+   "S1F11_USA": {
+    "masked": [
+     17463,
+     1236496,
+     7137
+    ],
+    "clear": [
+     19325,
+     46719,
+     13330
+    ]
+   }
+  },
+  "0.6/real": {
+   "S1F11_Bolivia": {
+    "masked": [
+     1320,
+     26560,
+     727
+    ],
+    "clear": [
+     2196,
+     1414,
+     1028
+    ]
+   },
+   "_distance": {
+    "0-16": [
+     83381,
+     9638759
+    ],
+    "16-32": [
+     19091,
+     3291305
+    ],
+    "32-64": [
+     9829,
+     1477512
+    ],
+    "64-128": [
+     2004,
+     309171
+    ],
+    "128-1000000000.0": [
+     83,
+     12996
+    ]
+   },
+   "S1F11_Ghana": {
+    "masked": [
+     6782,
+     119453,
+     20595
+    ],
+    "clear": [
+     9558,
+     7433,
+     13243
+    ]
+   },
+   "S1F11_India": {
+    "masked": [
+     4920,
+     16988,
+     9051
+    ],
+    "clear": [
+     8477,
+     8429,
+     3820
+    ]
+   },
+   "S1F11_Mekong": {
+    "masked": [
+     789,
+     16607,
+     182
+    ],
+    "clear": [
+     1198,
+     1148,
+     282
+    ]
+   },
+   "S1F11_Nigeria": {
+    "masked": [
+     2490,
+     3119,
+     21853
+    ],
+    "clear": [
+     25442,
+     2353,
+     4983
+    ]
+   },
+   "S1F11_Pakistan": {
+    "masked": [
+     284,
+     41294,
+     1178
+    ],
+    "clear": [
+     729,
+     3228,
+     1745
+    ]
+   },
+   "S1F11_Somalia": {
+    "masked": [
+     1,
+     41,
+     3
+    ],
+    "clear": [
+     0,
+     53,
+     2
+    ]
+   },
+   "S1F11_Spain": {
+    "masked": [
+     2338,
+     56867,
+     17739
+    ],
+    "clear": [
+     13725,
+     10742,
+     7436
+    ]
+   },
+   "S1F11_Sri-Lanka": {
+    "masked": [
+     560,
+     54768,
+     7434
+    ],
+    "clear": [
+     3011,
+     6381,
+     3407
+    ]
+   },
+   "S1F11_USA": {
+    "masked": [
+     7644,
+     421253,
+     16956
+    ],
+    "clear": [
+     21682,
+     26288,
+     10973
+    ]
+   }
+  },
+  "0.8/missing": {
+   "S1F11_Bolivia": {
+    "masked": [
+     1038,
+     22485,
+     820
+    ],
+    "clear": [
+     1837,
+     1265,
+     1576
+    ]
+   },
+   "_distance": {
+    "0-16": [
+     105614,
+     7337266
+    ],
+    "16-32": [
+     10082,
+     1721941
+    ],
+    "32-64": [
+     2680,
+     586924
+    ],
+    "64-128": [
+     255,
+     52375
+    ],
+    "128-1000000000.0": [
+     0,
+     0
+    ]
+   },
+   "S1F11_Ghana": {
+    "masked": [
+     16304,
+     94668,
+     21115
+    ],
+    "clear": [
+     6131,
+     2931,
+     6628
+    ]
+   },
+   "S1F11_India": {
+    "masked": [
+     12020,
+     100333,
+     3636
+    ],
+    "clear": [
+     6708,
+     7403,
+     3904
+    ]
+   },
+   "S1F11_Mekong": {
+    "masked": [
+     1833,
+     14966,
+     356
+    ],
+    "clear": [
+     188,
+     690,
+     74
+    ]
+   },
+   "S1F11_Nigeria": {
+    "masked": [
+     4302,
+     11472,
+     31449
+    ],
+    "clear": [
+     15600,
+     1592,
+     3417
+    ]
+   },
+   "S1F11_Pakistan": {
+    "masked": [
+     1122,
+     276585,
+     434
+    ],
+    "clear": [
+     40,
+     4663,
+     2340
+    ]
+   },
+   "S1F11_Somalia": {
+    "masked": [
+     2,
+     6720,
+     2
+    ],
+    "clear": [
+     0,
+     170,
+     2
+    ]
+   },
+   "S1F11_Spain": {
+    "masked": [
+     10572,
+     159697,
+     18830
+    ],
+    "clear": [
+     3995,
+     15470,
+     7841
+    ]
+   },
+   "S1F11_Sri-Lanka": {
+    "masked": [
+     5522,
+     294570,
+     3358
+    ],
+    "clear": [
+     1886,
+     8138,
+     3646
+    ]
+   },
+   "S1F11_USA": {
+    "masked": [
+     22587,
+     1298517,
+     12309
+    ],
+    "clear": [
+     11993,
+     36515,
+     10366
+    ]
+   }
+  },
+  "0.8/real": {
+   "S1F11_Bolivia": {
+    "masked": [
+     874,
+     44475,
+     984
+    ],
+    "clear": [
+     2443,
+     1158,
+     970
+    ]
+   },
+   "_distance": {
+    "0-16": [
+     93488,
+     7337266
+    ],
+    "16-32": [
+     11213,
+     1721941
+    ],
+    "32-64": [
+     3396,
+     586924
+    ],
+    "64-128": [
+     408,
+     52375
+    ],
+    "128-1000000000.0": [
+     0,
+     0
+    ]
+   },
+   "S1F11_Ghana": {
+    "masked": [
+     10135,
+     292894,
+     27284
+    ],
+    "clear": [
+     6682,
+     11259,
+     6077
+    ]
+   },
+   "S1F11_India": {
+    "masked": [
+     9895,
+     88203,
+     5761
+    ],
+    "clear": [
+     7264,
+     9073,
+     3348
+    ]
+   },
+   "S1F11_Mekong": {
+    "masked": [
+     1627,
+     52956,
+     562
+    ],
+    "clear": [
+     182,
+     2241,
+     80
+    ]
+   },
+   "S1F11_Nigeria": {
+    "masked": [
+     7115,
+     60121,
+     28636
+    ],
+    "clear": [
+     16590,
+     2258,
+     2427
+    ]
+   },
+   "S1F11_Pakistan": {
+    "masked": [
+     234,
+     209325,
+     1322
+    ],
+    "clear": [
+     776,
+     5329,
+     1604
+    ]
+   },
+   "S1F11_Somalia": {
+    "masked": [
+     2,
+     2901,
+     2
+    ],
+    "clear": [
+     0,
+     70,
+     2
+    ]
+   },
+   "S1F11_Spain": {
+    "masked": [
+     7021,
+     217904,
+     22381
+    ],
+    "clear": [
+     6296,
+     10938,
+     5540
+    ]
+   },
+   "S1F11_Sri-Lanka": {
+    "masked": [
+     2358,
+     188567,
+     6522
+    ],
+    "clear": [
+     2485,
+     13098,
+     3047
+    ]
+   },
+   "S1F11_USA": {
+    "masked": [
+     14347,
+     756234,
+     20549
+    ],
+    "clear": [
+     13619,
+     21246,
+     8740
+    ]
+   }
+  },
+  "1.0/missing": {
+   "S1F11_Bolivia": {
+    "masked": [
+     4063,
+     11000,
+     1208
+    ],
+    "clear": [
+     0,
+     0,
+     0
+    ]
+   },
+   "S1F11_Ghana": {
+    "masked": [
+     26484,
+     17345,
+     23694
+    ],
+    "clear": [
+     0,
+     0,
+     0
+    ]
+   },
+   "S1F11_India": {
+    "masked": [
+     14445,
+     14935,
+     11823
+    ],
+    "clear": [
+     0,
+     0,
+     0
+    ]
+   },
+   "S1F11_Mekong": {
+    "masked": [
+     2103,
+     2564,
+     348
+    ],
+    "clear": [
+     0,
+     0,
+     0
+    ]
+   },
+   "S1F11_Nigeria": {
+    "masked": [
+     21426,
+     2321,
+     33342
+    ],
+    "clear": [
+     0,
+     0,
+     0
+    ]
+   },
+   "S1F11_Pakistan": {
+    "masked": [
+     0,
+     34925,
+     3936
+    ],
+    "clear": [
+     0,
+     0,
+     0
+    ]
+   },
+   "S1F11_Somalia": {
+    "masked": [
+     0,
+     0,
+     6
+    ],
+    "clear": [
+     0,
+     0,
+     0
+    ]
+   },
+   "S1F11_Spain": {
+    "masked": [
+     22891,
+     51439,
+     18347
+    ],
+    "clear": [
+     0,
+     0,
+     0
+    ]
+   },
+   "S1F11_Sri-Lanka": {
+    "masked": [
+     4659,
+     84982,
+     9753
+    ],
+    "clear": [
+     0,
+     0,
+     0
+    ]
+   },
+   "S1F11_USA": {
+    "masked": [
+     36522,
+     166054,
+     20733
+    ],
+    "clear": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  "1.0/real": {
+   "S1F11_Bolivia": {
+    "masked": [
+     4063,
+     11000,
+     1208
+    ],
+    "clear": [
+     0,
+     0,
+     0
+    ]
+   },
+   "S1F11_Ghana": {
+    "masked": [
+     26484,
+     17345,
+     23694
+    ],
+    "clear": [
+     0,
+     0,
+     0
+    ]
+   },
+   "S1F11_India": {
+    "masked": [
+     14445,
+     14935,
+     11823
+    ],
+    "clear": [
+     0,
+     0,
+     0
+    ]
+   },
+   "S1F11_Mekong": {
+    "masked": [
+     2103,
+     2564,
+     348
+    ],
+    "clear": [
+     0,
+     0,
+     0
+    ]
+   },
+   "S1F11_Nigeria": {
+    "masked": [
+     21426,
+     2321,
+     33342
+    ],
+    "clear": [
+     0,
+     0,
+     0
+    ]
+   },
+   "S1F11_Pakistan": {
+    "masked": [
+     0,
+     34925,
+     3936
+    ],
+    "clear": [
+     0,
+     0,
+     0
+    ]
+   },
+   "S1F11_Somalia": {
+    "masked": [
+     0,
+     0,
+     6
+    ],
+    "clear": [
+     0,
+     0,
+     0
+    ]
+   },
+   "S1F11_Spain": {
+    "masked": [
+     22891,
+     51439,
+     18347
+    ],
+    "clear": [
+     0,
+     0,
+     0
+    ]
+   },
+   "S1F11_Sri-Lanka": {
+    "masked": [
+     4659,
+     84982,
+     9753
+    ],
+    "clear": [
+     0,
+     0,
+     0
+    ]
+   },
+   "S1F11_USA": {
+    "masked": [
+     36522,
+     166054,
+     20733
+    ],
+    "clear": [
+     0,
+     0,
+     0
+    ]
+   }
+  }
+ }
+}

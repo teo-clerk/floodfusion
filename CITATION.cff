@@ -5,7 +5,7 @@ type: software
 authors:
   - family-names: Clerk
     given-names: Teo
-version: 1.0.0
+version: 1.1.0
 license: MIT
 repository-code: "https://github.com/teo-clerk/floodfusion"
 keywords:
@@ -31,6 +31,31 @@ references:
     year: 2020
     conference:
       name: "CVPR Workshops"
+  - type: conference-paper
+    title: "Kuro Siwo: 33 billion m² under the water. A global multi-temporal satellite dataset for rapid flood mapping"
+    authors:
+      - family-names: Bountos
+        given-names: Nikolaos Ioannis
+      - family-names: Sdraka
+        given-names: Maria
+      - family-names: Zavras
+        given-names: Angelos
+      - family-names: Karasante
+        given-names: Ilektra
+      - family-names: Karavias
+        given-names: Andreas
+      - family-names: Herekakis
+        given-names: Themistocles
+      - family-names: Thanasou
+        given-names: Angeliki
+      - family-names: Michail
+        given-names: Dimitrios
+      - family-names: Papoutsis
+        given-names: Ioannis
+    year: 2024
+    collection-title: "Advances in Neural Information Processing Systems 37 (Datasets and Benchmarks Track)"
+    start: 38105
+    end: 38121
   - type: article
     title: "Conformal Risk Control"
     authors:

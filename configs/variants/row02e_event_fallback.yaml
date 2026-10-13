@@ -1,0 +1,8 @@
+# v1.1 baseline variant 2e (descriptive, reports/protocol_v1_1.md): row 2, but a chip whose histogram
+# offers no bimodal tile takes the median accepted threshold of its event's other chips instead of
+# its own global Otsu (v1.0: 428 of 680 Sen1Floods11 chips fell back) — the scene context of GFM.
+extends: ../row02_baseline_adaptive.yaml
+name: "row02e_event_fallback"
+ablation_row: 0
+baseline:
+  threshold_fallback: "event"

@@ -51,7 +51,7 @@ from floodfusion.reporting import (
 )
 from floodfusion.runs import write_json
 
-__all__ = ["CAVEATS", "CV_GAPS", "build_cv_table", "merge_folds", "protocol_gap"]
+__all__ = ["CAVEATS", "CV_GAPS", "V11_GAPS", "V11_LABELS", "build_cv_table", "merge_folds", "protocol_gap"]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -83,9 +83,12 @@ CAVEATS = (
     "decoder only); its band subset and necks follow IBM's recipe, developed on Sen1Floods11's official "
     "splits; its schedule is row 9's, tuned for neither model; its SAR input is our z-score adapted by four "
     "affine parameters; clouded pixels reach it as its pre-training mean (it has no per-pixel gate).",
-    "**Labels mark water on a date, not a change.** In 7 of 10 events the flood-labelled pixels show no "
-    "backscatter decrease against a same-orbit reference up to 60 days earlier (see the label diagnostic): "
-    "change-based rules (rows 2, 3) are structurally penalised, amplitude-based ones are not.",
+    "**Labels mark water on a date; the reference may already be wet.** In most events the flood-labelled "
+    "pixels show no backscatter decrease against the reference — the latest same-orbit pass, 5-24 days "
+    "earlier, which can itself fall inside the flood. "
+    "[`sen1floods11_label_change.md`](sen1floods11_label_change.md) gives the count and separates water "
+    "already there a year earlier from a flood that began before the reference. Change-based rules "
+    "(rows 2, 3) are penalised by both; amplitude-based ones are not.",
     "**Validation is one event per fold** (the next, fixed in advance): early stopping, the prior, the "
     "calibration and the baseline offset come from it, so part of a fold's score is threshold transfer — "
     "compare IoU at τ* with the oracle-threshold IoU and AP.",
@@ -229,16 +232,28 @@ def protocol_gap(official: Mapping[str, Any], held_out: Mapping[str, Mapping[str
 # ---------------------------------------------------------------------------
 # Report sections
 # ---------------------------------------------------------------------------
+def _label(row: int | str) -> str:
+    if row in _LABELS:
+        return _LABELS[row]
+    if isinstance(row, int) or str(row).isdigit():
+        return ROW_LABELS[int(row)][0]
+    return V11_LABELS.get(str(row), str(row))
+
+
 def _main_table(summaries: Mapping[str, Mapping[str, Any]]) -> list[str]:
     lines = ["| # | Configuration | IoU at τ* [95 % CI over events] | IoU, oracle τ | AP | F1 | Seeds | Events |",
              "| --- | --- | --- | --- | --- | --- | --- | --- |"]
-    for row in _ROWS_IN_TABLE:
+    known = [str(r) for r in _ROWS_IN_TABLE]
+    order: list[int | str] = [*_ROWS_IN_TABLE, *sorted((k for k in summaries if k not in known),
+                                                      key=lambda k: (not k.isdigit(), int(k) if k.isdigit() else 0, k))]
+    for row in order:
         s = summaries.get(str(row))
         if s is None:
             continue
         mark = "§" if s["n_basins"] < MIN_BASINS_FOR_VERDICT else ""
-        label = _LABELS.get(row) or ROW_LABELS[row][0]
-        lines.append(f"| {row if isinstance(row, int) else 'TM'} | {label} | {fmt(s['iou'])} "
+        label = _label(row)
+        short = row if isinstance(row, int) else "TM" if row == TERRAMIND else row
+        lines.append(f"| {short} | {label} | {fmt(s['iou'])} "
                      f"[{fmt(s['ci'][0], 2)}, {fmt(s['ci'][1], 2)}]{mark} | {fmt(s['oracle'])} | {fmt(s['ap'])} | "
                      f"{fmt(s['f1'])} | {', '.join(map(str, s['seeds'])) or '—'} | {s['n_basins']} |")
     return lines
@@ -321,7 +336,14 @@ def _attribution_section(loeo_folds: Mapping[str, Any]) -> list[str]:
     """Row 2 per event with each rule component disabled — the change term above all."""
     variants: dict[str, dict[str, ConfusionMatrix]] = {}
     fallbacks, scenes = 0, 0
+    references: dict[str, dict[str, int]] = {}
     for fold_rows in loeo_folds.values():
+        for key in ("row02e_event_fallback", "row02s_seasonal"):
+            for e in fold_rows.get(key, []):
+                for info in (e["eval"].get("scenes") or {}).values():
+                    slot = references.setdefault(key, {})
+                    for name in (f"fallback: {info.get('fallback', 'none')}", f"reference: {info.get('reference', 'recent')}"):
+                        slot[name] = slot.get(name, 0) + 1
         for e in fold_rows.get("2", []):
             for name, per_basin in (e["eval"].get("attribution_per_basin") or {}).items():
                 variants.setdefault(name, {}).update({b: cm_from_dict(d) for b, d in per_basin.items()})
@@ -335,24 +357,147 @@ def _attribution_section(loeo_folds: Mapping[str, Any]) -> list[str]:
              "| Row 2 variant | Macro IoU over events | Pooled IoU |", "| --- | --- | --- |"]
     lines += [f"| {name} | {fmt(macro_iou(pb))} | {fmt(sum_confusions(list(pb.values())).iou)} |"
               for name, pb in sorted(variants.items())]
+    if references:
+        lines += ["", "Scenes of the v1.1 baseline variants by threshold fallback and change reference actually used:", "",
+                  "| Variant | Counts |", "| --- | --- |"]
+        lines += [f"| {key} | {', '.join(f'{k}: {v}' for k, v in sorted(c.items()))} |" for key, c in references.items()]
     return lines
 
 
+#: Rows added in v1.1 (descriptive ablations; ``reports/protocol_v1_1.md``), keyed as the runs are.
+V11_LABELS = {
+    "row09b_gate_bias0": "9b — row 9, gate starting half open (bias 0)",
+    "row09c_cloud_augment": "9c — row 9, synthetic clouds on half the optical training chips",
+    "row09r_sar_query": "9r — row 9, reverse assignment (Q from SAR, K = V from optical)",
+    "row02e_event_fallback": "2e — row 2, event-pooled threshold where a chip has no bimodal tile",
+    "row02s_seasonal": "2s — row 2e with the seasonal reference (same date, a year earlier)",
+    "cmp_terramind_small__eval_sar_only": "TM, evaluated SAR-only at inference (its own SAR-only calibration)",
+}
+#: v1.1 descriptive gaps (B - A): reported with unadjusted p-values and no verdict.
+V11_GAPS: tuple[tuple[int | str, int | str, str, str], ...] = (
+    (9, 12, "Plain BCE instead of the compound loss (12 − 9)", "open (synthetic: positive)"),
+    (9, "row09b_gate_bias0", "Gate starting half open (9b − 9)", "open"),
+    (9, "row09c_cloud_augment", "Synthetic clouds in training (9c − 9)", "open"),
+    (9, "row09r_sar_query", "Reverse assignment (9r − 9)", "open"),
+    (2, "row02e_event_fallback", "Event context for the baseline's threshold (2e − 2)", "≥ 0"),
+    ("row02e_event_fallback", "row02s_seasonal", "Seasonal reference for the change term (2s − 2e)", "positive"),
+)
+
+
+def _descriptive_gaps(summaries: Mapping[str, Mapping[str, Any]], rows: Mapping[str, Sequence[Mapping[str, Any]]],
+                      n_boot: int, alpha: float,
+                      gaps: Sequence[tuple[Any, Any, str, str]]) -> tuple[list[str], dict[str, Any]]:
+    """The same paired statistics as the gap table, without a verdict: not part of any test family."""
+    _, found = paired_gaps(summaries, rows, n_boot, alpha, gaps=gaps)
+    questions = {f"{b}-{a}": (q, e) for a, b, q, e in gaps}
+    lines = ["| Gap (B − A) | Question | Seeds | Δ IoU [95 % paired CI] | B > A in | p (sign-flip, unadjusted) | "
+             "Expected sign |", "| --- | --- | --- | --- | --- | --- | --- |"]
+    for key, g in found.items():
+        g.pop("p_holm", None)
+        g.pop("resolvable", None)
+        q, expected = questions[key]
+        b, a = key.split("-", 1)
+        if not g.get("comparable"):
+            lines.append(f"| {b} − {a} | {q} | | not comparable | | | {expected} |")
+            continue
+        seeds = ", ".join(map(str, g["seeds"])) or "—"
+        lines.append(f"| {b} − {a} | {q} | {seeds} | {g['delta']:+.3f} [{g['ci'][0]:+.3f}, {g['ci'][1]:+.3f}] | "
+                     f"{g['basins_b_better']}/{g['n_basins']} | {g['p_value']:.3f} | {expected} |")
+    return lines, found
+
+
+def _crossfit_section(folds: Mapping[str, Mapping[str, Sequence[Mapping[str, Any]]]], *, cost_ratio: float,
+                      alpha: float) -> tuple[list[str], dict[str, Any]]:
+    """Each held-out event calibrated on the other held-out events (:mod:`floodfusion.crossfit`)."""
+    from floodfusion.crossfit import crossfit_conformal, crossfit_cost_threshold, event_level_bound
+
+    by_row: dict[tuple[str, int | None], list[Mapping[str, Any]]] = {}
+    for rows in folds.values():
+        for key, entries in rows.items():
+            for e in entries:
+                if e["eval"].get("per_basin_confusion_by_threshold"):
+                    by_row.setdefault((key, _seed_key(e)), []).append(e)
+    lines = ["| Row | Seed | K | IoU at τ* (own validation) | IoU at cross-fitted τ | IoU, best τ per group | "
+             "Conformal: events with FNR ≤ α, own → cross-fitted | Mean chip FNR, cross-fitted | Precision at τ_conf, "
+             "cross-fitted |", "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"]
+    out: dict[str, Any] = {}
+    for (key, seed), entries in sorted(by_row.items(), key=lambda kv: (str(kv[0][0]), kv[0][1] or 0)):
+        curves, chips, own = {}, {}, {}
+        for e in entries:
+            ts = e["eval"]["thresholds"]
+            for event, cms in e["eval"]["per_basin_confusion_by_threshold"].items():
+                curves[event] = (ts, [ConfusionMatrix(*map(int, c)) for c in cms])
+            grid = e["eval"].get("per_chip_grid") or {}
+            basin_of = e["eval"].get("per_chip_basin") or {}
+            for chip, cms in (grid.get("cms") or {}).items():
+                chips.setdefault(basin_of[chip], (grid["thresholds"], {}))[1][chip] = \
+                    [ConfusionMatrix(*map(int, c)) for c in cms]
+            conf = e["eval"].get("conformal") or {}
+            if conf.get("feasible"):   # an infeasible fold flags everything: not a held target
+                own.update(conf.get("test_mean_chip_fnr_by_basin") or {})
+        cost = crossfit_cost_threshold(curves, cost_ratio)
+        conformal = crossfit_conformal(chips, alpha)
+        tau_own = macro_iou({ev: cm_from_dict(d) for e in entries for ev, d in e["eval"]["per_basin"].items()})
+        oracle = float(np.nanmean([max(c.iou for c in cms if not math.isnan(c.iou)) for _, cms in curves.values()]))
+        crossed = float(np.nanmean([v["iou"] for v in cost.values()])) if cost else math.nan
+        feasible = {ev: v for ev, v in conformal.items() if v.get("feasible")}
+        held_cf = sum(v["mean_chip_fnr"] <= alpha for v in feasible.values())
+        held_own = sum(v <= alpha for v in own.values())
+        lines.append(f"| {key} | {seed if seed is not None else '—'} | {len(curves)} | {fmt(tau_own)} | {fmt(crossed)} | "
+                     f"{fmt(oracle)} | {held_own}/{len(own)} → {held_cf}/{len(feasible)} | "
+                     f"{fmt(float(np.nanmean([v['mean_chip_fnr'] for v in feasible.values()])) if feasible else math.nan)} | "
+                     f"{fmt(float(np.nanmean([v['precision'] for v in feasible.values()])) if feasible else math.nan)} |")
+        out[f"{key}/seed{seed}"] = {"cost": cost, "conformal": conformal, "iou_own": tau_own, "iou_crossfit": crossed,
+                                    "oracle": oracle}
+    k = max((len(v["cost"]) for v in out.values()), default=0)
+    note = (f"Event-level conformal control with n = {k - 1} calibration events tolerates a calibration risk of at most "
+            f"{event_level_bound(k - 1, alpha):+.3f} at α = {alpha:g} (≤ 0: vacuous — flag everything); the "
+            "cross-fitted threshold above is chip-level control under pooling.") if k > 1 else ""
+    return lines + (["", note] if note else []), out
+
+
 def build_cv_table(runs_root: Path | str, *, out: Path | str | None = None, allow_dirty: bool = False,
-                   n_boot: int = 10_000, alpha: float = 0.05) -> str:
+                   n_boot: int = 10_000, alpha: float = 0.05, protocol: str = "loeo",
+                   title: str | None = None, intro: Sequence[str] | None = None,
+                   caveats: Sequence[str] | None = None, v11: bool = False) -> str:
+    """The cross-validation report of one protocol directory under ``runs_root``.
+
+    The defaults reproduce the v1.0 Sen1Floods11 report. ``protocol`` names another fold set
+    (``kfold`` for Kuro Siwo), with its own ``title``, ``intro`` and ``caveats``; ``v11`` adds the
+    v1.1 sections: descriptive gaps of the variants (no verdict, not part of the gap family) and
+    the cross-fitted calibration.
+    """
     runs_root = Path(runs_root)
-    loeo_folds, problems = _collect(runs_root / "loeo", allow_dirty)
+    loeo_folds, problems = _collect(runs_root / protocol, allow_dirty)
     if not loeo_folds:
-        raise FileNotFoundError(f"no evaluated LOEO folds under {runs_root / 'loeo'}")
-    official_folds, more = _collect(runs_root / "official", allow_dirty)
+        raise FileNotFoundError(f"no evaluated {protocol} folds under {runs_root / protocol}")
+    official_folds, more = _collect(runs_root / "official", allow_dirty) if protocol == "loeo" else ({}, [])
     problems += more
     rows = merge_folds(loeo_folds)
     summaries = {k: row_summary(k, v, n_boot, alpha) for k, v in rows.items()}
     gap_lines, gaps = paired_gaps(summaries, rows, n_boot, alpha, gaps=CV_GAPS)
-    protocol_lines, protocol = _protocol_section(loeo_folds, official_folds)
+    protocol_lines, protocol_gaps = _protocol_section(loeo_folds, official_folds)
     conformal_lines, conformal = _conformal_section(loeo_folds)
     attribution = _attribution_section(loeo_folds)
     events = sorted({b for s in summaries.values() for b in s["per_basin"]})
+    v11_lines: list[str] = []
+    v11_json: dict[str, Any] = {}
+    if v11:
+        d_lines, d_gaps = _descriptive_gaps(summaries, rows, n_boot, alpha, V11_GAPS)
+        c_lines, c_json = _crossfit_section(loeo_folds, cost_ratio=3.0, alpha=0.1)
+        v11_lines = ["## v1.1 variants — descriptive gaps (not part of the gap family; no verdict)", "", *d_lines, "",
+                     "## Calibration across events: each held-out event calibrated on the others (cross-fitted)", "",
+                     "The cost-optimal threshold and the conformal threshold of each held-out event are fitted on the "
+                     "pooled held-out predictions of the *other* events (each from its own fold model) instead of the "
+                     "fold's single validation event. Nothing is re-run: the stored confusion counts are re-read "
+                     "(`floodfusion.crossfit`). n counts windows, not events, and each calibration window comes from a "
+                     "fold model that was trained on the target event: the control is approximate (cross-conformal "
+                     "in style), not a finite-sample guarantee.", "", *c_lines, ""]
+        v11_json = {"descriptive_gaps": d_gaps, "crossfit": c_json}
+    if title is not None:
+        header = [f"# {title}", "", *(intro or ()), ""]
+        return _write_cv_report(out, summaries, gaps, gap_lines, conformal_lines, conformal, attribution, events,
+                                problems, header, caveats or (), v11_lines, v11_json)
     text = "\n".join([
         "# Sen1Floods11, re-ingested — leave-one-event-out and the published split",
         "",
@@ -385,6 +530,7 @@ def build_cv_table(runs_root: Path | str, *, out: Path | str | None = None, allo
         *(conformal_lines if len(conformal_lines) > 2 else ["(no conformal results recorded)"]), "",
         *(["## Physics baseline: what each rule component costs on these labels", "", *attribution, ""]
           if attribution else []),
+        *v11_lines,
         "## Per-event IoU at τ* (LOEO)", "", *per_basin_table(summaries), "",
         *(["## Reproducibility problems", "", *[f"- {p}" for p in problems[:30]], ""] if problems else []),
     ])
@@ -396,8 +542,42 @@ def build_cv_table(runs_root: Path | str, *, out: Path | str | None = None, allo
             "rows": {k: {"iou": s["iou"], "ci": list(s["ci"]), "ap": s["ap"], "oracle": s["oracle"],
                          "per_event": {b: m.iou for b, m in s["per_basin"].items()}, "seeds": s["seeds"]}
                      for k, s in summaries.items()},
-            "gaps": gaps, "protocol_gap": protocol, "conformal": conformal, "events": events,
-            "reproducibility_problems": problems,
+            "gaps": gaps, "protocol_gap": protocol_gaps, "conformal": conformal, "events": events,
+            "reproducibility_problems": problems, **v11_json,
         })
     LOGGER.info("wrote %s", out)
+    return text
+
+
+def _write_cv_report(out: Path | str | None, summaries: Mapping[str, Mapping[str, Any]], gaps: Mapping[str, Any],
+                     gap_lines: Sequence[str], conformal_lines: Sequence[str], conformal: Mapping[str, Any],
+                     attribution: Sequence[str], events: Sequence[str], problems: Sequence[str],
+                     header: Sequence[str], caveats: Sequence[str], v11_lines: Sequence[str],
+                     v11_json: Mapping[str, Any]) -> str:
+    """A cross-validation report of another protocol (no published split): same sections, own header."""
+    text = "\n".join([
+        *header, *_main_table(summaries), "",
+        f"§ fewer than {MIN_BASINS_FOR_VERDICT} groups: the interval is indicative only.", "",
+        *(["## Caveats", "", *[f"- {c}" for c in caveats], ""] if caveats else []),
+        "## Paired gaps over held-out groups (matched seeds)", "", *gap_lines, "",
+        "## Conformal recall control across groups (calibrated on each fold's validation groups)", "",
+        *(conformal_lines if len(conformal_lines) > 2 else ["(no conformal results recorded)"]), "",
+        *(["## Physics baseline: what each rule component costs on these labels", "", *attribution, ""]
+          if attribution else []),
+        *v11_lines,
+        "## Per-group IoU at τ*", "", *per_basin_table(summaries), "",
+        *(["## Reproducibility problems", "", *[f"- {p}" for p in problems[:30]], ""] if problems else []),
+    ])
+    if out is not None:
+        out = Path(out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(text, encoding="utf-8")
+        write_json(out.with_suffix(".json"), {
+            "rows": {k: {"iou": s["iou"], "ci": list(s["ci"]), "ap": s["ap"], "oracle": s["oracle"],
+                         "per_event": {b: m.iou for b, m in s["per_basin"].items()}, "seeds": s["seeds"]}
+                     for k, s in summaries.items()},
+            "gaps": gaps, "conformal": conformal, "events": list(events), "reproducibility_problems": list(problems),
+            **v11_json,
+        })
+        LOGGER.info("wrote %s", out)
     return text

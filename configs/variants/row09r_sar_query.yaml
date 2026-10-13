@@ -1,0 +1,9 @@
+# v1.1 variant 9r (descriptive ablation, docs: reports/protocol_v1_1.md).
+# The reverse assignment: Q from SAR, K = V from optical (models/fusion_module.py asks for it as an
+# ablation). The gated residual stays on the SAR stream, so R2 (g -> 0 gives F_s exactly) still holds;
+# "every retrievable value is a SAR feature" does not.
+extends: ../row09_fusion_crossattn.yaml
+name: "row09r_sar_query"
+ablation_row: 0
+model:
+  fusion_query: "sar"

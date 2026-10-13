@@ -325,11 +325,16 @@ class CrossAttentionFusion(nn.Module):
         # Pre-norm on the token streams (per token, over channels) stabilises the logit
         # scale early in training (docs/07 section 4.2); it acts on the ATTENTION branch
         # only — the residual F_s is never normalised, projected or biased (R2).
-        self.norm_q = nn.LayerNorm(optical_channels)
-        self.norm_kv = nn.LayerNorm(sar_channels)
-        self.q_proj = nn.Linear(optical_channels, self.inner_dim)
-        self.k_proj = nn.Linear(sar_channels, self.inner_dim)
-        self.v_proj = nn.Linear(sar_channels, self.inner_dim)
+        # ``fusion_query = "sar"`` is the reverse assignment (v1.1 row 9r): Q from SAR, K = V from
+        # optical. The residual and the gate stay on the SAR stream, so g -> 0 is still exact (R2);
+        # what is lost is "every retrievable value is a SAR feature".
+        self.query_from_sar = cfg.fusion_query == "sar"
+        q_in, kv_in = (sar_channels, optical_channels) if self.query_from_sar else (optical_channels, sar_channels)
+        self.norm_q = nn.LayerNorm(q_in)
+        self.norm_kv = nn.LayerNorm(kv_in)
+        self.q_proj = nn.Linear(q_in, self.inner_dim)
+        self.k_proj = nn.Linear(kv_in, self.inner_dim)
+        self.v_proj = nn.Linear(kv_in, self.inner_dim)
         self.out_proj = nn.Linear(self.inner_dim, sar_channels)
         self.gate = AvailabilityGate(sar_channels, optical_channels, bias_init=cfg.gate_bias_init)
 
@@ -352,10 +357,11 @@ class CrossAttentionFusion(nn.Module):
 
         sar_tokens = sar_features.flatten(2).transpose(1, 2)         # (B, N, C_s)
         opt_tokens = optical_features.flatten(2).transpose(1, 2)     # (B, N, C_o)
-        kv_in = self.norm_kv(sar_tokens)
-        q = self._heads(self.q_proj(self.norm_q(opt_tokens)))      # (B, h, N, d) from OPTICAL
-        k = self._heads(self.k_proj(kv_in))                         # (B, h, N, d) from SAR
-        v = self._heads(self.v_proj(kv_in))                         # (B, h, N, d) from SAR
+        q_tokens, kv_tokens = (sar_tokens, opt_tokens) if self.query_from_sar else (opt_tokens, sar_tokens)
+        kv_in = self.norm_kv(kv_tokens)
+        q = self._heads(self.q_proj(self.norm_q(q_tokens)))        # (B, h, N, d) from OPTICAL (reference)
+        k = self._heads(self.k_proj(kv_in))                         # (B, h, N, d) from SAR (reference)
+        v = self._heads(self.v_proj(kv_in))                         # (B, h, N, d) from SAR (reference)
         # SDPA applies 1/sqrt(d) itself. No additive mask (it would forfeit the Flash path)
         # and no dropout (it would make the SAR-only forward stochastic in train mode).
         attn = F.scaled_dot_product_attention(q, k, v)

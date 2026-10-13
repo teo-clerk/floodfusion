@@ -236,6 +236,38 @@ class _Model:
     calibrated: bool = True                 # a probability (oracle threshold meaningful) or a 0/1 map
 
 
+#: The SAR-only evaluation of a model with an optical input, beside its run: row 9's is row 11.
+SAR_ONLY_SIBLINGS = {"row09_fusion_crossattn": "row11_fusion_eval_sar_only",
+                     "cmp_terramind_small": "cmp_terramind_small__eval_sar_only"}
+
+
+def sar_only_calibration(run_dir: Path) -> dict[str, float] | None:
+    """The calibration a model was given for its no-optical mode (fitted on SAR-only validation logits).
+
+    A model with an optical input is two predictors: with optical and without. v1.0 calibrates
+    both (row 9 and row 11); a window without usable optical must be read with the second.
+    """
+    sibling = SAR_ONLY_SIBLINGS.get(run_dir.parent.name)
+    path = run_dir.parent.parent / sibling / run_dir.name / "eval_test.json" if sibling else None
+    if path is None or not path.is_file():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))["calibration"]
+
+
+def recalibrate_without_optical(prob: np.ndarray, optical_used: np.ndarray, cal: Mapping[str, float],
+                                sar_cal: Mapping[str, float]) -> np.ndarray:
+    """Re-read the windows that ran without optical with the SAR-only calibration.
+
+    ``prob = sigmoid((z + c) / T)`` with the with-optical (T, c); the raw score is recovered as
+    ``z = T logit(prob) - c`` and re-calibrated as ``sigmoid((z + c') / T')``. One forward pass.
+    """
+    with np.errstate(divide="ignore", invalid="ignore"):
+        p = np.clip(prob.astype(np.float64), 1e-12, 1 - 1e-12)
+        z = cal["temperature"] * np.log(p / (1 - p)) - cal["offset"]
+        sar = 1.0 / (1.0 + np.exp(-(z + sar_cal["offset"]) / sar_cal["temperature"]))
+    return np.where(optical_used | ~np.isfinite(prob), prob, sar).astype(np.float32)
+
+
 def _learned(run_dir: Path, device: Any) -> _Model:
     from floodfusion.evaluate import load_run
     from floodfusion.predict import _resolve_run, predict_stack
@@ -243,12 +275,13 @@ def _learned(run_dir: Path, device: Any) -> _Model:
     weights, evaluation = _resolve_run(run_dir)
     sar_only = bool(evaluation.get("force_sar_only"))
     cal = evaluation["calibration"]
+    sar_cal = None if sar_only else sar_only_calibration(run_dir)
     cfg, _, model, _, _ = load_run(weights, None, device, sar_only)
 
     def run(stack: Path) -> np.ndarray:
-        prob, _ = predict_stack(model, cfg, stack, temperature=cal["temperature"], offset=cal["offset"],
-                                device=device, force_sar_only=sar_only)
-        return prob
+        prob, optical_used = predict_stack(model, cfg, stack, temperature=cal["temperature"], offset=cal["offset"],
+                                           device=device, force_sar_only=sar_only)
+        return prob if sar_cal is None else recalibrate_without_optical(prob, optical_used, cal, sar_cal)
 
     return _Model("fusion, SAR only" if sar_only else "fusion (cross-attention)", run, cfg.eval.decision_threshold)
 
@@ -258,11 +291,19 @@ def _baseline(run_dir: Path, configs_dir: Path, overlays: Sequence[Path]) -> _Mo
     from floodfusion.config import load_config
 
     evaluation = json.loads((run_dir / "eval_test.json").read_text(encoding="utf-8"))
-    cfg = load_config(configs_dir / "row02_baseline_adaptive.yaml", overlays=overlays)
+    record = run_dir / "run.json"
+    if record.is_file():   # the run's own resolved configuration (row 2 or a v1.1 variant of it)
+        from floodfusion.config import config_from_dict
+
+        cfg = config_from_dict(json.loads(record.read_text(encoding="utf-8"))["config"])
+    else:
+        cfg = load_config(configs_dir / "row02_baseline_adaptive.yaml", overlays=overlays)
     offset = float(evaluation["operating_offset_db"])
 
     def run(stack: Path) -> np.ndarray:
-        # Deployment has no label: the threshold comes from every valid SAR pixel. (The benchmark
+        # A case tile is a ~16 x 17 km scene: its own histogram is the scene context, so the event-pooled
+        # fallback (threshold_fallback: event) does not apply here; a tile without a bimodal sub-tile
+        # falls back to its own Otsu. Deployment has no label: the threshold comes from every valid SAR pixel. (The benchmark
         # runner scores labelled pixels; a case tile's label is a CEMS delineation, often absent.)
         scene = load_scene(stack, cfg)
         valid = np.isfinite(scene.vv_post_db) & ~scene.layover & ~scene.shadow & ~scene.permanent

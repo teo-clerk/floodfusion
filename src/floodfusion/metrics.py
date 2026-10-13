@@ -420,10 +420,12 @@ def sign_flip_p_value(deltas: Sequence[float], *, n_mc: int = 200_000, seed: int
     observed = abs(d.mean())
     if k <= 20:
         signs = 1 - 2 * ((np.arange(2**k)[:, None] >> np.arange(k)) & 1)   # every pattern of +-1
-    else:
-        signs = np.random.default_rng(seed).choice((-1, 1), size=(n_mc, k))
+        null = np.abs((signs * d).mean(axis=1))
+        return float((null >= observed - 1e-12).mean())
+    # Monte Carlo: (count + 1) / (n + 1), the unbiased form that can never report p = 0.
+    signs = np.random.default_rng(seed).choice((-1, 1), size=(n_mc, k))
     null = np.abs((signs * d).mean(axis=1))
-    return float((null >= observed - 1e-12).mean())
+    return float(((null >= observed - 1e-12).sum() + 1) / (n_mc + 1))
 
 
 def holm_adjust(p_values: Mapping[str, float]) -> dict[str, float]:

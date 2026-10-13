@@ -20,8 +20,12 @@
   - Focal + soft-Dice loss on a balanced chip sampler; AdamW, warmup + cosine schedule, bf16.
   - Per-sample modality dropout (p = 0.5), so the SAR-only case is trained, not hoped for.
   - Calibration (prior correction, temperature, Platt when it helps) is fitted on validation only.
+- **Training data.**
+  - Sen1Floods11: water labels drawn mostly on Sentinel-2.
+  - Kuro Siwo (v1.1): flood labels drawn on Sentinel-1, and the same chips relabelled as water.
+  - The two are separate models; no model mixes the datasets.
 - **Code and reproduction.** `src/floodfusion`; every reported number regenerates from a git SHA
-  (`make demo`, `make s1f11`, `make forli`). Licence: MIT.
+  (`make demo`, `make s1f11`, `make forli`; v1.1: `scripts/v11_queue.sh all`). Licence: MIT.
 
 ## Intended use
 
@@ -41,7 +45,16 @@
 
 ## Evaluation data and protocol
 
-- **Sen1Floods11, re-ingested** (`reports/sen1floods11_table.md`).
+- **CEMS benchmark, v1.1** (`reports/cems_benchmark.md`, `reports/cems_benchmark_strata.md`).
+  - **The confirmatory test set.** Copernicus EMS delineations of 38 flood activations, 2023-03 to 2026-03, drawn on
+    non-Sentinel radar satellites.
+  - **Pairing:** each delineation is paired with a Sentinel-1 pass within 24 h, selected by a rule committed before
+    any v1.1 model was trained (`reports/protocol_v1_1.md`).
+  - **Tests:** four pre-registered tests. A result counts only if it holds per activation and per cluster of
+    neighbouring activations.
+- **Kuro Siwo, v1.1** (`reports/v11_kurosiwo_table.md`, `reports/v11_kurosiwo_water_table.md`): 36 floods in 29
+  groups, with labels drawn on radar. Grouped five-fold: each group is tested once by a model that never saw it.
+- **Sen1Floods11, re-ingested** (`reports/sen1floods11_table.md`; v1.1 re-run: `reports/v11_sen1floods11_table.md`).
   - 10 flood events on 5 continents, labels from the dataset, every input re-fetched.
   - Leave-one-event-out: each event is tested once by a model that never saw it.
   - Verdicts are exact sign-flip permutation tests over events, Holm-adjusted.
@@ -58,7 +71,28 @@
 
 All numbers come from the release runs; each report records its git SHA.
 
-- **Sen1Floods11, leave-one-event-out (10 events), IoU at τ\* = 0.25.**
+- **CEMS benchmark (v1.1, 38 activations, zero-shot, IoU at each model's own τ\*).**
+
+  | Model | Trained on Sen1Floods11 | Trained on Kuro Siwo |
+  | --- | --- | --- |
+  | Fusion | 0.258 | 0.397 |
+  | SAR-only U-Net | 0.281 | 0.394 |
+  | TerraMind-small | 0.226 | — |
+
+  The physics baseline scores 0.371.
+
+  **The pre-registered tests:**
+  - Flood-label recipe beats water-label recipe on the same Kuro Siwo chips: +0.06, supported. Part of this is
+    agreement of definitions, since CEMS maps are flood maps.
+  - Fusion beats TerraMind at each model's own threshold: +0.03, supported. At the best single threshold, chosen
+    in-sample, the order reverses (0.260 vs 0.270).
+  - Fusion beats the SAR U-Net where optical is usable: +0.04, not significant on 8 activations, and too few clusters
+    for a verdict. Result: no verdict.
+  - Fusion is non-inferior without optical: −0.02, which holds per activation, not per cluster. Not supported.
+- **Kuro Siwo, grouped five-fold (v1.1, 29 groups).** Fusion 0.535, SAR U-Net 0.505, the same fusion model without
+  optical 0.533, physics baseline 0.417. Fusion vs SAR U-Net is +0.030 and not significant.
+- **Sen1Floods11, leave-one-event-out (10 events), IoU at τ\* = 0.25.** The v1.1 re-run replicates the finding:
+  fusion 0.608, SAR U-Net 0.343, +0.265 on 10 of 10 events.
   - Fusion (3 seeds): **0.625**, AP 0.769.
   - The same model without optical: 0.383.
   - SAR-only U-Net: 0.365.
@@ -68,7 +102,7 @@ All numbers come from the release runs; each report records its git SHA.
   - At the oracle threshold, fusion scores 0.668: some of the gap to τ\* is threshold transfer between events.
 - **Per event**, fusion ranges from 0.443 (Pakistan) to 0.852 (Mekong); see
   `reports/sen1floods11_table.md`.
-- **Conformal recall (α = 0.1).** The mean per-chip miss rate is 0.08–0.10, but the target holds on only
+- **Conformal recall (α = 0.1).** The mean per-chip miss rate is 0.08–0.11, but the target holds on only
   5–8 of 10 held-out events, and precision at the conformal threshold is about 0.25.
 - **EMSR664 Forlì, zero-shot against Copernicus EMS.** Scored on the 1101 km² common region against the nearest
   delineation:
@@ -80,9 +114,18 @@ All numbers come from the release runs; each report records its git SHA.
 
 ## Factors and known failure modes
 
-- **Optical's measured value is partly agreement with the annotators.** Sen1Floods11 labels were
-  drawn mostly on the Sentinel-2 image the model also sees. The CEMS comparison is the independent
-  check.
+- **Optical's measured value may be partly agreement with the annotators.**
+  - Sen1Floods11 labels were drawn mostly on the Sentinel-2 image the model also sees, where fusion gains +0.26.
+  - On the independent, radar-drawn CEMS maps where optical is usable, the gain is +0.04 [−0.02, +0.11] on 8
+    activations. That excludes +0.26 but does not decide a smaller gain. Region, years and reference type differ too,
+    so the drop is consistent with annotator agreement, not proof of it.
+  - Trained on Kuro Siwo's radar-drawn labels, the model uses almost nothing from optical at inference (0.397 with
+    it, 0.398 without).
+- **Training data moved scores more than the architecture (descriptive).** On CEMS, where only the flood-vs-water
+  comparison holds the chips and the architecture fixed:
+  - the same fusion network scores 0.397 trained on Kuro Siwo flood labels, 0.338 on water labels of the same chips,
+    and 0.258 on Sen1Floods11;
+  - Sen1Floods11-trained models score below the physics baseline (0.371) in a new region.
 - **Change versus amplitude.** On labels that mark water on a date rather than a change, rules
   built on backscatter change are penalised. In 8 of 10 Sen1Floods11 events the labelled flood
   shows no backscatter drop against a same-orbit reference up to 60 days earlier.
@@ -93,6 +136,19 @@ All numbers come from the release runs; each report records its git SHA.
   at 0.12–0.17 over clear pixels, slightly higher under the cloud mask; only 2–6 % of clear pixels open
   past 0.5 (`reports/gate_diagnostic.md`). The network takes almost nothing from optical there (clear sky
   adds 0.004 IoU). What holds by construction is the SAR-only path when optical is missing.
+- **Partial cloud (real data).** The SAR-only fallback holds for a whole chip without optical, not per pixel.
+  With real cloud shapes pasted onto clear Sen1Floods11 chips, the flooded pixels under the cloud are almost
+  all missed (IoU 0.02–0.03, against 0.21 when the same chip is run SAR-only), while clear pixels keep their
+  accuracy even next to the cloud edge. On real data the gate opens with optical (≈ 0.21–0.52 against
+  0.14–0.19 with the missing embedding) but barely responds to the per-pixel quality
+  (`reports/stage_a_diagnostics.md`, A1 and A2).
+  - **Consistent with independent maps (descriptive).** On CEMS activations 10–50 % clear, the same fusion model
+    scores 0.254 with optical and 0.307 run without it, and 0.06 below the SAR U-Net, better on 2 of 15. This subset
+    was added to the protocol after Stage A had found the failure.
+  - **Variant 9c (synthetic clouds in training)** has a leave-one-event-out gap of −0.004 [−0.026, +0.023]: one
+    seed, no verdict. Whether it fixes the per-pixel failure was not tested.
+  - Until it is fixed, mask partly cloudy optical out entirely, or run the SAR-only mode, where clouds cover
+    flood-prone ground.
 - **Geometry.**
   - Sentinel-2 L2A of 2016–2019 sits 1–3 px from the radar geometry, and Sen1Floods11 labels follow it.
     Labels and optical are registered to the SAR per event, using the labels' water edges where the
@@ -109,4 +165,6 @@ marked "dry" under canopy, in a city, in radar shadow, or outside the acquisitio
 ## Data and attribution
 
 See [`DATA_CARD.md`](DATA_CARD.md). Contains modified Copernicus Sentinel data. CEMS products:
-© European Union, Copernicus Emergency Management Service.
+© European Union, Copernicus Emergency Management Service. Kuro Siwo annotations (training and cross-validation of
+the v1.1 Kuro Siwo models): Bountos et al., NeurIPS 2024, CC BY 4.0. Sen1Floods11 labels: Bonafilia et al., 2020, no
+licence declared, never redistributed.

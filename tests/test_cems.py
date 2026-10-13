@@ -224,3 +224,21 @@ class TestReviewHardening:
                                                  ("x", None), (2.5, None)])
     def test_source_ids_survive_float_columns(self, value, expected) -> None:
         assert cems._source_id(value) == expected
+
+
+
+def test_a_member_whose_content_does_not_match_its_name_is_refused() -> None:
+    from floodfusion.data.cems import content_matches
+
+    assert content_matches("x_observedEventA_v1.json", b'\xef\xbb\xbf {"type": "FeatureCollection"}')
+    assert content_matches("x_source_v1.dbf", bytes([0x03, 0x7c, 0x05]))
+    assert not content_matches("x_observedEventA_v1.json", b"<OGRVRTDataSource><OGRVRTLayer>")
+    assert not content_matches("x_source_v1.dbf", b"<OGRVRTDataSource>")
+
+
+def test_the_ogr_vrt_driver_is_never_loaded() -> None:
+    import os
+
+    import floodfusion  # noqa: F401 - importing the package sets it
+
+    assert "OGR_VRT" in os.environ["OGR_SKIP"].split(",")

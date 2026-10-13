@@ -54,7 +54,16 @@ Run tests with ``make test``, not with a bare ``pytest`` from an arbitrary direc
 
 from __future__ import annotations
 
-__version__ = "1.0.0"
+import os as _os
+
+# A downloaded "*.json" or "*.dbf" holding an <OGRVRTDataSource> would make GDAL read other files
+# (or URLs) on open, whatever the file name says: the OGR VRT driver is never loaded. OGR_SKIP is read
+# when GDAL registers its drivers, i.e. on the first import of pyogrio/rasterio — after this package.
+_skip = [d for d in _os.environ.get("OGR_SKIP", "").replace(" ", ",").split(",") if d]
+if "OGR_VRT" not in _skip:
+    _os.environ["OGR_SKIP"] = ",".join([*_skip, "OGR_VRT"])
+
+__version__ = "1.1.0"
 
 __all__ = [
     "__version__",

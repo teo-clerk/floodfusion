@@ -1,0 +1,51 @@
+# Kuro Siwo post-event Sentinel-1 dates (the image the annotators drew on), per event folder of
+# Orion-AI-Lab/KuroSiwo-annotations @ b930dd27. Source: the MS1 (master) GeoTIFF names
+# MS1_<pol>_<act>_<aoi>_<YYYYMMDD>.tif in huggingface.co/datasets/orion-ai-lab/Kuro-Siwo-GeoTIFFs (GRD/*.tar),
+# read from the tar headers by HTTP range requests on 2026-10-10 (48 reads per tar); EMSR205 from its
+# event layer's src_date. No MS1 date was found for Cameroon, Djibouti and Nicaragua: excluded.
+# An event with no date is excluded (floodfusion.data.kurosiwo). Several dates: the acquisition covering
+# each AOI best is chosen among them.
+events:
+  EMSR1111002_Cameroon: {post: []}
+  EMSR1111003_Djibouti: {post: []}
+  EMSR1111004_USA: {post: [2017-08-29]}
+  EMSR1111005_Madagascar: {post: [2020-01-26]}
+  EMSR1111006_Madagascar: {post: [2020-01-31]}
+  EMSR1111007_Nepal: {post: [2019-09-18]}
+  EMSR1111008_Nicaragua: {post: []}
+  EMSR1111009_Pakistan: {post: [2022-09-11]}
+  EMSR1111010_Peru: {post: [2017-03-11]}
+  EMSR1111011_Philippines: {post: [2020-11-13]}
+  EMSR1111013_USA: {post: [2017-05-04]}
+  EMSR118_Spain: {post: [2015-02-02, 2015-02-03]}
+  EMSR130_Myanmar: {post: [2015-09-13]}
+  EMSR147_Cumbria: {post: [2015-12-10]}
+  EMSR174_Skopje: {post: [2016-08-07]}
+  EMSR205_SriLanka: {post: [2017-05-30]}
+  EMSR267_Lithuania: {post: [2018-02-02]}
+  EMSR273_Albania: {post: [2018-03-11]}
+  EMSR275_Croatia: {post: [2018-03-22]}
+  EMSR277_Greece: {post: [2018-03-27]}
+  EMSR279_Spain: {post: [2018-04-13, 2018-04-19]}
+  EMSR321_Honduras: {post: [2018-10-07]}
+  EMSR324_France: {post: [2018-10-16]}
+  EMSR411_France: {post: [2019-11-25]}
+  EMSR417_Portugal: {post: [2019-12-23]}
+  EMSR421_France: {post: [2020-01-23]}
+  EMSR427_Sweden: {post: [2020-02-22]}
+  EMSR437_France: {post: [2020-05-13]}
+  EMSR445_Romania: {post: [2020-06-26]}
+  EMSR470_Togo: {post: [2020-10-14]}
+  EMSR492_France: {post: [2021-01-02]}
+  EMSR496_Italy: {post: [2021-01-27]}
+  EMSR497_Germany: {post: [2021-02-03]}
+  EMSR498_France: {post: [2021-02-02]}
+  EMSR502_Ireland: {post: [2021-02-23]}
+  EMSR518_Belgium: {post: [2021-07-15]}
+  EMSR520_Netherlands: {post: [2021-07-16]}
+  EMSR554_Australia: {post: [2021-11-30]}
+  EMSR555_Spain: {post: [2021-12-10]}
+  EMSR559_Madagascar: {post: [2022-01-27]}
+  EMSR561_Malawi: {post: [2022-01-26]}
+  EMSR562_Australia: {post: [2022-02-03]}
+  EMSR567_Australia: {post: [2022-03-02, 2022-03-07]}

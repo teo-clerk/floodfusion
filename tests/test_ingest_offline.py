@@ -415,3 +415,16 @@ def test_a_rerun_never_keeps_stale_artefacts(archive, cfg, tmp_path) -> None:
     (event_dir / "chips.parquet").write_bytes(b"stale")
     ingest_event(_event(root), out, cfg, sources=IngestSources(client=catalogue))
     assert load_manifest(event_dir / "chips.parquet")          # rewritten, readable
+
+
+def test_the_optical_window_widens_the_sentinel2_search_only() -> None:
+    from datetime import date, datetime
+
+    from floodfusion.data.ingest import EventConfig
+
+    base = EventConfig(event_id="e", bbox=(0.0, 0.0, 1.0, 1.0), flood_start=date(2024, 1, 10),
+                       flood_end=date(2024, 1, 10), label_path=Path("x.geojson"))
+    assert base.query().optical_start == datetime(2024, 1, 10) == base.query().optical_end
+    wide = EventConfig(**{**base.__dict__, "optical_window_days": 2}).query()
+    assert (wide.optical_start, wide.optical_end) == (datetime(2024, 1, 8), datetime(2024, 1, 12))
+    assert (wide.flood_start, wide.flood_end) == (datetime(2024, 1, 10), datetime(2024, 1, 10))

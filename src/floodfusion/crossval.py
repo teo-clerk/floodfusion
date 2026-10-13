@@ -36,8 +36,8 @@ from typing import Any
 from floodfusion.data.records import ChipRecord, atomic_write_bytes
 from floodfusion.splits import STRATEGY_LOBO, STRATEGY_PUBLISHED, SplitAssignment
 
-__all__ = ["CV_DIR", "LEARNED_CV_ROWS", "Fold", "folds_on_disk", "leave_one_group_out", "main", "official_splits",
-           "run_cv", "write_folds"]
+__all__ = ["CV_DIR", "LEARNED_CV_ROWS", "Fold", "all_groups_split", "assign_group_folds", "folds_on_disk",
+           "k_fold_groups", "leave_one_group_out", "main", "official_splits", "run_cv", "write_folds"]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -89,6 +89,80 @@ def leave_one_group_out(records: Sequence[ChipRecord], *, manifest_sha256: str =
             strategy=STRATEGY_LOBO, manifest_sha256=manifest_sha256,
         )
     return folds
+
+
+def assign_group_folds(records: Sequence[ChipRecord], k: int) -> dict[str, int]:
+    """``{group: fold}``: groups dealt largest first (by window count) to the fold with the fewest windows.
+
+    Deterministic: ties in size break by group name, ties in fold load by fold index.
+    """
+    counts: dict[str, int] = {}
+    for r in records:
+        counts[r.basin_id] = counts.get(r.basin_id, 0) + 1
+    if len(counts) < k:
+        raise ValueError(f"{k}-fold needs >= {k} groups, got {len(counts)}")
+    load = [0] * k
+    out: dict[str, int] = {}
+    for group in sorted(counts, key=lambda g: (-counts[g], g)):
+        fold = min(range(k), key=lambda f: (load[f], f))
+        out[group] = fold
+        load[fold] += counts[group]
+    return out
+
+
+def k_fold_groups(records: Sequence[ChipRecord], k: int = 5, *, manifest_sha256: str = "") -> dict[str, SplitAssignment]:
+    """``{"fold<i>": split}``: test = fold i, validation = fold i + 1 (cyclic), train = the others.
+
+    Groups (``record.basin_id``) never straddle folds; validation and test keep only
+    evaluation-grid windows, training keeps every window.
+    """
+    fold_of = assign_group_folds(records, k)
+    folds = {}
+    for i in range(k):
+        val_fold = (i + 1) % k
+
+        def chips(fold: int) -> tuple[str, ...]:
+            return tuple(sorted(r.chip_id for r in records if fold_of[r.basin_id] == fold and r.eval_grid))
+
+        def groups(*fs: int, exclude: bool = False) -> tuple[str, ...]:
+            return tuple(sorted(g for g, f in fold_of.items() if (f in fs) != exclude))
+
+        folds[f"fold{i}"] = SplitAssignment(
+            train_chips=tuple(sorted(r.chip_id for r in records if fold_of[r.basin_id] not in (i, val_fold))),
+            val_chips=chips(val_fold), test_chips=chips(i),
+            train_basins=groups(i, val_fold, exclude=True), val_basins=groups(val_fold), test_basins=groups(i),
+            buffer_m=0.0, strategy=STRATEGY_LOBO, manifest_sha256=manifest_sha256,
+        )
+    return folds
+
+
+def all_groups_split(records: Sequence[ChipRecord], k: int = 5, *, manifest_sha256: str = "") -> dict[str, SplitAssignment]:
+    """``{"all": split}``: the deployable model — train on folds 0..k-2; fold k-1 calibrates it.
+
+    Fold k-1's **smallest** group (fewest windows; ties by name) is a test set that only satisfies
+    the pipeline — splits must be non-empty and disjoint (:func:`floodfusion.splits.load_splits`)
+    and that score is never reported; the fold's other groups validate (early stopping,
+    calibration). The rule is blind to labels and optical. The model exists to be applied to
+    *other* data (the CEMS benchmark).
+    """
+    fold_of = assign_group_folds(records, k)
+    counts: dict[str, int] = {}
+    for r in records:
+        counts[r.basin_id] = counts.get(r.basin_id, 0) + 1
+    last = sorted((g for g, f in fold_of.items() if f == k - 1), key=lambda g: (counts[g], g))
+    if len(last) < 2:
+        raise ValueError(f"the all-groups split needs >= 2 groups in fold {k - 1}, got {last}")
+    test_groups, val_groups = (last[0],), tuple(sorted(last[1:]))
+
+    def chips(groups: Sequence[str]) -> tuple[str, ...]:
+        return tuple(sorted(r.chip_id for r in records if r.basin_id in groups and r.eval_grid))
+
+    return {"all": SplitAssignment(
+        train_chips=tuple(sorted(r.chip_id for r in records if fold_of[r.basin_id] != k - 1)),
+        val_chips=chips(val_groups), test_chips=chips(test_groups),
+        train_basins=tuple(sorted(g for g, f in fold_of.items() if f != k - 1)),
+        val_basins=val_groups, test_basins=test_groups,
+        buffer_m=0.0, strategy=STRATEGY_LOBO, manifest_sha256=manifest_sha256)}
 
 
 def official_splits(records: Sequence[ChipRecord], chip_split: Mapping[str, str], *,
@@ -187,8 +261,11 @@ def _fold_config(configs_dir: Path, row: int, overlays: Sequence[Path], fold: Fo
     return load_config(configs_dir / f"{_config_name(row)}.yaml", overlays=overlays, overrides=overrides)
 
 
-#: Rows run by the CV driver beyond the 13 of the ablation: 14 = the TerraMind comparison.
-EXTRA_ROWS = {14: "comparisons/terramind_small"}
+#: Rows run by the CV driver beyond the 13 of the ablation: 14 = the TerraMind comparison;
+#: 15-17 = the v1.1 fusion variants (descriptive ablations, ``reports/protocol_v1_1.md``).
+EXTRA_ROWS = {14: "comparisons/terramind_small", 15: "variants/row09b_gate_bias0",
+              16: "variants/row09c_cloud_augment", 17: "variants/row09r_sar_query",
+              18: "variants/row02e_event_fallback", 19: "variants/row02s_seasonal"}
 
 
 def _config_name(row: int) -> str:
@@ -197,19 +274,29 @@ def _config_name(row: int) -> str:
     return {**ROW_CONFIGS, **EXTRA_ROWS}[row]
 
 
+#: Rows whose checkpoints are also evaluated SAR-only, and the run folder that evaluation goes to.
+SAR_ONLY_EVALUATED = {9: lambda name: "row11_fusion_eval_sar_only", 14: lambda name: f"{name}__eval_sar_only"}
+
 #: The reference row: under the affordable protocol it alone gets every seed.
 REFERENCE_ROW = 9
 
 
+#: v1.1 variants (9b, 9c, 9r): descriptive ablations, one seed, cross-validation only
+#: (``reports/protocol_v1_1.md``) — never trained on the published split or the all-groups protocol.
+CV_ONLY_ROWS = frozenset({15, 16, 17})
+
+
 def seeds_for(row: int, seeds: Sequence[int], protocol: str) -> list[int]:
-    """Seeds a learned row is trained with: all of them for the reference row (or under 'full')."""
+    """Seeds a learned row is trained with: all for the reference row (or under 'full'); one for a variant."""
     if protocol not in ("affordable", "full"):
         raise ValueError(f"unknown seed protocol {protocol!r}")
+    if row in CV_ONLY_ROWS:
+        return list(seeds[:1])
     return list(seeds) if protocol == "full" or row == REFERENCE_ROW else list(seeds[:1])
 
 
 def _run_fold(fold: Fold, args: argparse.Namespace, device: Any) -> None:
-    from floodfusion.ablation import ROW_CONFIGS, _finished
+    from floodfusion.ablation import _finished
     from floodfusion.baseline_runner import run_baseline_row
     from floodfusion.evaluate import evaluate_run
     from floodfusion.runs import run_dir_for
@@ -220,8 +307,10 @@ def _run_fold(fold: Fold, args: argparse.Namespace, device: Any) -> None:
         cfg = _fold_config(args.configs_dir, row, args.overlay, fold, None)
         out = root / cfg.name / "baseline"
         if not _finished(out):
-            run_baseline_row(cfg, args.data_root, out, attribution=row == 2)
+            run_baseline_row(cfg, args.data_root, out, attribution=row in (2, 19))
     for row in args.learned_rows:
+        if row in CV_ONLY_ROWS and fold.protocol in ("official", "all"):
+            continue
         for seed in seeds_for(row, args.seeds, args.seed_protocol):
             cfg = _fold_config(args.configs_dir, row, args.overlay, fold, seed)
             run_dir = run_dir_for(root, cfg.name, seed)
@@ -234,8 +323,10 @@ def _run_fold(fold: Fold, args: argparse.Namespace, device: Any) -> None:
                 })
                 if not args.skip_test:
                     evaluate_run(run_dir, data_root=args.data_root, device=device, figures=False)
-            if row == 9 and not args.skip_test:
-                out = run_dir_for(root, ROW_CONFIGS[11], seed)
+            if row in SAR_ONLY_EVALUATED and not args.skip_test:
+                # The model's no-optical mode, calibrated on SAR-only validation logits: row 9 -> row 11,
+                # and TerraMind's (its CEMS windows without optical are read with this calibration).
+                out = run_dir_for(root, SAR_ONLY_EVALUATED[row](cfg.name), seed)
                 if not _finished(out):
                     evaluate_run(run_dir, data_root=args.data_root, device=device, force_sar_only=True,
                                  out_dir=out, figures=False)
@@ -252,12 +343,14 @@ def run_cv(args: argparse.Namespace) -> None:
         LOGGER.warning("--skip-test: training only; no test split is scored (development runs)")
     else:
         _freeze_protocol(args, chip_dir, cfg.data.manifest_name)
+    if args.fold:   # a requested fold must exist in at least one of the requested protocols
+        known = {f.name for protocol in args.protocol for f in folds_on_disk(chip_dir, protocol)}
+        unknown = sorted(set(args.fold) - known)
+        if unknown:
+            raise ValueError(f"unknown folds {unknown} for protocols {args.protocol}; known: {sorted(known)}")
     for protocol in args.protocol:
         folds = folds_on_disk(chip_dir, protocol)
         if args.fold:
-            unknown = sorted(set(args.fold) - {f.name for f in folds})
-            if unknown:
-                raise ValueError(f"unknown {protocol} folds {unknown}; known: {[f.name for f in folds]}")
             folds = [f for f in folds if f.name in set(args.fold)]
         for i, fold in enumerate(folds, start=1):
             LOGGER.info("== %s fold %d/%d: %s", protocol, i, len(folds), fold.name)
@@ -291,14 +384,17 @@ def _freeze_protocol(args: argparse.Namespace, chip_dir: Path, manifest_name: st
     path = args.runs_root / "protocol.json"
     if path.is_file():
         frozen = json.loads(path.read_text(encoding="utf-8"))
-        same = {k: frozen.get(k) for k in ("seeds", "manifest_sha256", "folds")} == \
-            {k: record[k] for k in ("seeds", "manifest_sha256", "folds")} and \
-            all(frozen["rows"].get(r, h) == h for r, h in record["rows"].items())
+        # Rows may be ADDED by a later call (a staged queue); nothing already recorded may change.
+        same = {k: frozen.get(k) for k in ("manifest_sha256", "folds")} == \
+            {k: record[k] for k in ("manifest_sha256", "folds")} and \
+            all(frozen["rows"].get(r, h) == h for r, h in record["rows"].items()) and \
+            all(frozen.get("seeds", {}).get(r, s) == s for r, s in record["seeds"].items())
         if not same and not args.new_protocol:
             raise ValueError(f"{path} records a different protocol (rows, seeds, folds or manifest); "
                              "pass --new-protocol to start one deliberately")
         if same:
             record["rows"] = {**frozen["rows"], **record["rows"]}
+            record["seeds"] = {**frozen.get("seeds", {}), **record["seeds"]}
     args.runs_root.mkdir(parents=True, exist_ok=True)
     atomic_write_bytes(path, json.dumps(record, indent=2).encode("utf-8"))
 
@@ -312,7 +408,14 @@ def _make_splits(args: argparse.Namespace) -> None:
     chip_dir = args.data_root / Path(cfg.data.chip_root).name
     manifest = chip_dir / cfg.data.manifest_name
     records, sha = load_manifest(manifest), load_manifest_meta(manifest)["manifest_sha256"]
-    splits: dict[str, dict[str, SplitAssignment]] = {"loeo": leave_one_group_out(records, manifest_sha256=sha)}
+    if args.scheme == "kfold":
+        splits: dict[str, dict[str, SplitAssignment]] = {
+            "kfold": k_fold_groups(records, args.k, manifest_sha256=sha),
+            "all": all_groups_split(records, args.k, manifest_sha256=sha)}
+        for fold in write_folds(chip_dir, cfg, splits, seed=args.seed):
+            LOGGER.info("%s/%s -> %s (%s)", fold.protocol, fold.name, fold.split_file, fold.norm_file)
+        return
+    splits = {"loeo": leave_one_group_out(records, manifest_sha256=sha)}
     if args.raw is not None:
         splits["official"] = official_splits(records, official_split(args.raw), manifest_sha256=sha,
                                              source_of=lambda r: r.event_id.removeprefix(GROUP_PREFIX))
@@ -331,8 +434,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         p.add_argument("--runs-root", type=Path, default=Path("runs/sen1floods11"))
     sub.choices["splits"].add_argument("--raw", type=Path, default=None, help="Sen1Floods11 raw root (official split)")
     sub.choices["splits"].add_argument("--seed", type=int, default=0)
+    sub.choices["splits"].add_argument("--scheme", choices=("loeo", "kfold"), default="loeo",
+                                       help="loeo (+ official with --raw) or grouped k-fold (+ the all-groups model)")
+    sub.choices["splits"].add_argument("--k", type=int, default=5)
     run = sub.choices["run"]
-    run.add_argument("--protocol", nargs="+", default=["loeo", "official"], choices=("loeo", "official"))
+    run.add_argument("--protocol", nargs="+", default=["loeo", "official"], choices=("loeo", "official", "kfold", "all"))
     run.add_argument("--fold", nargs="*", default=None)
     run.add_argument("--seeds", type=int, nargs="+", default=[42, 43, 44])
     run.add_argument("--seed-protocol", choices=("affordable", "full"), default="affordable",
@@ -345,6 +451,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     table = sub.choices["table"]
     table.add_argument("--out", type=Path, default=Path("reports/sen1floods11_table.md"))
     table.add_argument("--allow-dirty", action="store_true")
+    table.add_argument("--preset", choices=sorted(TABLE_PRESETS), default=None,
+                       help="v1.1 reports: the protocol, header and sections of one dataset")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     if args.command == "splits":
@@ -354,8 +462,42 @@ def main(argv: Sequence[str] | None = None) -> int:
     else:
         from floodfusion.cv_report import build_cv_table
 
-        build_cv_table(args.runs_root, out=args.out, allow_dirty=args.allow_dirty)
+        build_cv_table(args.runs_root, out=args.out, allow_dirty=args.allow_dirty,
+                       **(TABLE_PRESETS[args.preset] if args.preset else {}))
     return 0
+
+
+#: v1.1 report presets (``crossval table --preset``): which fold set, and how it is introduced.
+TABLE_PRESETS: dict[str, dict[str, Any]] = {
+    "sen1floods11": {"v11": True},
+    "kurosiwo": {
+        "protocol": "kfold", "v11": True,
+        "title": "Kuro Siwo, re-ingested — grouped five-fold, flood labels drawn on radar",
+        "intro": ["Real data: Kuro Siwo annotation polygons (Bountos et al., NeurIPS 2024; CC-BY-4.0) rasterised on "
+                  "our grid, every input re-fetched from Planetary Computer by `floodfusion.data.kurosiwo`; chips "
+                  "sampled per event by a seeded rule. Label: **flood** — water the event brought — minus JRC "
+                  "permanent water. Folds group events whose AOIs lie within 100 km; each group is tested once by "
+                  "a model that never saw it; validation = the next fold. Protocol: `reports/protocol_v1_1.md`."],
+        "caveats": ["**Folds hold several groups.** The oracle-threshold IoU, AP and the other fold-averaged columns "
+                    "of the main table are fold-level quantities (each fold weighted equally), not per-group macros; "
+                    "IoU at τ* and every gap are per group. The baseline variants' event-pooled threshold pools a "
+                    "split group (events within 100 km), not one acquisition.",
+                    "**Labels drawn on radar.** Kuro Siwo's annotators drew on Sentinel-1: gaps involving optical "
+                    "understate optical's value here, as Sen1Floods11's overstate it; the CEMS benchmark is the "
+                    "independent check.",
+                    "**Descriptive.** The confirmatory tests of v1.1 are on the CEMS benchmark; nothing here is "
+                    "adjusted into that family."],
+    },
+    "kurosiwo_water": {
+        "protocol": "kfold", "v11": True,
+        "title": "Kuro Siwo with the 'water' label — the same chips, label = flood ∪ reference water",
+        "intro": ["Identical chips, folds and inputs to the flood-label table; only the label differs (Kuro Siwo's "
+                  "`hydro` layer added to its flood), the Sen1Floods11-like 'water on a date'. Scores here are on "
+                  "that label and are not comparable with the flood-label table; the comparison of the two "
+                  "training labels is test P3 on the CEMS benchmark (`reports/protocol_v1_1.md`)."],
+        "caveats": ["**Descriptive.** See the flood-label table."],
+    },
+}
 
 
 if __name__ == "__main__":

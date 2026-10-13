@@ -143,6 +143,16 @@ class TestSpeckle:
         enl_after = (out.mean() / out.std()) ** 2
         assert enl_after > enl_before
 
+    def test_a_perfectly_uniform_window_is_its_mean_without_a_division_warning(self) -> None:
+        import warnings
+
+        intensity = np.full((16, 16), 0.05)
+        intensity[8:, :] = 0.2                       # two flat regions: zero variance inside each
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")           # v1.0 warned "divide by zero" here
+            out = refined_lee(intensity, looks=4.4, window=7)
+        assert np.allclose(out[:3], 0.05) and np.allclose(out[-3:], 0.2)
+
     def test_filter_preserves_shape(self) -> None:
         rng = np.random.default_rng(2)
         intensity = rng.gamma(4.4, 1 / 4.4, size=(32, 48))
