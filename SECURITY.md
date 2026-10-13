@@ -16,7 +16,12 @@ pins each bypass a security review demonstrated):
   backslash, whitespace or control character, and its port is the default. Asset hrefs must be
   `https` on Planetary Computer storage; the Sen1Floods11 downloader only talks to its Google
   Cloud Storage bucket path; the CEMS client only to `rapidmapping.emergency.copernicus.eu` and,
-  through at most one validated redirect, its S3 bucket.
+  through at most one validated redirect, its S3 bucket. v1.2 adds, each with its own allow-list:
+  - **GFM:** `stac.eodc.eu`, including every STAC "next" link, and `data.eodc.eu` for its COGs. GDAL's `/vsicurl`
+    follows redirects by itself; that host answers directly today.
+  - **GEOID-Flood:** `huggingface.co` at a pinned revision, then at most one validated redirect to an `*.hf.co` CDN
+    host.
+  - **AlphaEarth:** `data.source.coop`, under `/tge-labs/aef/v1/annual/` only.
 - **Local paths given to GDAL are plain paths.** `/vsi*` in any case, driver or scheme prefixes
   (`GTIFF_DIR:`, `file:` other than `file:///abs`) and inline XML are refused, and GeoTIFFs are
   opened with the `GTiff` driver only — a downloaded `.tif` holding VRT XML cannot reference
@@ -25,7 +30,9 @@ pins each bypass a security review demonstrated):
   too, in every worker thread); redirects are not followed except the one CEMS hop; transient
   failures are retried with backoff, permanent ones are not.
 - **Integrity.** Sen1Floods11 files are verified against the bucket's MD5 before they are
-  written (this protects against corruption, not against a compromised bucket).
+  written (this protects against corruption, not against a compromised bucket). GEOID-Flood files are verified
+  against the sha256 published at the pinned revision, and its tar shards yield only members whose names match the
+  label layout.
 - **Archive extraction.** CEMS packages are extracted member by member against a full-match,
   ASCII-only allow-list of names, at most one package-named folder deep, with per-member,
   member-count and total-size caps, streamed to disk; no member can be written outside its

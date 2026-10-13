@@ -2,6 +2,47 @@
 
 All notable changes; the format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased] — v1.2
+
+A fair fight with TerraMind, Copernicus's operational flood maps as a yardstick, and a blind test on floods that occur
+after the models are frozen (`reports/protocol_v1_2.md`, committed before any v1.2 model or blind score). Every
+decision since is in `reports/v1_2_deviations.md`.
+
+### v1.1 errata (`reports/v1_1_erratum.md`)
+- **TerraMind trained without modality dropout.**
+  - Its config set modality dropout to 0.5, but the training loop applied dropout only to the fusion rows.
+  - Its decoder's BatchNorm also trained on sub-batches.
+  - Both are fixed; TerraMind is re-trained, and P4 is re-scored beside the pre-registered result.
+- **Zero terrain past a DEM tile edge.**
+  - Copernicus GLO-30 declares no nodata, so terrain was read as 0 m past a 1° tile boundary.
+  - Affected: 14 % of the CEMS benchmark's area, and 6–8 % of the training sets'.
+  - The fix is in `read_dem`. Kuro Siwo and the CEMS benchmark are rebuilt for v1.2; the v1.1 data stays for the
+    regression checks.
+
+### Added
+- **Copernicus GFM as a comparator** (`data/gfm.py`, `make gfm`). The EODC public STAC has GFM for 82 of 90
+  benchmark pairs.
+- **Score histograms, threshold-free AP, oracle IoU and a bounded per-scene EM self-calibration**
+  (`histograms.py`, `cems_scores_v12.py`). The v1.1 models' counts must reproduce v1.1's exactly.
+- **The fair TerraMind** (rows 24–26):
+  - siamese pre/post encoder with its native DEM;
+  - in-house LoRA (`models/lora.py`);
+  - size and adaptation chosen by a timing probe under a pre-registered rule.
+- **GEOID-Flood** (CC BY 4.0) re-ingested through Kuro Siwo's pipeline: 111 events before EMSR656.
+- **The pooled training set** (`data/pool.py`): 100 km groups recomputed across datasets.
+- **Sidecar context:**
+  - `data/sidecars.py`: seasonal reference, AlphaEarth, DEM;
+  - row 20–22 context models (`ContextFloodSegmenter`). AlphaEarth is deferred while the public mirror is too slow.
+- **The blind-test runner** (`prospective.py`, `make v12-watch`):
+  - census with expiry and settling;
+  - scores sealed outside the repository, with their sha256 in a committed ledger;
+  - a freeze check.
+- **The Arena page** (`site/arena.html`):
+  - scoreboard with five metrics and 95 % intervals;
+  - map explorer;
+  - research landscape, errata and blind-test tracker.
+- **Golden-output tests** pin the v1.1 checkpoints' logits across refactors.
+
 ## [1.1.0] — 2026-10
 
 A pre-registered test of v1.0's claims on independent references. The protocol
