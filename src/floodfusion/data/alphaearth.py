@@ -52,6 +52,7 @@ N_COMPONENTS = 8
 AEF_SCALE = 63.5
 NODATA = -128
 _OVERVIEW = 0          # rasterio's first overview: x2, 20 m
+_VSI = "/vsicurl/"     # GDAL's HTTP reader (tests read a local file through the same warp)
 _THREADS = 16
 SIDECAR = "aef.tif"
 
@@ -100,7 +101,7 @@ def _read_band(url: str, band: int, grid: AnalysisGrid) -> np.ndarray:
 
     env = {"GDAL_DISABLE_READDIR_ON_OPEN": "EMPTY_DIR", "CPL_VSIL_CURL_ALLOWED_EXTENSIONS": ".tiff",
            "GDAL_HTTP_TIMEOUT": 120, "GDAL_HTTP_MAX_RETRY": 4, "GDAL_HTTP_RETRY_DELAY": 3}
-    with rasterio.Env(**env), rasterio.open("/vsicurl/" + url, overview_level=_OVERVIEW) as src, \
+    with rasterio.Env(**env), rasterio.open(_VSI + url, overview_level=_OVERVIEW) as src, \
             WarpedVRT(src, crs=CRS.from_epsg(grid.epsg), transform=Affine(*grid.transform), width=grid.width,
                       height=grid.height, resampling=Resampling.nearest, src_nodata=NODATA, nodata=NODATA) as vrt:
         return vrt.read(band)

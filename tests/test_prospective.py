@@ -132,3 +132,48 @@ def test_a_sweep_scores_settled_floods_once_and_waits_for_the_rest(tmp_path: Pat
     pr.sweep(paths, {}, **kwargs)
     assert prepared == ["EMSR899_AOI01"] and scored == ["EMSR899_AOI01"]   # idempotent
     assert pr.verify_sealed(pr.Ledger(paths.ledger), paths.sealed) == []
+
+
+def test_a_refused_code_counts_as_not_public_but_a_server_error_stops_the_census(tmp_path: Path) -> None:
+    from floodfusion.data.http import HTTPStatusError
+
+    def forbidden(code):
+        raise HTTPStatusError("forbidden", 403)
+
+    def broken(code):
+        raise HTTPStatusError("bad request", 400)
+
+    assert pr._fetch_one("EMSR950", tmp_path, forbidden, NOW) is None
+    assert (tmp_path / "EMSR950.missing").is_file()
+    with pytest.raises(HTTPStatusError):
+        pr._fetch_one("EMSR951", tmp_path, broken, NOW)
+    assert not (tmp_path / "EMSR951.missing").exists()                 # never recorded as "not public"
+
+
+def test_the_freeze_pins_every_seeds_checkpoint_and_the_cli_writes_and_reads_it(tmp_path: Path, monkeypatch,
+                                                                                capsys) -> None:
+    runs = [tmp_path / "runs" / f"seed{s}" for s in (42, 43)]
+    for run in runs:
+        run.mkdir(parents=True)
+        (run / "best.pt").write_bytes(run.name.encode())
+        (run / "eval_test.json").write_text("{}")
+    spec = tmp_path / "spec.yaml"
+    spec.write_text("models:\n  - key: ours\n    name: v1.2\n    runs: [" + ", ".join(str(r) for r in runs) + "]\n"
+                    "tests: []\n")
+    manifest = pr.freeze_manifest(spec, "v1.2.0-freeze")
+    assert set(manifest["files"]) == {str(r / n) for r in runs for n in ("best.pt", "eval_test.json")}
+    assert manifest["files"][str(runs[0] / "best.pt")] != manifest["files"][str(runs[1] / "best.pt")]
+    assert manifest["spec_sha256"] == pr._sha256(spec) and manifest["rule"]["first_code"] == pr.FIRST_CODE
+
+    out = tmp_path / "freeze.json"
+    assert pr.main(["freeze", "--spec", str(spec), "--out", str(out)]) == 0
+    assert json.loads(out.read_text())["files"] == manifest["files"]
+    (runs[0] / "best.pt").write_bytes(b"retrained")
+    monkeypatch.setattr(pr, "check_freeze", lambda m: ["models/best.pt: sha256 differs from the freeze"])
+    with pytest.raises(SystemExit, match="refusing to sweep"):
+        pr.main(["sweep", "--freeze", str(out)])
+
+    ledger = pr.Ledger(tmp_path / "ledger.jsonl")
+    ledger.append({"key": "EMSR950_AOI01", "activation": "EMSR950", "event_date": "2026-11-02", "status": "settling"})
+    assert pr.main(["status", "--ledger", str(ledger.path)]) == 0
+    assert capsys.readouterr().out.strip() == "EMSR950_AOI01\t2026-11-02\tsettling"

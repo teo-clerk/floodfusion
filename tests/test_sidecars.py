@@ -79,3 +79,59 @@ def test_unchanged_layers_are_linked_only_onto_identical_grids(tmp_path: Path) -
     assert counts == {"linked": 1, "present": 0, "grid_differs": 1, "absent": 1}
     assert (new / "events" / "a" / "seasonal.tif").stat().st_ino == (a / "seasonal.tif").stat().st_ino
     assert sidecars.link_from(old, new, ["seasonal.tif"])["present"] == 1    # a re-run changes nothing
+
+
+def _stack_dir(root: Path, name: str, **meta) -> Path:
+    d = root / "events" / name
+    d.mkdir(parents=True)
+    (d / "event.json").write_text(json.dumps({"epsg": 32634, "transform": [10, 0, 0, 0, -10, 100], "width": 10,
+                                              "height": 10, **meta}))
+    return d
+
+
+def test_the_dem_sidecar_is_the_stacks_own_tiles_on_its_grid(tmp_path: Path, monkeypatch) -> None:
+    from floodfusion.data import archive, sources
+
+    seen = {}
+    monkeypatch.setattr(archive, "items_by_id", lambda client, coll, ids: seen.setdefault("ids", (coll, ids)))
+    monkeypatch.setattr(sources, "read_dem", lambda items, grid: np.full((grid.height, grid.width), 312.5, np.float32))
+    d = _stack_dir(tmp_path, "E1", dem_ids="['Copernicus_DSM_COG_10_N41_00_E021_00_DEM']")
+    assert sidecars.build_dem(d, client=None) == "ok"
+    assert seen["ids"] == ("cop-dem-glo-30", ["Copernicus_DSM_COG_10_N41_00_E021_00_DEM"])
+    with rasterio.open(d / "dem.tif") as src:
+        assert src.count == 1 and src.descriptions == ("glo30_height_m",) and src.crs.to_epsg() == 32634
+        assert np.all(src.read(1) == 312.5) and src.transform.c == 0 and src.transform.f == 100
+    assert not list(d.glob("*.tmp.tif"))                                 # written atomically
+    assert sidecars.build_dem(d, client=None) == "done-before"
+    assert sidecars.build_dem(_stack_dir(tmp_path, "E2"), client=None) == "no dem_ids"
+
+
+def test_the_cli_links_per_root_pair_and_reports_a_failing_stack(tmp_path: Path, monkeypatch) -> None:
+    from floodfusion.data import archive
+
+    old, new = tmp_path / "old", tmp_path / "new"
+    (_stack_dir(old, "E1") / "gfm.tif").write_bytes(b"x")
+    _stack_dir(new, "E1")
+    assert sidecars.main(["link", "--root", str(new), "--from-root", str(old), "--files", "gfm.tif"]) == 0
+    assert (new / "events/E1/gfm.tif").is_file()
+    with pytest.raises(SystemExit):
+        sidecars.main(["link", "--root", str(new)])                       # one --from-root per --root
+
+    class _Sources:
+        client = None
+
+    monkeypatch.setattr(archive.IngestSources, "open", classmethod(lambda cls: _Sources()))
+    calls = []
+
+    def fake_build(d, client, *, overwrite):
+        calls.append((d.name, overwrite))
+        if d.name == "E2":
+            raise RuntimeError("tile read failed")
+        return "ok"
+
+    monkeypatch.setattr(sidecars, "build_dem", fake_build)
+    _stack_dir(new, "E2")
+    assert sidecars.main(["dem", "--root", str(new), "--workers", "1", "--overwrite"]) == 1
+    assert calls == [("E1", True), ("E2", True)]
+    monkeypatch.setattr(sidecars, "build_dem", lambda d, client, *, overwrite: "ok")
+    assert sidecars.main(["dem", "--root", str(new)]) == 0
