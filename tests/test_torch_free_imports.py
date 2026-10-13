@@ -51,6 +51,7 @@ TORCH_FREE_MODULES = (
     "floodfusion.data.gfm",
     "floodfusion.histograms",
     "floodfusion.data.geoid",
+    "floodfusion.data.sidecars",
 )
 
 
