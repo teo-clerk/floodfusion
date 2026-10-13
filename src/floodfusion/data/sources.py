@@ -108,11 +108,18 @@ def asset_href(item: Any, *names: str) -> str:
     raise KeyError(f"item {_item_dict(item).get('id')} has none of the assets {names}; has {sorted(assets)}")
 
 
-def _mosaic(hrefs: Sequence[str], grid: AnalysisGrid, *, kind: str, src_nodata: float | None = None) -> np.ndarray:
-    """First-valid mosaic of several sources onto the grid (frames of one acquisition, tiles)."""
+def _mosaic(hrefs: Sequence[str], grid: AnalysisGrid, *, kind: str, src_nodata: float | None = None,
+            nodata: float | None = None) -> np.ndarray:
+    """First-valid mosaic of several sources onto the grid (frames of one acquisition, tiles).
+
+    ``nodata`` is the value the warp writes where a source does not reach. A source without its own nodata (GLO-30
+    declares none) needs it, or the warp fills the rest of the grid with 0, and that 0 then counts as valid and hides
+    every later source (v1.1 erratum: zero terrain past a DEM tile boundary).
+    """
     out: np.ndarray | None = None
     for href in hrefs:
-        layer = reproject_to_grid(signed(href), grid, kind=kind, src_nodata=src_nodata, dtype="float32")
+        layer = reproject_to_grid(signed(href), grid, kind=kind, src_nodata=src_nodata, nodata=nodata,
+                                  dtype="float32")
         out = layer if out is None else np.where(np.isfinite(out), out, layer)
     if out is None:
         raise ValueError("no source hrefs to mosaic")
@@ -217,7 +224,7 @@ def read_dem(items: Sequence[Any], grid: AnalysisGrid) -> np.ndarray:
     (``docs/03`` section 4.2); the transform is read from each tile, so the non-square
     geographic pixels above 50 N are handled by the warp, never assumed.
     """
-    return _mosaic([asset_href(it, "data", "dem") for it in items], grid, kind="continuous")
+    return _mosaic([asset_href(it, "data", "dem") for it in items], grid, kind="continuous", nodata=float("nan"))
 
 
 def read_jrc_occurrence(items: Sequence[Any], grid: AnalysisGrid) -> np.ndarray:
