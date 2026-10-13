@@ -18,7 +18,7 @@ REAL_ROOT  ?= data/real
 # Seed protocol of the synthetic grid: auto (decided from a measured run), full, affordable.
 SEED_PROTOCOL ?= auto
 
-.PHONY: arena tm-probe v12-splits v12-runs help setup lock preflight test test-fast test-all test-gpu cov lint synth ingest splits \
+.PHONY: arena tm-probe v12-splits v12-runs v12-finals help setup lock preflight test test-fast test-all test-gpu cov lint synth ingest splits \
         baseline train-p1 vram-budget ablation table predict demo clean \
         s1f11 s1f11-download s1f11-ingest s1f11-splits s1f11-cv s1f11-table stress forli \
         kurosiwo-data cems-data seasonal gfm geoid-data erratum v12-cems-preview v12-watch v11-splits v11-synthetic v11-runs v11-tables v11-cems
@@ -157,6 +157,9 @@ v12-splits:  ## The pooled training set (Kuro Siwo v12 + GEOID-Flood, joint 100 
 
 v12-runs:  ## Pooled cross-validation, one seed: row 9, the fair TerraMind, row 21 (GPU; resumable)
 	scripts/v12_queue.sh cv
+
+v12-finals:  ## All groups x 3 seeds: v1.2's selected model and the fair TerraMind (GPU; before the freeze)
+	scripts/v12_queue.sh finals
 
 v12-watch:  ## One blind-test sweep (run from the freeze worktree; refuses a changed system); takes the GPU lock
 	flock -n /tmp/floodfusion-gpu.lock $(PY) -m floodfusion.prospective sweep

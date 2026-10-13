@@ -34,13 +34,17 @@ import numpy as np
 
 from floodfusion import histograms
 
-__all__ = ["ARMS", "HAND_MAX_M", "MIN_GAIN", "adoption", "fold_stacks", "main", "scene_layers", "score_runs",
-           "stack_entry"]
+__all__ = ["ARMS", "HAND_MAX_M", "MIN_GAIN", "TIE_MARGIN", "adoption", "fold_stacks", "main", "scene_layers",
+           "score_runs", "select", "stack_entry"]
 
 LOGGER = logging.getLogger(__name__)
 
 HAND_MAX_M = 15.0
 MIN_GAIN = 0.005
+#: Model selection: a candidate must beat the simplest by more than this to be chosen.
+TIE_MARGIN = 0.005
+#: Margins are compared with this tolerance, so a gap of exactly 0.005 is not lost to floating-point rounding.
+_EPS = 1e-9
 ARMS = ("plain", "selfcal", "hand", "selfcal+hand")
 
 
@@ -95,8 +99,22 @@ def adoption(scores: Mapping[str, Any]) -> dict[str, Any]:
         helped = sum(iou[g][arm] > iou[g]["plain"] for g in scored)
         gain = macro[arm] - macro["plain"]
         result[arm] = {"gain": gain, "groups_helped": helped,
-                       "adopted": bool(gain >= MIN_GAIN and helped > len(scored) / 2)}
+                       "adopted": bool(gain >= MIN_GAIN - _EPS and helped > len(scored) / 2)}
     return result
+
+
+def select(reports: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
+    """v1.2's model: the best plain macro IoU at τ*; within :data:`TIE_MARGIN` of the first (simplest), the first.
+
+    ``reports`` maps each candidate's run folder to its :func:`adoption` report, simplest candidate first.
+    """
+    names = list(reports)
+    plain = {n: reports[n]["macro_iou"]["plain"] for n in names}
+    best = max(names, key=lambda n: plain[n])
+    chosen = names[0] if plain[best] - plain[names[0]] <= TIE_MARGIN + _EPS else best
+    return {"candidates": plain, "chosen": chosen, "rule": f"best plain macro IoU; within {TIE_MARGIN} of "
+                                                         f"{names[0]}, {names[0]}",
+            "add_ons": [arm for arm in ARMS[1:3] if reports[chosen][arm]["adopted"]]}
 
 
 # ---------------------------------------------------------------------------
@@ -144,6 +162,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     rp = sub.add_parser("report", help="the adoption decision from scored histograms")
     rp.add_argument("--scores", type=Path, required=True)
     rp.add_argument("--out", type=Path, required=True)
+    se = sub.add_parser("select", help="v1.2's model and add-ons from the candidates' reports (simplest first)")
+    se.add_argument("--reports", type=Path, nargs="+", required=True)
+    se.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     if args.cmd == "score":
@@ -154,6 +175,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         scores = score_runs(args.runs, args.manifest, predictor=lambda run: _learned(run, device).predict)
         with gzip.open(args.out, "wt", encoding="utf-8") as f:
             json.dump(scores, f)
+        return 0
+    if args.cmd == "select":
+        reports = {r.name.removeprefix("v12_addons_").removesuffix(".json"): json.loads(r.read_text(encoding="utf-8"))
+                   for r in args.reports}
+        choice = select(reports)
+        args.out.write_text(json.dumps(choice, indent=1) + "\n", encoding="utf-8")
+        LOGGER.info("v1.2 model: %s, add-ons %s", choice["chosen"], choice["add_ons"])
         return 0
     with gzip.open(args.scores, "rt", encoding="utf-8") as f:
         result = adoption(json.load(f))

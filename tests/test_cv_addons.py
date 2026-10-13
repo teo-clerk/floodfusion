@@ -137,3 +137,23 @@ def test_the_cli_scores_with_each_runs_own_model(tmp_path: Path, monkeypatch) ->
     runs = [tmp_path / "fold0", tmp_path / "fold1"]
     assert ca.main(["score", "--runs", *map(str, runs), "--manifest", "m.parquet", "--out", str(out)]) == 0
     assert loaded == ["fold0", "fold1"] and out.is_file()
+
+
+@pytest.mark.parametrize(("plain", "expected"), [
+    ({"row09": 0.500, "row21": 0.505}, "row09"),                        # within the margin: the simpler model
+    ({"row09": 0.500, "row21": 0.506}, "row21"),
+    ({"row09": 0.520, "row21": 0.510}, "row09"),
+])
+def test_selection_prefers_the_simpler_model_within_the_margin(tmp_path: Path, plain, expected) -> None:
+    def report(v, adopted):
+        return {"macro_iou": {"plain": v}, **{arm: {"adopted": adopted} for arm in ca.ARMS[1:]}}
+
+    paths = []
+    for name, v in plain.items():
+        paths.append(tmp_path / f"v12_addons_{name}.json")
+        paths[-1].write_text(json.dumps(report(v, adopted=name == "row21")))
+    out = tmp_path / "selection.json"
+    assert ca.main(["select", "--reports", *map(str, paths), "--out", str(out)]) == 0
+    choice = json.loads(out.read_text())
+    assert choice["chosen"] == expected
+    assert choice["add_ons"] == (["selfcal", "hand"] if expected == "row21" else [])

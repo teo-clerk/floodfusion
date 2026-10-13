@@ -12,14 +12,16 @@
 #   scripts/v12_queue.sh pool          # (CPU) the pooled training set and its grouped folds, once both ingests are done
 #   scripts/v12_queue.sh cv            # pooled cross-validation, one seed: row 9, the fair TerraMind, row 21 —
 #                                      # each starts when its sidecars (none, DEM, seasonal) cover every pooled stack;
-#                                      # then the inference add-ons on whole test stacks of rows 9 and 21
+#                                      # then the inference add-ons on whole test stacks of rows 9 and 21, and the
+#                                      # selection of v1.2's model (reports/v12_selection.json)
+#   scripts/v12_queue.sh finals        # all groups x 3 seeds: v1.2's model and the fair TerraMind (before the freeze)
 #
 # One floodfusion GPU job at a time: the queue (and the v1.2 blind-test runner) hold /tmp/floodfusion-gpu.lock;
 # ad-hoc GPU commands do not, so run them only when no queue is running.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-STAGES="erratum-official erratum cems-preview arena probe pool cv"
+STAGES="erratum-official erratum cems-preview arena probe pool cv finals"
 case " $STAGES " in
   *" ${1:-} "*) ;;
   *) echo "usage: $0 ${STAGES// /|}" >&2; exit 2 ;;
@@ -125,6 +127,18 @@ print(build_dataset('data/geoid', load_config('configs/base.yaml'), split_epsg=S
     wait_until 48 pool_covered seasonal.tif
     $PY -m floodfusion.crossval run $POOL_ARGS $ONE_SEED --learned-rows 21
     addons row21_fusion_context_seasonal
+    $PY -m floodfusion.cv_addons select --out reports/v12_selection.json \
+      --reports reports/v12_addons_row09_fusion_crossattn.json reports/v12_addons_row21_fusion_context_seasonal.json
+    ;;
+  finals)   # all groups, three seeds: v1.2's model (reports/v12_selection.json) and the fair TerraMind
+    ours=$($PY -c "import json; print({'row09_fusion_crossattn': 9, 'row21_fusion_context_seasonal': 21}[
+      json.load(open('reports/v12_selection.json'))['chosen']])")
+    tm=$($PY -c "import json; print(json.load(open('reports/v12_tm_probe.json'))['chosen'] or '')")
+    [ -n "$tm" ] || { echo "no fair TerraMind fits in memory (reports/v12_tm_probe.json)" >&2; exit 1; }
+    tm_row=$($PY -c "print({'terramind_base_fair': 24, 'terramind_base_fair_frozen': 25, 'terramind_small_fair': 26}['$tm'])")
+    $PY -m floodfusion.crossval run --data-root $POOL --overlay configs/overlays/kurosiwo.yaml \
+      --runs-root runs/v12/pool --protocol all --seeds 42 43 44 --seed-protocol full --baseline-rows \
+      --learned-rows "$ours" "$tm_row"
     ;;
   *)
     echo "usage: $0 ${STAGES// /|}" >&2
