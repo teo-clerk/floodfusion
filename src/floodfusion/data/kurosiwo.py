@@ -72,6 +72,7 @@ __all__ = [
     "ANNOTATIONS_COMMIT",
     "ANNOTATIONS_SHA256",
     "KsAoi",
+    "LabelSource",
     "Tile",
     "candidate_tiles",
     "choose_shift",
@@ -427,15 +428,48 @@ def choose_shift(estimates: Mapping[str, Mapping[str, Any]], *, max_ci_px: float
 # ---------------------------------------------------------------------------
 # Ingest
 # ---------------------------------------------------------------------------
-def _query(aoi: KsAoi, acq: Acquisition, bbox: Sequence[float]) -> EventQuery:
+@dataclass(frozen=True)
+class LabelSource:
+    """What a labelled dataset contributes to the shared re-ingest: its labels, nothing else.
+
+    Kuro Siwo's come from polygons (:func:`_ks_source`); GEOID-Flood's from rasters
+    (:mod:`floodfusion.data.geoid`). Pass search, registration, assembly and chipping are shared.
+    """
+
+    name: str                                                      # stack prefix, e.g. KS_EMSR118_Spain_01
+    label: Callable[[AnalysisGrid], np.ndarray]                    # 1 flood, 0 not flood, NaN unlabelled
+    reference: Callable[[AnalysisGrid, Sequence[Mapping[str, Any]], Sequence[Mapping[str, Any]]], GridReference]
+    meta: Callable[[Tile], Mapping[str, Any]]                      # per-stack metadata (the shift is added)
+    generator: str
+
+
+def _ks_source(aoi: KsAoi, acq: Acquisition, group: str) -> LabelSource:
+    from functools import cache
+
+    @cache
+    def frames() -> tuple[Any, Any]:   # read on first use: a resumed ingest with nothing to do never reads them
+        return _layer(aoi, "aoi"), _layer(aoi, "event")
+
+    return LabelSource(
+        name=aoi.stack_prefix,
+        label=lambda grid: label_on_grid(*frames(), grid),
+        reference=lambda grid, jrc, worldcover: chip_reference(*frames(), grid, jrc, worldcover),
+        meta=lambda tile: {"kurosiwo": {"event": aoi.event, "aoi": aoi.aoi, "group": group,
+                                        "post_acquisition": acq.when.isoformat(), "flood_fraction": tile.flood_fraction,
+                                        "annotation_commit": ANNOTATIONS_COMMIT}},
+        generator="floodfusion.data.kurosiwo (labels: Kuro Siwo polygons; inputs: Planetary Computer)",
+    )
+
+
+def _query(name: str, acq: Acquisition, bbox: Sequence[float]) -> EventQuery:
     day = datetime.combine(acq.when.date(), datetime.min.time())
     window = timedelta(days=OPTICAL_WINDOW_DAYS)
-    return EventQuery(aoi.stack_prefix, tuple(bbox), day, day, pre_event_window_days=60,
+    return EventQuery(name, tuple(bbox), day, day, pre_event_window_days=60,
                       relative_orbit=acq.relative_orbit, orbit_state=acq.orbit_state,
                       optical_start=day - window, optical_end=day + window)
 
 
-def _shift_windows(tile: Tile, archive: Any, aoi_frame: Any, flood_frame: Any,
+def _shift_windows(tile: Tile, archive: Any, label: Callable[[AnalysisGrid], np.ndarray],
                    cfg: ExperimentConfig) -> dict[str, np.ndarray] | None:
     import rasterio
 
@@ -456,10 +490,10 @@ def _shift_windows(tile: Tile, archive: Any, aoi_frame: Any, flood_frame: Any,
         if matched.s2_ids:
             rho, scl, _ = read_s2_reflectance(items_by_id(archive.catalogue, "sentinel-2-l2a", matched.s2_ids), grid)
             rho = np.where(quality_from_scl(scl)[None] >= CLEAR_QUALITY, rho, np.nan)
-    return chip_shift_windows(vv, label_on_grid(aoi_frame, flood_frame, grid), rho)
+    return chip_shift_windows(vv, label(grid), rho)
 
 
-def _measure_shift(tiles: Sequence[Tile], archive: Any, aoi_frame: Any, flood_frame: Any,
+def _measure_shift(tiles: Sequence[Tile], archive: Any, label: Callable[[AnalysisGrid], np.ndarray],
                    cfg: ExperimentConfig, workers: int) -> dict[str, Any]:
     from concurrent.futures import ThreadPoolExecutor
 
@@ -468,7 +502,7 @@ def _measure_shift(tiles: Sequence[Tile], archive: Any, aoi_frame: Any, flood_fr
 
     def read(tile: Tile) -> dict[str, np.ndarray] | None:
         try:
-            return _shift_windows(tile, archive, aoi_frame, flood_frame, cfg)
+            return _shift_windows(tile, archive, label, cfg)
         except Exception as exc:  # noqa: BLE001 - one unreadable chip must not decide the shift
             LOGGER.warning("%s: shift inputs unreadable, skipped: %s", tile.tile_id, redact(str(exc))[:200])
             return None
@@ -479,7 +513,7 @@ def _measure_shift(tiles: Sequence[Tile], archive: Any, aoi_frame: Any, flood_fr
     return _json_ready({**choose_shift(estimates), "n_chips_read": len(per_chip)})
 
 
-def _ingest_aoi(aoi: KsAoi, acq: Acquisition, tiles: Sequence[Tile], group: str, out_root: Path,
+def _ingest_aoi(source: LabelSource, acq: Acquisition, tiles: Sequence[Tile], group: str, out_root: Path,
                 cfg: ExperimentConfig, sources: IngestSources, margin_px: int, workers: int,
                 shift_tiles: Sequence[Tile] = ()) -> dict[str, str]:
     from concurrent.futures import ThreadPoolExecutor
@@ -502,16 +536,15 @@ def _ingest_aoi(aoi: KsAoi, acq: Acquisition, tiles: Sequence[Tile], group: str,
     status.update({t.tile_id: "done-before" for t in tiles if t not in todo})
     if not todo:
         return status
-    aoi_frame, flood_frame = _layer(aoi, "aoi"), _layer(aoi, "event")
     measure_on = tuple(shift_tiles) or tuple(tiles)
     bbox = _union_bbox([t.bbox for t in measure_on])
     try:
-        archive = archive_for_query(_query(aoi, acq, bbox), bbox, sources, margin_px * cfg.grid.pixel_size_m)
-        shift = _measure_shift(measure_on, archive, aoi_frame, flood_frame, cfg, workers)
+        archive = archive_for_query(_query(source.name, acq, bbox), bbox, sources, margin_px * cfg.grid.pixel_size_m)
+        shift = _measure_shift(measure_on, archive, source.label, cfg, workers)
     except NoMatchingPairError as exc:
         return {**status, **{t.tile_id: f"dropped: {exc}" for t in todo}}
     except Exception as exc:  # noqa: BLE001 - one AOI's failure must not abort the dataset
-        LOGGER.error("%s failed\n%s", aoi.stack_prefix, redacted_traceback(exc))
+        LOGGER.error("%s failed\n%s", source.name, redacted_traceback(exc))
         return {**status, **{t.tile_id: f"failed: {type(exc).__name__}: {redact(str(exc))[:300]}" for t in todo}}
     status["event_shift"] = shift
     polygon = unary_union([box(*t.bbox) for t in tiles])
@@ -524,19 +557,15 @@ def _ingest_aoi(aoi: KsAoi, acq: Acquisition, tiles: Sequence[Tile], group: str,
                 task = GridTask(
                     event_id=tile.tile_id, out_dir=out_root / "events" / tile.tile_id, grid=grid,
                     matched=_restrict(archive.matched, archive.by_id, tile.bbox), annotations=archive.annotations,
-                    reference=chip_reference(aoi_frame, flood_frame, grid,
-                                             [i for i in archive.jrc if _overlaps(i["bbox"], tile.bbox)],
-                                             [i for i in archive.worldcover if _overlaps(i["bbox"], tile.bbox)]),
+                    reference=source.reference(grid, [i for i in archive.jrc if _overlaps(i["bbox"], tile.bbox)],
+                                               [i for i in archive.worldcover if _overlaps(i["bbox"], tile.bbox)]),
                     basins={group: _to_grid_crs(polygon, grid.epsg)},
                     dem_items=tuple(i for i in archive.dem if _overlaps(i["bbox"], wide)),
-                    extra_meta={"kurosiwo": {"event": aoi.event, "aoi": aoi.aoi, "group": group,
-                                             "post_acquisition": acq.when.isoformat(),
-                                             "flood_fraction": tile.flood_fraction, "annotation_commit": ANNOTATIONS_COMMIT},
-                                "event_shift": dict(shift)},
+                    extra_meta={**source.meta(tile), "event_shift": dict(shift)},
                     terrain_margin_px=margin_px, label_follows_optical=False,
                     optical_shift_px=(int(shift["optical_shift_px"][0]), int(shift["optical_shift_px"][1])),
                     label_shift_px=(int(shift["label_shift_px"][0]), int(shift["label_shift_px"][1])),
-                    generator="floodfusion.data.kurosiwo (labels: Kuro Siwo polygons; inputs: Planetary Computer)",
+                    generator=source.generator,
                 )
                 meta = assemble_on_grid(task, cfg, IngestSources(client=archive.catalogue,
                                                                  fetch_bytes=sources.fetch_bytes),
@@ -629,8 +658,9 @@ def ingest_kurosiwo(raw_root: Path | str, out_root: Path | str, cfg: ExperimentC
             LOGGER.info("%s AOI %s: %s o%03d (%.0f %% of the AOI), %d tiles", name, plan.aoi.aoi,
                         plan.acquisition.when.isoformat(), plan.acquisition.relative_orbit, 100 * plan.coverage,
                         len(plan.tiles))
-            status[plan.aoi.aoi] = _ingest_aoi(plan.aoi, plan.acquisition, plan.tiles, groups[name], out_root, cfg,
-                                               sources, margin_px, workers, shift_tiles=plan.shift_tiles)
+            status[plan.aoi.aoi] = _ingest_aoi(_ks_source(plan.aoi, plan.acquisition, groups[name]), plan.acquisition,
+                                               plan.tiles, groups[name], out_root, cfg, sources, margin_px, workers,
+                                               shift_tiles=plan.shift_tiles)
         report["events"][name] = status
     outcomes = [o for ev in report["events"].values() for st in ev.values() for k, o in st.items()
                 if k != "event_shift" and isinstance(o, str)]
