@@ -114,6 +114,7 @@ KS_ROOT ?= data/kurosiwo
 KS_WATER ?= data/kurosiwo_water
 KS_OVERLAY ?= configs/overlays/kurosiwo.yaml
 CEMS_ROOT ?= data/cems_benchmark
+GFM_WORKERS ?= 10
 
 kurosiwo-data:  ## Kuro Siwo: pinned polygons -> chips (flood labels) -> the same chips with water labels
 	$(PY) -m floodfusion.data.kurosiwo download --raw $(KS_RAW)
@@ -130,7 +131,7 @@ seasonal:  ## Seasonal Sentinel-1 references beside every Sen1Floods11, Kuro Siw
 	for d in $(CEMS_ROOT)/EMSR*_AOI*; do $(PY) -m floodfusion.data.seasonal --root $$d || exit 1; done
 
 gfm:  ## Copernicus GFM layers (the v1.2 comparator) beside every CEMS benchmark stack; resumable
-	$(PY) -m floodfusion.data.gfm --root $(CEMS_ROOT)/EMSR*_AOI*
+	$(PY) -m floodfusion.data.gfm --workers $(GFM_WORKERS) --root $(CEMS_ROOT)/EMSR*_AOI*
 
 v11-splits:  ## Kuro Siwo grouped five-fold + the all-groups model, for both label sets
 	$(PY) -m floodfusion.crossval splits --data-root $(KS_ROOT) --overlay $(KS_OVERLAY) --scheme kfold

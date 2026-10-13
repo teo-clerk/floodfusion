@@ -49,6 +49,7 @@ TORCH_FREE_MODULES = (
     "floodfusion.crossfit",
     # v1.2
     "floodfusion.data.gfm",
+    "floodfusion.histograms",
 )
 
 

@@ -23,3 +23,10 @@ row per line.
 | 2026-10-13 | If the largest 100 km group of the pooled Kuro Siwo + GEOID-Flood set holds more than 25 % of its windows, cross-validation uses buffered spatial blocks instead of groups. | A single giant group would leave folds unbalanced. |
 | 2026-10-13 | GFM is a comparator, never a model input. A unit counts for a GFM comparison only if GFM covers ≥ 95 % of its scored pixels. | GFM changes its members in 2027; missing GFM pixels would otherwise count as misses. |
 | 2026-10-13 | The CEMS 2023–26 benchmark is scored with v1.2 models once, after the freeze tag. | Prevents choices made after seeing it. |
+
+## Probes (metadata only, before any v1.2 run)
+
+| Date (UTC) | Probe | Result and consequence |
+|---|---|---|
+| 2026-10-13 | 100 km single-linkage groups of the pooled training floods: Kuro Siwo (36 events) plus GEOID-Flood events before EMSR656 not in Kuro Siwo (115 by code), from stack and tile footprints; windows estimated at 5 tiles per GEOID-Flood event × 8.8 windows per tile. | 71 groups; the largest holds about 12 % of the windows (13 events), the next about 10 %. Below the 25 % trigger, so cross-validation stays grouped (no buffered blocks). |
+| 2026-10-13 | GFM sidecar on one stack (EMSR657 AOI01 t00_00). | All eight layers read; 18.7 s per stack; the ensemble likelihood is defined on non-flood pixels (0–50 there), so a threshold-free AP is possible for GFM. GFM's exclusion mask covers 61 % of that tile: GFM maps no flood there, which the non-excluded-area sensitivity analysis isolates. |
