@@ -53,6 +53,7 @@ TORCH_FREE_MODULES = (
     "floodfusion.data.geoid",
     "floodfusion.data.sidecars",
     "floodfusion.data.alphaearth",
+    "floodfusion.prospective",
 )
 
 
