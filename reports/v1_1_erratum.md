@@ -48,3 +48,57 @@ corrected, post-hoc result; it does not replace the pre-registered verdict.
 | P4 per activation | +0.031, 24/38, Holm p = 0.034 | pending |
 | P4 per cluster | +0.039, 20/30, p = 0.009 | pending |
 | TerraMind, Sen1Floods11 leave-one-event-out | 0.572 | pending |
+
+---
+
+# Erratum 2: zero terrain past a DEM tile edge (found 2026-10-13, while building v1.2's DEM sidecar)
+
+## What was wrong
+
+Copernicus GLO-30 COGs declare **no nodata value**. When a stack's grid needs two DEM tiles, the warp filled every grid
+pixel outside the first tile with 0. The first-valid mosaic (`sources._mosaic`) kept that 0 as a valid height, so the
+second tile never replaced it. Past a 1° tile boundary the DEM was therefore flat at 0 m, and everything derived from
+it was wrong there:
+
+- **slope:** 0;
+- **HAND:** 0, which reads as "at drainage level";
+- **radar shadow and layover:** none flagged;
+- **local incidence:** reduced to the ellipsoid angle.
+
+Radar and optical are not affected: their files declare nodata (S1 RTC −32768; S2, SCL and WorldCover 0; JRC 255).
+
+**Evidence:** `KS_EMSR174_Skopje_01_527360_4648960`.
+- Below row 424 the stored slope and HAND are exactly 0. Above it they are 1.9° and 4.2 m (medians).
+- Its DEM tiles are N42 and N41.
+- `tests/test_dem_mosaic.py` reproduces the zeros on the old code.
+
+## Exposure
+
+Stacks with part of their grid outside the first DEM tile they list:
+
+| Dataset | Stacks affected | Median share of the stack | Total, in whole stacks |
+|---|---|---|---|
+| Sen1Floods11 | 49 of 379 | 0.68 | ≈ 32 |
+| Kuro Siwo | 52 of 452 | 0.48 | ≈ 29 |
+| CEMS benchmark | 168 of 605 | 0.50 | ≈ 86 (≈ 14 % of its stack area) |
+
+## Which results it can affect
+
+Every v1.0 and v1.1 number from models or rules that read terrain:
+- rows 4, 9 and 11;
+- the physics baselines, through their HAND and slope masks;
+- the shadow/layover exclusions.
+
+TerraMind reads no terrain, so the defect could bias the H4 comparison in either direction. The direction and size
+are measured, not assumed: the v1.1 models are re-scored on CEMS stacks rebuilt with the fix, as a descriptive
+comparison beside the published numbers, which stand as computed.
+
+## The fix and the rebuilt data (v1.2)
+
+- **The fix:** `_mosaic` takes the warp's destination nodata, and `read_dem` passes NaN.
+- **The rebuild:** Kuro Siwo and the CEMS benchmark are re-ingested with the fix into `data/kurosiwo_v12` and
+  `data/cems_benchmark_v12`. The ingests are seeded: an unaffected stack comes out pixel-identical (checked on
+  EMSR174). v1.2 trains and scores on the rebuilt data.
+- **The v1.1 data stays as it was.** The v1.1 regression check and the TerraMind re-run of erratum 1 read it, so their
+  numbers remain comparable with v1.1's.
+- **GEOID-Flood** is ingested with the fix from the start.
