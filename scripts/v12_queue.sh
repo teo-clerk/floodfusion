@@ -8,6 +8,7 @@
 #                                      # with score histograms (descriptive; needs `erratum` and `make gfm` first)
 #   scripts/v12_queue.sh arena         # the Arena's map quicklooks (seeded, score-blind choice of floods)
 #   scripts/v12_queue.sh probe         # the fair TerraMind's size/adaptation by the pre-registered timing rule
+#                                      # (run it only here: the queue holds the GPU lock it needs)
 #   scripts/v12_queue.sh pool          # (CPU) the pooled training set and its grouped folds, once both ingests are done
 #   scripts/v12_queue.sh cv            # pooled cross-validation, one seed: row 9, the fair TerraMind, row 21 —
 #                                      # each starts when its sidecars (none, DEM, seasonal) cover every pooled stack
@@ -28,7 +29,24 @@ if [ -n "$(git status --porcelain -- src configs pyproject.toml uv.lock Makefile
   exit 1
 fi
 exec 9>/tmp/floodfusion-gpu.lock
-flock -n 9 || { echo "another floodfusion GPU job holds /tmp/floodfusion-gpu.lock" >&2; exit 1; }
+HOLDS_LOCK=0
+gpu_lock() {
+  flock -n 9 || { echo "another floodfusion GPU job holds /tmp/floodfusion-gpu.lock" >&2; exit 1; }
+  HOLDS_LOCK=1
+}
+wait_until() {   # wait_until <hours> <command...>: poll until the command succeeds, never holding the GPU lock meanwhile
+  local deadline=$(( $(date +%s) + $1 * 3600 ))
+  shift
+  if [ "$HOLDS_LOCK" = 1 ]; then flock -u 9; fi
+  until "$@"; do
+    if [ "$(date +%s)" -ge "$deadline" ]; then echo "timed out waiting for: $*" >&2; exit 1; fi
+    sleep 300
+  done
+  if [ "$HOLDS_LOCK" = 1 ]; then flock 9; fi   # blocking: a GPU job started meanwhile finishes first
+  return 0
+}
+no_ingest() { ! pgrep -f "floodfusion.data.geoid ingest|floodfusion.data.kurosiwo ingest" > /dev/null; }
+[ "$1" = pool ] || gpu_lock   # the pool stage is CPU only
 echo "v1.2 queue '${1:-}' at $(git rev-parse --short HEAD), $(date -u +%FT%TZ)"
 
 PY="uv run --frozen python"
@@ -81,7 +99,7 @@ case "${1:-}" in
     $PY scripts/tm_probe.py --data-root data/kurosiwo --pool-chips "$chips"
     ;;
   pool)
-    while pgrep -f "floodfusion.data.geoid ingest|floodfusion.data.kurosiwo ingest" > /dev/null; do sleep 120; done
+    wait_until 24 no_ingest
     [ -f data/geoid/chips/manifest.parquet ] || $PY -c "
 from floodfusion.config import load_config
 from floodfusion.data.ingest import build_dataset
@@ -91,12 +109,13 @@ print(build_dataset('data/geoid', load_config('configs/base.yaml'), split_epsg=S
     $PY -m floodfusion.crossval splits --data-root $POOL --overlay configs/overlays/kurosiwo.yaml --scheme kfold
     ;;
   cv)
-    tm=$($PY -c "import json; print(json.load(open('reports/v12_tm_probe.json'))['chosen'])")
+    tm=$($PY -c "import json; print(json.load(open('reports/v12_tm_probe.json'))['chosen'] or '')")
+    [ -n "$tm" ] || { echo "no fair TerraMind fits in memory (reports/v12_tm_probe.json): CV not started" >&2; exit 1; }
     tm_row=$($PY -c "print({'terramind_base_fair': 24, 'terramind_base_fair_frozen': 25, 'terramind_small_fair': 26}['$tm'])")
     $PY -m floodfusion.crossval run $POOL_ARGS $ONE_SEED --learned-rows 9
-    until pool_covered dem.tif; do sleep 600; done
+    wait_until 48 pool_covered dem.tif
     $PY -m floodfusion.crossval run $POOL_ARGS $ONE_SEED --learned-rows "$tm_row"
-    until pool_covered seasonal.tif; do sleep 600; done
+    wait_until 48 pool_covered seasonal.tif
     $PY -m floodfusion.crossval run $POOL_ARGS $ONE_SEED --learned-rows 21
     ;;
   *)

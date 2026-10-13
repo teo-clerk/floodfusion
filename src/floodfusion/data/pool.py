@@ -39,8 +39,6 @@ def source_event(stack_meta: dict[str, Any]) -> str:
     """The dataset's own event a stack belongs to, prefixed by its source (``kurosiwo:EMSR118_Spain``)."""
     for key in _SOURCE_KEYS:
         block = stack_meta.get(key)
-        if isinstance(block, str):
-            block = json.loads(block.replace("'", '"'))
         if isinstance(block, dict) and block.get("event"):
             return f"{key}:{block['event']}"
     raise KeyError(f"stack {stack_meta.get('event_id')!r} names no source event ({', '.join(_SOURCE_KEYS)})")

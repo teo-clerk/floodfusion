@@ -80,6 +80,12 @@ def test_stopping_rule_needs_clusters_and_activations_or_the_end_date(tmp_path: 
     few_clusters = {f"EMSR{900 + n}": f"C{n % (pr.MIN_CLUSTERS - 1)}" for n in range(n_units)}
     assert not pr.stopping_rule_met(ledger, date(2027, 6, 1), few_clusters)
     assert pr.stopping_rule_met(ledger, date(2027, 6, 1), {})            # every activation its own cluster
+    assert (pr.MIN_ACTIVATIONS, pr.MIN_CLUSTERS, pr.END_DATE) == (20, 15, date(2027, 12, 31))   # as pre-registered
+    short = pr.Ledger(tmp_path / "short.jsonl")
+    for n in range(pr.MIN_ACTIVATIONS - 1):
+        short.append({"key": f"EMSR{900 + n}_AOI01", "activation": f"EMSR{900 + n}", "status": "scored"})
+    assert not pr.stopping_rule_met(short, date(2027, 6, 1), {})        # enough clusters, one activation short
+    assert pr.stopping_rule_met(short, date(2028, 1, 1), {})            # the end date ends it regardless
     assert pr.stopping_rule_met(pr.Ledger(tmp_path / "empty.jsonl"), date(2028, 1, 1), {})
 
 
