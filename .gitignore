@@ -30,6 +30,8 @@ dist/
 *.ckpt
 *.safetensors
 *.npz
+# Logits of the v1.1 checkpoints on seeded noise (no data, no weights): pins them across refactors.
+!/tests/fixtures/golden_v11.npz
 # Rasters and tables are data, never source (Sen1Floods11 declares no licence).
 *.tif
 *.tiff

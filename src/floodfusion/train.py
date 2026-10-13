@@ -90,8 +90,10 @@ LOGGER = logging.getLogger(__name__)
 EVAL_CONTEXT_PX = 64
 #: Row 6 is defined on cloud-free chips only (MILESTONES section 6).
 ROW6_MIN_CLEAR_FRACTION = 0.9
-#: Architectures with an optical input, to which modality dropout applies.
-OPTICAL_FUSION_ARCHITECTURES = frozenset({"fusion_early", "fusion_late", "fusion_crossattn"})
+#: Architectures with an optical input, to which modality dropout applies. TerraMind was missing from
+#: this set in v1.1, so it trained without dropout although its config sets 0.5 (``reports/v1_1_erratum.md``).
+OPTICAL_FUSION_ARCHITECTURES = frozenset({"fusion_early", "fusion_late", "fusion_crossattn",
+                                          "terramind_tiny", "terramind_small"})
 
 
 # ---------------------------------------------------------------------------

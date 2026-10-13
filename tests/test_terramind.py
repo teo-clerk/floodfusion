@@ -60,3 +60,26 @@ def test_rebuilding_for_a_checkpoint_does_not_download_weights(monkeypatch) -> N
                         lambda self, cfg, *, pretrained=True: seen.append(pretrained) or torch.nn.Module.__init__(self))
     build_model(load_config(CONFIG).model, pretrained=False)
     assert seen == [False]
+
+
+def test_terramind_gets_the_modality_dropout_its_config_sets() -> None:
+    # v1.1 erratum: the set left TerraMind out, so it trained with p = 0 despite modality_dropout_p: 0.5.
+    from floodfusion.models.terramind import TERRAMIND_VARIANTS
+    from floodfusion.train import OPTICAL_FUSION_ARCHITECTURES
+
+    assert set(TERRAMIND_VARIANTS) <= OPTICAL_FUSION_ARCHITECTURES
+    assert load_config(CONFIG).model.modality_dropout_p == 0.5
+
+
+@pytest.mark.slow
+def test_neck_and_decoder_see_the_whole_batch_once(model) -> None:
+    # v1.1 erratum: they ran once per optical subset, so BatchNorm trained on sub-batches of 1-3 chips.
+    seen: list[int] = []
+    handle = model.model.decoder.register_forward_pre_hook(lambda _m, args: seen.append(args[0][0].shape[0]))
+    try:
+        sar, opt = torch.randn(3, 5, 64, 64), torch.rand(3, 4, 64, 64)
+        with torch.inference_mode():
+            out, _ = model(sar, None, opt, None, torch.tensor([True, False, True]))
+    finally:
+        handle.remove()
+    assert seen == [3] and out.shape == (3, 1, 64, 64)
