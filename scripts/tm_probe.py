@@ -36,7 +36,7 @@ def _batches(cfg, data_root: Path, sidecars, n: int):
     from floodfusion.data.dataset import FloodChipDataset, build_dataloader
     from floodfusion.data.records import load_manifest
 
-    records = [r for r in load_manifest(data_root / "chips" / "manifest.parquet") if r.eval_grid][: 4 * n]
+    records = load_manifest(data_root / "chips" / "manifest.parquet")[: 4 * n]
     ds = FloodChipDataset(records, cfg.norm, cfg.data, cfg.grid, training=True, sidecars=sidecars)
     loader = build_dataloader(ds, cfg.data, batch_size=cfg.train.micro_batch_size, shuffle=False, drop_last=True)
     out = []
