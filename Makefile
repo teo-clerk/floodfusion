@@ -18,7 +18,7 @@ REAL_ROOT  ?= data/real
 # Seed protocol of the synthetic grid: auto (decided from a measured run), full, affordable.
 SEED_PROTOCOL ?= auto
 
-.PHONY: help setup lock preflight test test-fast test-all test-gpu cov lint synth ingest splits \
+.PHONY: arena tm-probe v12-splits v12-runs help setup lock preflight test test-fast test-all test-gpu cov lint synth ingest splits \
         baseline train-p1 vram-budget ablation table predict demo clean \
         s1f11 s1f11-download s1f11-ingest s1f11-splits s1f11-cv s1f11-table stress forli \
         kurosiwo-data cems-data seasonal gfm geoid-data erratum v12-cems-preview v12-watch v11-splits v11-synthetic v11-runs v11-tables v11-cems
@@ -144,6 +144,19 @@ erratum:  ## v1.1 erratum: TerraMind re-trained with modality dropout (Sen1Flood
 
 v12-cems-preview:  ## v1.1 models + corrected TerraMind + Copernicus GFM on CEMS 2023-26, with histograms (GPU)
 	scripts/v12_queue.sh cems-preview
+
+arena:  ## The Arena's map quicklooks (GPU), then the site
+	scripts/v12_queue.sh arena
+	$(PY) scripts/build_site.py
+
+tm-probe:  ## Time the fair-TerraMind variants and apply the pre-registered size rule (GPU, ~10 min)
+	scripts/v12_queue.sh probe
+
+v12-splits:  ## The pooled training set (Kuro Siwo v12 + GEOID-Flood, joint 100 km groups) and its folds
+	scripts/v12_queue.sh pool
+
+v12-runs:  ## Pooled cross-validation, one seed: row 9, the fair TerraMind, row 21 (GPU; resumable)
+	scripts/v12_queue.sh cv
 
 v12-watch:  ## One blind-test sweep (run from the freeze worktree; refuses a changed system); takes the GPU lock
 	flock -n /tmp/floodfusion-gpu.lock $(PY) -m floodfusion.prospective sweep
