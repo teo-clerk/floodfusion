@@ -145,6 +145,8 @@ def test_v11_numbers_come_from_the_reports(site):
     # The "Supported" column of cems_benchmark.md, not a re-derivation of it.
     assert {k: t["supported"] for k, t in tests.items()} == {"P1": "no verdict", "P2": "no", "P3": "yes", "P4": "yes"}
     assert data["cems"]["n_activations"] == len(cems["units"]["activation"])
+    # Read from the stored scores: the primary-stratum pairs of the tested activations and their date range.
+    assert (data["cems"]["n_pairs"], data["cems"]["first_month"], data["cems"]["last_month"]) == (75, "2023-03", "2026-03")
     assert data["cems"]["n_clusters"] == len(cems["units"]["cluster"])
     strata = json.loads((reports / "cems_benchmark_strata.json").read_text(encoding="utf-8"))
     primary = next(v for title, v in strata.items() if title.startswith("Drawn on radar"))
@@ -176,3 +178,16 @@ def test_cems_refuses_a_report_without_a_grouped_model(monkeypatch):
     monkeypatch.setattr(module, "CEMS_GROUPS", (*module.CEMS_GROUPS, ("Extra", {"not_a_model": "Missing"})))
     with pytest.raises(ValueError, match="not_a_model"):
         module.cems(ROOT / "reports")
+
+
+def test_v11_extracts_fail_loudly_on_missing_parts(monkeypatch):
+    module = _script()
+    monkeypatch.setattr(module, "CEMS_SUBSETS_USED", ("all", "no_such_subset"))
+    with pytest.raises(ValueError, match="no_such_subset"):
+        module.cems(ROOT / "reports")
+    monkeypatch.setattr(module, "CEMS_PRIMARY", "No such stratum")
+    with pytest.raises(KeyError, match="No such stratum"):
+        module.cems(ROOT / "reports")
+    monkeypatch.setattr(module, "KS_ROWS", {**module.KS_ROWS, "99": "Not a row"})
+    with pytest.raises(ValueError, match="99"):
+        module.kurosiwo(ROOT / "reports")

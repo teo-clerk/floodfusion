@@ -144,10 +144,10 @@
     "flood": 275891
    },
    "S1F11_India": {
-    "dark a year earlier": 0,
-    "dry a year earlier, dark at the recent reference": 0,
-    "dry at both references": 0,
-    "no seasonal reference": 598991,
+    "dark a year earlier": 74,
+    "dry a year earlier, dark at the recent reference": 190,
+    "dry at both references": 4874,
+    "no seasonal reference": 593853,
     "flood": 598991
    },
    "S1F11_Mekong": {
@@ -172,10 +172,10 @@
     "flood": 167502
    },
    "S1F11_Somalia": {
-    "dark a year earlier": 0,
-    "dry a year earlier, dark at the recent reference": 0,
-    "dry at both references": 0,
-    "no seasonal reference": 126545,
+    "dark a year earlier": 11376,
+    "dry a year earlier, dark at the recent reference": 15229,
+    "dry at both references": 54352,
+    "no seasonal reference": 45588,
     "flood": 126545
    },
    "S1F11_Spain": {

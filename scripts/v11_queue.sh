@@ -61,7 +61,12 @@ scores, report = Path("reports/cems_benchmark_scores.json"), Path("reports/cems_
 if not (scores.is_file() and report.is_file()) or report.stat().st_mtime < scores.stat().st_mtime:
     sys.exit(1)
 git = json.loads(scores.read_text())["git"]
-sys.exit(1 if git.get("git_dirty") or code_changed_since(git.get("git_sha")) else 0)
+if git.get("git_dirty") or code_changed_since(git.get("git_sha")):
+    sys.exit(1)
+# A deployable model (published split, Kuro Siwo all-groups) re-run after scoring makes the scores stale.
+runs = [p for pattern in ("sen1floods11/official/official/*/*/run.json", "kurosiwo*/all/all/*/*/run.json")
+        for p in Path("runs/v11").glob(pattern)]
+sys.exit(1 if any(p.stat().st_mtime > scores.stat().st_mtime for p in runs) else 0)
 EOF
 }
 
@@ -87,6 +92,7 @@ case "${1:-}" in
     $PY -m floodfusion.crossval run $KS --protocol all $KS_MAIN
     $PY -m floodfusion.crossval run $KSW --protocol all $WATER
     if cems_done; then echo "CEMS scores from matching code exist: skipping make v11-cems"; else make v11-cems; fi
+    $PY scripts/cems_strata.py
     # 2. Cross-validation (descriptive tables), Kuro Siwo under its cap.
     $PY -m floodfusion.crossval run $S1F11 --protocol loeo $S1F11_ROWS
     $PY -m floodfusion.crossval run $KS --protocol kfold $KS_MAIN

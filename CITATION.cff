@@ -40,10 +40,10 @@ references:
         given-names: Maria
       - family-names: Zavras
         given-names: Angelos
-      - family-names: Karavias
-        given-names: Andreas
       - family-names: Karasante
         given-names: Ilektra
+      - family-names: Karavias
+        given-names: Andreas
       - family-names: Herekakis
         given-names: Themistocles
       - family-names: Thanasou

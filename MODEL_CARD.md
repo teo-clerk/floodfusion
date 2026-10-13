@@ -47,7 +47,7 @@
 
 - **CEMS benchmark, v1.1** (`reports/cems_benchmark.md`, `reports/cems_benchmark_strata.md`).
   - **The confirmatory test set.** Copernicus EMS delineations of 38 flood activations, 2023-03 to 2026-03, drawn on
-    commercial radar satellites.
+    non-Sentinel radar satellites.
   - **Pairing:** each delineation is paired with a Sentinel-1 pass within 24 h, selected by a rule committed before
     any v1.1 model was trained (`reports/protocol_v1_1.md`).
   - **Tests:** four pre-registered tests. A result counts only if it holds per activation and per cluster of
@@ -82,13 +82,16 @@ All numbers come from the release runs; each report records its git SHA.
   The physics baseline scores 0.371.
 
   **The pre-registered tests:**
-  - Flood labels beat water labels: +0.06, supported.
-  - Fusion beats TerraMind: +0.03, supported. At each model's best threshold the order reverses (0.260 vs 0.270).
-  - Fusion beats the SAR U-Net where optical is usable: +0.04, not supported.
-  - Fusion is non-inferior without optical: −0.02, which holds per activation, not per cluster, so not supported.
+  - Flood-label recipe beats water-label recipe on the same Kuro Siwo chips: +0.06, supported. Part of this is
+    agreement of definitions, since CEMS maps are flood maps.
+  - Fusion beats TerraMind at each model's own threshold: +0.03, supported. At the best single threshold, chosen
+    in-sample, the order reverses (0.260 vs 0.270).
+  - Fusion beats the SAR U-Net where optical is usable: +0.04, not significant on 8 activations, and too few clusters
+    for a verdict. Result: no verdict.
+  - Fusion is non-inferior without optical: −0.02, which holds per activation, not per cluster. Not supported.
 - **Kuro Siwo, grouped five-fold (v1.1, 29 groups).** Fusion 0.535, SAR U-Net 0.505, the same fusion model without
   optical 0.533, physics baseline 0.417. Fusion vs SAR U-Net is +0.030 and not significant.
-- **Sen1Floods11, leave-one-event-out (10 events), IoU at τ\* = 0.25.** The v1.1 re-run replicates these numbers:
+- **Sen1Floods11, leave-one-event-out (10 events), IoU at τ\* = 0.25.** The v1.1 re-run replicates the finding:
   fusion 0.608, SAR U-Net 0.343, +0.265 on 10 of 10 events.
   - Fusion (3 seeds): **0.625**, AP 0.769.
   - The same model without optical: 0.383.
@@ -111,12 +114,15 @@ All numbers come from the release runs; each report records its git SHA.
 
 ## Factors and known failure modes
 
-- **Optical's measured value is mostly agreement with the annotators.**
+- **Optical's measured value may be partly agreement with the annotators.**
   - Sen1Floods11 labels were drawn mostly on the Sentinel-2 image the model also sees, where fusion gains +0.26.
-  - On the independent, radar-drawn CEMS maps where optical is usable, the gain is +0.04 and not significant.
+  - On the independent, radar-drawn CEMS maps where optical is usable, the gain is +0.04 [−0.02, +0.11] on 8
+    activations. That excludes +0.26 but does not decide a smaller gain. Region, years and reference type differ too,
+    so the drop is consistent with annotator agreement, not proof of it.
   - Trained on Kuro Siwo's radar-drawn labels, the model uses almost nothing from optical at inference (0.397 with
     it, 0.398 without).
-- **Training labels matter more than the architecture.** On CEMS:
+- **Training data moved scores more than the architecture (descriptive).** On CEMS, where only the flood-vs-water
+  comparison holds everything but the labels fixed:
   - the same fusion network scores 0.397 trained on Kuro Siwo flood labels, 0.338 on water labels of the same chips,
     and 0.258 on Sen1Floods11;
   - Sen1Floods11-trained models score below the physics baseline (0.371) in a new region.
@@ -133,13 +139,14 @@ All numbers come from the release runs; each report records its git SHA.
 - **Partial cloud (real data).** The SAR-only fallback holds for a whole chip without optical, not per pixel.
   With real cloud shapes pasted onto clear Sen1Floods11 chips, the flooded pixels under the cloud are almost
   all missed (IoU 0.02–0.03, against 0.21 when the same chip is run SAR-only), while clear pixels keep their
-  accuracy even next to the cloud edge. On real data the gate opens with optical (≈ 0.25–0.48 against
+  accuracy even next to the cloud edge. On real data the gate opens with optical (≈ 0.21–0.52 against
   0.14–0.19 with the missing embedding) but barely responds to the per-pixel quality
   (`reports/stage_a_diagnostics.md`, A1 and A2).
-  - **Confirmed on independent maps.** On CEMS activations 10–50 % clear, fusion scores 0.06 below the SAR U-Net
-    and wins on only 2 of 15 (descriptive).
-  - **Training with synthetic clouds (variant 9c) does not change the leave-one-event-out score** (−0.004, single
-    seed). Whether it fixes the per-pixel failure was not tested.
+  - **Consistent with independent maps (descriptive).** On CEMS activations 10–50 % clear, the same fusion model
+    scores 0.254 with optical and 0.307 run without it, and 0.06 below the SAR U-Net, better on 2 of 15. This subset
+    was added to the protocol after Stage A had found the failure.
+  - **Variant 9c (synthetic clouds in training)** has a leave-one-event-out gap of −0.004 [−0.026, +0.023]: one
+    seed, no verdict. Whether it fixes the per-pixel failure was not tested.
   - Until it is fixed, mask partly cloudy optical out entirely, or run the SAR-only mode, where clouds cover
     flood-prone ground.
 - **Geometry.**
@@ -158,4 +165,6 @@ marked "dry" under canopy, in a city, in radar shadow, or outside the acquisitio
 ## Data and attribution
 
 See [`DATA_CARD.md`](DATA_CARD.md). Contains modified Copernicus Sentinel data. CEMS products:
-© European Union, Copernicus Emergency Management Service.
+© European Union, Copernicus Emergency Management Service. Kuro Siwo annotations (training and cross-validation of
+the v1.1 Kuro Siwo models): Bountos et al., NeurIPS 2024, CC BY 4.0. Sen1Floods11 labels: Bonafilia et al., 2020, no
+licence declared, never redistributed.

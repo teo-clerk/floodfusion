@@ -9,24 +9,23 @@ A pre-registered test of v1.0's claims on independent references. The protocol
 `reports/v1_1_deviations.md`.
 
 ### Results
-- **CEMS benchmark, 38 flood activations** (2023-03 to 2026-03) drawn on commercial radar satellites, zero-shot.
-  Supported, at both unit definitions:
-  - **H1:** change-aware flood labels beat water labels on the same chips, +0.06 IoU.
-  - **H4:** the fusion model beats TerraMind-small at each model's own threshold, +0.03.
-
-  Not supported:
-  - **H2:** fusion beats the SAR U-Net where optical is usable, +0.04, not significant.
-  - **H3:** non-inferiority without optical, −0.02, which holds per activation but not per cluster.
-- **Training data outweigh architecture on independent maps.** Kuro Siwo-trained models score 0.39–0.40,
-  Sen1Floods11-trained ones 0.23–0.28, and the physics baseline 0.371.
+- **CEMS benchmark, 38 flood activations** (2023-03 to 2026-03), zero-shot. The maps were drawn on non-Sentinel radar
+  satellites. The pre-registered tests, at both unit definitions (38 activations, 30 clusters):
+  - **H1, supported:** the flood-label recipe beats the water-label recipe on the same Kuro Siwo chips, +0.06 IoU.
+  - **H4, supported:** the fusion model beats TerraMind-small at each model's own threshold, +0.03. At the best single
+    threshold, chosen in-sample, TerraMind is ahead.
+  - **H2, no verdict:** fusion beats the SAR U-Net where optical is usable by +0.04, not significant; too few clusters.
+  - **H3, not supported:** non-inferiority without optical, −0.02, holds per activation but not per cluster.
+- **Training data moved scores more than the architecture** (descriptive). Kuro Siwo flood-label models score
+  0.39–0.40 and the same networks trained on Sen1Floods11 0.26–0.28. The physics baseline scores 0.371.
 - **Kuro Siwo cross-validation** (36 floods, 29 groups): fusion 0.535 vs SAR U-Net 0.505, not significant.
-  Optical adds 0.002 at inference.
+  Optical changes the fusion model's score by 0.002 at inference.
 - **Replications at the v1.1 code:**
   - Sen1Floods11 leave-one-event-out: fusion 0.608 vs 0.343.
   - The synthetic grid and the stress curves, within 0.017 IoU of v1.0.
 - **Stage A diagnostics of the v1.0 models** (`reports/stage_a_diagnostics.md`). Under a partial cloud the fusion
-  model misses most flood beneath it. The CEMS benchmark confirms this: −0.06 against the SAR U-Net on partly
-  cloudy activations.
+  model misses most flood beneath it. On partly cloudy CEMS activations (descriptive) the same model scores 0.254 with
+  optical and 0.307 without.
 
 ### Added
 - `floodfusion.data.kurosiwo`: Kuro Siwo ingest with flood and water label sets on identical chips, 100 km split

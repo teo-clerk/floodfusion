@@ -253,7 +253,6 @@
     const { optPass, sarPass, names, iou, latest, nearest } = forli;
     const reference = D.forli.products.find((p) => p.tag === nearest(optPass.tag));
     const synthetic = D.synthetic;
-    const gapTm = gap("9-cmp_terramind_small");
     const area = D.forli.area_km2;
     const trained = s1.protocol_gap.filter((p) => ["4", "9", "cmp_terramind_small"].includes(p.row));
     const gate = D.synthetic.gate;
@@ -264,11 +263,7 @@
       sarIoU: fixed(row("4").iou),
       noOptIoU: fixed(row("11").iou),
       tmIoU: fixed(row("cmp_terramind_small").iou),
-      fusionWins: `${g94.wins}/${g94.n}`,
-      fusionHolm: fixed(g94.p_holm),
       fusionGain: fixed(g94.delta, 2),
-      forliGain: signed(iou(names.fusion, optPass) - iou(names.noOpt, optPass), 2),
-      forliGainPlain: fixed(iou(names.fusion, optPass) - iou(names.noOpt, optPass), 2),
       activation: D.forli.activation,
       nProducts: word(D.forli.products.length),
       forliOptDate: `${dayLabel(utc(optPass.time))} ${optPass.time.slice(0, 4)}`,
@@ -277,7 +272,6 @@
       forliOptTiles: `${optPass.optical_tiles} of ${optPass.tiles}`,
       forliRefSensor: reference.sensor,
       forliRefDay: dayLabel(utc(reference.time)),
-      tmWins: `${gapTm.wins} of ${gapTm.n}`,
       nLandscapes: word(D.synthetic.stress.landscape_seeds.length),
       nSeedsSynth: capital(word(Math.max(...synthetic.rows.map((r) => r.seeds.length)))),
       nBasinsSynth: word(Math.max(...synthetic.gaps.map((g) => g.n))),
@@ -311,7 +305,9 @@
       cemsP1Delta: signed(test("P1").delta, 2),
       cemsP1K: String(test("P1").k),
       cemsP3Delta: signed(test("P3").delta, 2),
-      cemsPartialDelta: signed(partial.s1f11_r9.iou - partial.s1f11_r4.iou, 2),
+      cemsPartialWith: fixed(partial.s1f11_r9.iou),
+      cemsPartialWithout: fixed(partial.s1f11_r11.iou),
+      cemsP2Delta: signed(test("P2").delta, 2),
       cemsKsRange: range([all.ks_r4.iou, all.ks_r9_flood.iou], 2),
       cemsS1Range: range([all.s1f11_r4.iou, all.s1f11_r9.iou], 2),
       cemsBaseline: fixed(all.r2.iou),
@@ -758,14 +754,17 @@
     const name = (key) => cems.names[key] ?? key;
     const units = cems.tests.flatMap((t) => Object.values(t.units));
     const bound = Math.ceil(Math.max(...units.flatMap((u) => u.ci.map(Math.abs))) * 10) / 10;
-    list.replaceChildren(...cems.tests.map((t) => {
+    const byHypothesis = [...cems.tests].sort((a, b) => a.hypothesis.localeCompare(b.hypothesis));
+    list.replaceChildren(...byHypothesis.map((t) => {
       const { activation: a, cluster: c } = t.units;
+      const oneSided = t.margin == null ? "" : " (one-sided, non-inferiority)";
       const unitText = (u, label) => (u.holds == null ? `${label}: K = ${u.k}, no verdict`
-        : `${label}: ${signed(u.delta)}, ${u.wins}/${u.k}, ${pText(u.p_holm ?? u.p)}`);
+        : `${label}: ${signed(u.delta)}, ${u.wins}/${u.k}, ${pText(u.p_holm ?? u.p)}${oneSided}`);
       const tone = t.supported === "yes" ? "badge sig" : "badge ns";
       const text = { yes: "supported", no: "not supported" }[t.supported] ?? t.supported;
       return h("li", {},
-        h("div", { class: "gap-q" }, h("b", {}, `${t.hypothesis} `), t.question, h("small", {}, `${name(t.b)} − ${name(t.a)}`)),
+        h("div", { class: "gap-q" }, h("b", {}, `${t.hypothesis} `), t.question,
+          h("small", {}, `${t.id}: ${name(t.b)} − ${name(t.a)}`)),
         h("div", { class: "gap-bar" },
           gapBar({ delta: a.delta, ci: a.ci, significant: a.holds }, bound, t.margin),
           gapBar({ delta: c.delta, ci: c.ci, significant: c.holds }, bound, t.margin)),
@@ -799,7 +798,7 @@
         + (r.oracle == null ? "" : ` · best single threshold ${fixed(r.oracle)}`);
       svg.append(s("text", { x: left - 10, y: mid + 4, "text-anchor": "end", class: "label" }, r.label),
                  withTip(s("rect", { x: x(0), y: mid - 8, width: Math.max(1, x(r.iou) - x(0)), height: 16, rx: 3,
-                                     tabindex: 0, style: { fill: color } }), tip),
+                                     tabindex: 0, "aria-label": tip, style: { fill: color } }), tip),
                  r.ci[0] == null ? null : s("line", { x1: x(r.ci[0]), x2: x(r.ci[1]), y1: mid, y2: mid,
                                                     style: { stroke: "var(--text)", "stroke-width": "1.5" } }),
                  s("text", { x: x(Math.max(r.iou, r.ci[1] ?? r.iou)) + 6, y: mid + 4 }, fixed(r.iou)));
@@ -820,9 +819,10 @@
       h("td", { class: "num" }, r.seeds.length ? String(r.seeds.length) : "—")));
     table.replaceChildren(h("thead", {}, head), h("tbody", {}, body));
     const g94 = ks.gaps.find((g) => g.key === "9-4"), g911 = ks.gaps.find((g) => g.key === "9-11");
+    const barelyUsed = Math.abs(g911.delta) < 0.01;   // a hundredth of IoU: below anything the table resolves
     note.textContent = `Fusion − SAR-only U-Net: ${signed(g94.delta)} IoU, better in ${g94.wins}/${g94.n} groups, `
-      + `Holm p = ${fixed(g94.p_holm)} (${g94.significant ? "significant" : "not significant"}). Removing optical at `
-      + `inference costs ${signed(g911.delta)}: the gain comes from training, not from the optical input.`;
+      + `Holm p = ${fixed(g94.p_holm)} (${g94.significant ? "significant" : "not significant"}). With optical vs `
+      + `without it at inference: ${signed(g911.delta)}${barelyUsed ? ", so the model barely uses the optical input" : ""}.`;
   }
 
   function initCems(cems, ks) {

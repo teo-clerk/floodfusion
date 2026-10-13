@@ -57,6 +57,7 @@ CEMS_GROUPS = (
     ("No learning", {"r2": "Physics baseline", "r2s": "Physics, seasonal ref."}),
 )
 CEMS_PRIMARY = "Drawn on radar satellites"   # the title prefix of the primary stratum in cems_benchmark_strata.json
+CEMS_SUBSETS_USED = ("all", "partial")         # the page's prose reads these two subsets
 _HYPOTHESIS = re.compile(r"\s*\((?:[^()]*,\s*)?(H\d)\)")  # "(H2)", "(R2 in practice, H3)"
 
 _BACKGROUND = 720  # an RGB pixel whose channels sum to this or more is the figure's white background
@@ -260,9 +261,12 @@ def cems(reports: Path) -> dict[str, Any]:
         for t in results:
             tests.setdefault(t["id"], {})[unit] = t
     strata = json.loads(_read(reports / "cems_benchmark_strata.json"))
-    primary = next(v for title, v in strata.items() if title.startswith(CEMS_PRIMARY))
+    primary = next((v for title, v in strata.items() if title.startswith(CEMS_PRIMARY)), None)
+    if primary is None:
+        raise KeyError(f"cems_benchmark_strata.json has no stratum titled {CEMS_PRIMARY!r}...")
     names = {m["key"]: m["name"] for m in primary["all"]["models"]}
     missing = [key for _, models in CEMS_GROUPS for key in models if key not in names]
+    missing += [f"subset {s}" for s in CEMS_SUBSETS_USED if s not in primary]
     if missing:
         raise ValueError(f"cems_benchmark_strata.json has no results for {missing}")
     subsets = {subset: {"k": len(v["units"]),
@@ -285,8 +289,11 @@ def kurosiwo(reports: Path) -> dict[str, Any]:
     """The v1.1 Kuro Siwo grouped five-fold table (flood labels): the main rows and the paired gaps."""
     report = json.loads(_read(reports / "v11_kurosiwo_table.json"))
     md = md_tables(_read(reports / "v11_kurosiwo_table.md"))
-    rows = [{"key": key, "label": label, "iou": r["iou"], "ci": r["ci"], "seeds": r["seeds"]}
-            for key, label in KS_ROWS.items() if (r := report["rows"].get(key)) is not None]
+    missing = [key for key in KS_ROWS if key not in report["rows"]]
+    if missing:
+        raise ValueError(f"v11_kurosiwo_table.json has no rows {missing}")
+    rows = [{"key": key, "label": label, "iou": report["rows"][key]["iou"], "ci": report["rows"][key]["ci"],
+             "seeds": report["rows"][key]["seeds"]} for key, label in KS_ROWS.items()]
     return {"rows": rows, "gaps": _gaps(report, md, "Paired gaps"), "n_groups": len(report["events"])}
 
 

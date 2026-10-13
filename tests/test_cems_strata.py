@@ -19,7 +19,8 @@ def _script():
 
 def test_primary_stratum_reproduces_the_main_report_and_json_has_no_nan(tmp_path):
     out = tmp_path / "strata.md"
-    assert _script().main(["--out", str(out)]) == 0
+    assert _script().main(["--spec", str(ROOT / "configs" / "datasets" / "cems_models.yaml"),
+                           "--scores", str(ROOT / "reports" / "cems_benchmark_scores.json"), "--out", str(out)]) == 0
     text = (out.with_suffix(".json")).read_text(encoding="utf-8")
     assert "NaN" not in text
     strata = json.loads(text)
@@ -29,8 +30,9 @@ def test_primary_stratum_reproduces_the_main_report_and_json_has_no_nan(tmp_path
     for m in primary:
         ref = main[m["key"]]
         assert m["k"] == ref["k"] and math.isclose(m["iou"], ref["iou"], abs_tol=1e-12)
-        assert (m["oracle"] is None) == (ref["oracle"] is None)
+        assert m["ci"] == ref["ci"] and m["oracle"] == ref["oracle"]
     assert out.read_text(encoding="utf-8") == (ROOT / "reports" / "cems_benchmark_strata.md").read_text(encoding="utf-8")
+    assert strata == json.loads((ROOT / "reports" / "cems_benchmark_strata.json").read_text(encoding="utf-8"))
 
 
 def test_a_single_unit_gets_no_interval():

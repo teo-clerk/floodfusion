@@ -179,7 +179,7 @@ def test_vh_is_optional_when_vv_has_enough_acquisitions(tmp_path, monkeypatch) -
     assert np.allclose(vv, -9.0) and (vh is None or np.isnan(vh).all())
 
 
-def test_the_cli_counts_each_stack_and_fails_only_when_one_failed(tmp_path, monkeypatch) -> None:
+def test_the_cli_counts_each_stack_and_fails_only_when_one_failed(tmp_path, monkeypatch, caplog) -> None:
     import floodfusion.data.archive as archive
     import floodfusion.data.seasonal as seasonal
 
@@ -195,6 +195,8 @@ def test_the_cli_counts_each_stack_and_fails_only_when_one_failed(tmp_path, monk
 
     monkeypatch.setattr(archive.IngestSources, "open", classmethod(lambda cls: type("S", (), {"client": None})()))
     monkeypatch.setattr(seasonal, "seasonal_reference", fake)
+    caplog.set_level("INFO", logger="floodfusion.data.seasonal")
     assert seasonal.main(["--root", str(tmp_path / "root"), "--workers", "1"]) == 1
+    assert "seasonal references: {'ok': 1, 'failed': 1}" in caplog.text
     monkeypatch.setattr(seasonal, "seasonal_reference", lambda d, client, overwrite=False: {"status": "ok"})
     assert seasonal.main(["--root", str(tmp_path / "root"), "--workers", "1"]) == 0
