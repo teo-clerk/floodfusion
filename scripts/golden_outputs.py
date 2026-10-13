@@ -70,6 +70,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"wrote {GOLDEN.relative_to(ROOT)}")
         return 0
     golden = np.load(GOLDEN)
+    for key in sorted(set(RUNS) - set(runs)):
+        print(f"{key}: skipped (checkpoint not on this machine)")
     for key, path in runs.items():
         np.testing.assert_allclose(logits(path), golden[key], rtol=1e-4, atol=1e-4, err_msg=key)
         print(f"{key}: unchanged")

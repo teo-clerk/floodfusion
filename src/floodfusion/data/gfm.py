@@ -34,8 +34,8 @@ import numpy as np
 
 from floodfusion.data.chipping import AnalysisGrid
 
-__all__ = ["COLLECTION", "LAYERS", "NODATA", "STAC_SEARCH_URL", "build_sidecar", "frame_start", "main",
-           "match_frames", "read_layers", "read_sidecar", "search_items"]
+__all__ = ["COLLECTION", "LAYERS", "NODATA", "REQUIRED_ASSETS", "STAC_SEARCH_URL", "build_sidecar", "frame_start",
+           "main", "match_frames", "missing_assets", "read_layers", "read_sidecar", "search_items"]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -55,6 +55,9 @@ LAYERS: tuple[tuple[str, str], ...] = (
     ("dlr_flood", "dlr_flood_extent"),
     ("list_flood", "list_flood_extent"),
 )
+#: An item without these assets is unusable; any other layer it lacks stays nodata from it (recorded per item).
+#: Example: GFM v4.1.0 item ENSEMBLE_FLOOD_20260402T165624_VV_EU020M_E048N009T3 has no exclusion_mask.
+REQUIRED_ASSETS = frozenset({"ensemble_flood_extent"})
 NODATA = 255
 SIDECAR = "gfm.tif"
 RECORD = "gfm.json"
@@ -106,17 +109,27 @@ def match_frames(items: Sequence[Mapping[str, Any]], starts: Sequence[str]) -> d
     return {s: [dict(i) for i in items if f"_{s}_" in str(i.get("id", ""))] for s in starts}
 
 
-def _asset_href(item: Mapping[str, Any], key: str) -> str:
+def _asset_href(item: Mapping[str, Any], key: str) -> str | None:
+    """The allow-listed href of ``key``; ``None`` for a missing optional asset; a missing required one raises."""
     from floodfusion.data.http import check_https_url
 
     try:
         href = item["assets"][key]["href"]
     except KeyError as exc:
-        raise KeyError(f"GFM item {item.get('id')!r} has no asset {key!r}") from exc
+        if key in REQUIRED_ASSETS:
+            raise KeyError(f"GFM item {item.get('id')!r} has no asset {key!r}") from exc
+        return None
     return check_https_url(href, hosts=DATA_HOSTS)
 
 
+def missing_assets(item: Mapping[str, Any]) -> list[str]:
+    """The layers' asset keys an item does not carry (each such layer stays nodata from that item)."""
+    return [key for _, key in LAYERS if key not in item.get("assets", {})]
+
+
 def _remote(href: str) -> str:
+    # GDAL's /vsicurl follows HTTP redirects and cannot be told not to; data.eodc.eu serves 200 directly today
+    # (checked 2026-10-13), and the href's own host is allow-listed before it gets here.
     return "/vsicurl/" + href
 
 
@@ -136,7 +149,10 @@ def read_layers(items: Sequence[Mapping[str, Any]], grid: AnalysisGrid, *,
                 gap = out[band] == NODATA
                 if not gap.any():
                     break
-                layer = reproject_to_grid(source(_asset_href(item, key)), grid, kind="categorical",
+                href = _asset_href(item, key)
+                if href is None:
+                    continue
+                layer = reproject_to_grid(source(href), grid, kind="categorical",
                                           nodata=NODATA, src_nodata=NODATA, dtype="uint8")
                 fill = gap & (layer != NODATA)
                 out[band][fill] = layer[fill]
@@ -160,7 +176,8 @@ def _item_record(item: Mapping[str, Any]) -> dict[str, Any]:
     props = item.get("properties", {})
     return {"id": item.get("id"), "datetime": props.get("datetime"), "version": props.get("processing:version"),
             "processed": props.get("processing:datetime"), "equi7_tile": props.get("Equi7Tile"),
-            "members": props.get("flood_members"), "assets": {key: _asset_href(item, key) for _, key in LAYERS}}
+            "members": props.get("flood_members"), "missing_assets": missing_assets(item),
+            "assets": {key: href for _, key in LAYERS if (href := _asset_href(item, key)) is not None}}
 
 
 def _write(path: Path, layers: np.ndarray, grid: AnalysisGrid) -> None:
@@ -181,12 +198,18 @@ def _write(path: Path, layers: np.ndarray, grid: AnalysisGrid) -> None:
 
 def build_sidecar(event_dir: Path, *, search: Callable[..., list[dict[str, Any]]] = search_items,
                   source: Callable[[str], str] = _remote, overwrite: bool = False) -> dict[str, Any]:
-    """Write ``gfm.tif`` (if every post-event frame has a GFM product) and ``gfm.json`` beside one stack."""
+    """Write ``gfm.tif`` (if every post-event frame has a GFM product) and ``gfm.json`` beside one stack.
+
+    Only a complete result is cached: a stack recorded without a product is searched again on the next run (GFM
+    publishes hours after an acquisition, and the blind test runs daily), and a record whose raster is gone is rebuilt.
+    """
     from floodfusion.data.records import atomic_write_bytes
 
     record_path = event_dir / RECORD
     if record_path.is_file() and not overwrite:
-        return json.loads(record_path.read_text(encoding="utf-8"))
+        cached = json.loads(record_path.read_text(encoding="utf-8"))
+        if cached.get("status") == "ok" and (event_dir / SIDECAR).is_file():
+            return cached
     scenes = json.loads((event_dir / "scenes.json").read_text(encoding="utf-8"))[0]
     frames = list(scenes.get("s1_post_frames") or [scenes["s1_post_id"]])
     starts = sorted({frame_start(f) for f in frames})
@@ -196,6 +219,7 @@ def build_sidecar(event_dir: Path, *, search: Callable[..., list[dict[str, Any]]
     record: dict[str, Any] = {"frames": frames, "starts": starts, "collection": COLLECTION,
                               "layers": [name for name, _ in LAYERS]}
     if missing:
+        (event_dir / SIDECAR).unlink(missing_ok=True)   # never leave an older raster beside a "no product" record
         record.update(status=f"no GFM product for frame start(s) {', '.join(missing)}", items=[])
     else:
         items = [i for s in starts for i in matched[s]]
@@ -232,15 +256,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     from concurrent.futures import ThreadPoolExecutor
 
-    from floodfusion.data.http import redact
+    from floodfusion.data.http import redact, redacted_traceback
 
-    dirs = sorted(d for root in args.root for d in (root / "events").glob("*") if (d / "scenes.json").is_file())
+    # event.json is the last file an ingest writes: a half-ingested stack is not swept.
+    dirs = sorted(d for root in args.root for d in (root / "events").glob("*") if (d / "event.json").is_file())
 
     def one(event_dir: Path) -> str:
         try:
             return str(build_sidecar(event_dir, overwrite=args.overwrite)["status"])
         except Exception as exc:  # noqa: BLE001 - one stack's failure is reported, the sweep resumes on re-run
             LOGGER.error("%s: %s", event_dir.name, redact(str(exc))[:300])
+            LOGGER.debug("%s", redacted_traceback(exc))
             return "error"
 
     with ThreadPoolExecutor(max_workers=max(1, args.workers)) as pool:

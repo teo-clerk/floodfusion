@@ -77,6 +77,8 @@ class TerraMindSegmenter(nn.Module):
             necks=_NECKS, decoder="UNetDecoder", decoder_channels=list(cfg.decoder_channels),
             head_dropout=cfg.dropout, num_classes=1,
         )
+        if self.model.aux_heads:   # _decode reproduces PixelWiseModel.forward's main head only
+            raise ValueError("the TerraMind wrapper does not support auxiliary heads")
         for p in self.model.encoder.parameters():
             p.requires_grad_(False)
         self.sar_scale = nn.Parameter(torch.ones(1, 2, 1, 1))

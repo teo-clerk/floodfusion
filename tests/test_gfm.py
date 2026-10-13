@@ -158,9 +158,84 @@ def test_a_frame_without_a_product_gets_a_record_and_no_raster(tmp_path: Path) -
 def test_cli_reports_stacks_and_fails_on_errors(tmp_path: Path, monkeypatch, caplog) -> None:
     event = _event(tmp_path)
     (tmp_path / "events" / "broken").mkdir()
-    (tmp_path / "events" / "broken" / "scenes.json").write_text("[]")
+    (tmp_path / "events" / "broken" / "event.json").write_text("{}")
+    (tmp_path / "events" / "half_ingested").mkdir()                      # no event.json yet: not swept
+    (tmp_path / "events" / "half_ingested" / "scenes.json").write_text("[]")
     monkeypatch.setattr(gfm, "build_sidecar",
                         lambda d, overwrite=False: {"status": "ok"} if d == event else [][0])
     caplog.set_level("INFO", logger="floodfusion.data.gfm")
     assert gfm.main(["--root", str(tmp_path), "--workers", "2"]) == 1
-    assert "2 stacks: 1 with GFM, 0 without, 1 errors" in caplog.text
+    assert "2 stacks: 1 with GFM, 0 without, 1 errors" in caplog.text            # half_ingested not swept
+
+
+def test_a_missing_optional_layer_stays_nodata_and_is_recorded(tmp_path: Path) -> None:
+    for _, key in gfm.LAYERS:
+        _cog(tmp_path / f"A_{key}.tif", 1, rows=slice(0, 10))
+        _cog(tmp_path / f"B_{key}.tif", 2)
+    a = _item("A")
+    del a["assets"]["exclusion_mask"]                                    # as GFM v4.1.0 item ...T165624 on 2026-04-02
+    out = gfm.read_layers([a, _item("B")], GRID, source=_local(tmp_path))
+    band = [name for name, _ in gfm.LAYERS].index("exclusion")
+    assert (out[band] == 2).all() and (out[0][:20] == 1).all()          # B fills the layer A lacks
+    assert gfm.missing_assets(a) == ["exclusion_mask"]
+    event = _event(tmp_path)
+    record = gfm.build_sidecar(event, search=lambda bbox, starts: [a], source=_local(tmp_path))
+    assert record["status"] == "ok" and record["items"][0]["missing_assets"] == ["exclusion_mask"]
+    assert "exclusion_mask" not in record["items"][0]["assets"]
+
+
+def test_no_flood_from_the_first_item_is_not_overwritten_by_flood_from_the_next(tmp_path: Path) -> None:
+    for _, key in gfm.LAYERS:
+        _cog(tmp_path / f"A_{key}.tif", 0)                                 # 0 = observed, no flood
+        _cog(tmp_path / f"B_{key}.tif", 1)
+    out = gfm.read_layers([_item("A"), _item("B")], GRID, source=_local(tmp_path))
+    assert (out == 0).all()
+
+
+def test_only_complete_results_are_cached_and_stale_rasters_go(tmp_path: Path) -> None:
+    for _, key in gfm.LAYERS:
+        _cog(tmp_path / f"A_{key}.tif", 1)
+    event = _event(tmp_path)
+    assert gfm.build_sidecar(event, search=lambda b, s: [_item("A")], source=_local(tmp_path))["status"] == "ok"
+    (event / gfm.SIDECAR).unlink()                                       # raster lost: the record is not trusted
+    assert gfm.build_sidecar(event, search=lambda b, s: [_item("A")], source=_local(tmp_path))["status"] == "ok"
+    assert (event / gfm.SIDECAR).is_file()
+    gone = gfm.build_sidecar(event, search=lambda b, s: [], source=_local(tmp_path), overwrite=True)
+    assert gone["status"].startswith("no GFM product") and not (event / gfm.SIDECAR).exists()
+    calls = []
+    later = gfm.build_sidecar(event, search=lambda b, s: calls.append(s) or [_item("A")], source=_local(tmp_path))
+    assert calls and later["status"] == "ok"                             # a "no product" record is searched again
+
+
+def test_a_stack_of_two_frames_needs_both(tmp_path: Path) -> None:
+    other = "S1A_IW_GRDH_1SDV_20230408T155543_20230408T155612_048007_05C526_rtc"
+    event = _event(tmp_path)
+    (event / "scenes.json").write_text(json.dumps([{"s1_post_id": POST, "s1_post_frames": [other, POST]}]))
+    record = gfm.build_sidecar(event, search=lambda b, s: [_item("A")], source=_local(tmp_path))
+    assert record["status"] == "no GFM product for frame start(s) 20230408T155543"
+
+
+def test_the_default_getter_refuses_a_next_link_off_the_catalogue(monkeypatch) -> None:
+    import requests
+
+    class Page:
+        status_code, headers = 200, {}
+
+        def __init__(self, body: bytes) -> None:
+            self.body = body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc) -> None:
+            return None
+
+        def iter_content(self, chunk_size: int):
+            yield self.body
+
+    requested = []
+    body = json.dumps({"features": [], "links": [{"rel": "next", "href": "https://evil.example/search"}]}).encode()
+    monkeypatch.setattr(requests, "get", lambda url, **kw: requested.append(url) or Page(body))
+    with pytest.raises(ValueError, match="allowed hosts"):
+        gfm.search_items((0, 0, 1, 1), ["20230408T155612"])
+    assert requested == [gfm.STAC_SEARCH_URL]                            # the hostile link was never fetched

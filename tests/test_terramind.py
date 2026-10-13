@@ -83,3 +83,22 @@ def test_neck_and_decoder_see_the_whole_batch_once(model) -> None:
     finally:
         handle.remove()
     assert seen == [3] and out.shape == (3, 1, 64, 64)
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("available", [[True, True], [False, False], [True, False]])
+def test_wrapper_matches_terratorchs_own_forward_on_an_odd_size(model, available) -> None:
+    # 70 x 50 is not a multiple of the 16 px patch: padding, rescale and centre crop all act.
+    from floodfusion.models.terramind import _REFLECTANCE_TO_DN
+
+    torch.manual_seed(1)
+    sar, opt = torch.randn(2, 5, 70, 50), torch.rand(2, 4, 70, 50)
+    mask = torch.tensor(available)
+    with torch.inference_mode():
+        ours, _ = model(sar, None, opt, None, mask)
+        s1 = sar[:, :2] * model.sar_scale + model.sar_shift
+        s2 = (opt[:, :3] * _REFLECTANCE_TO_DN - model.s2_mean) / model.s2_std
+        for i, has_optical in enumerate(available):
+            inputs = {"S2L2A": s2[i:i + 1], "S1RTC": s1[i:i + 1]} if has_optical else {"S1RTC": s1[i:i + 1]}
+            upstream = model.model(inputs).output
+            torch.testing.assert_close(ours[i:i + 1], upstream.reshape(1, 1, 70, 50), rtol=1e-4, atol=1e-5)

@@ -9,8 +9,8 @@ Found on 2026-10-13 while planning v1.2, after every v1.1 result had been report
    unchanged. But the training loop applies dropout only to architectures in `train.OPTICAL_FUSION_ARCHITECTURES`,
    and that set listed the three fusion rows, not `terramind_*`. TerraMind therefore trained with p = 0.
    - **Evidence:** `dropped_fraction` is 0.0 in every epoch of
-     `runs/v11/sen1floods11/official/official/cmp_terramind_small/seed42/metrics.jsonl`, against 0.45–0.48 for row 9
-     on the same split.
+     `runs/v11/sen1floods11/official/official/cmp_terramind_small/seed42/metrics.jsonl`, against 0.45–0.51 for row 9
+     on the same split (30 epochs).
    - **Consequence:** TerraMind's SAR-only path (S1RTC alone) was trained only on the few chips that had no usable
      optical. On the CEMS benchmark most scored pixels have no clear optical, so TerraMind ran mostly in a mode it had
      barely been trained in.
