@@ -75,7 +75,7 @@ POOL=data/pool_v12
 POOL_ARGS="--data-root $POOL --overlay configs/overlays/kurosiwo.yaml --runs-root runs/v12/pool"
 ONE_SEED="--protocol kfold --seeds 42 --seed-protocol full --baseline-rows"
 
-pool_covered() {   # every pooled stack has sidecar $1 (or, for seasonal, a record saying why it has none)
+pool_covered() {   # every pooled stack has sidecar $1 (seasonal: or a record of why not), or the data chain is done
   $PY - "$1" <<'PYEOF'
 import sys
 from pathlib import Path
@@ -84,8 +84,9 @@ need = sys.argv[1]
 stacks = {Path(r.raster_path).parent for r in load_manifest(Path("data/pool_v12/chips/manifest.parquet"))}
 alt = {"seasonal.tif": "seasonal.json"}.get(need)
 missing = [d for d in stacks if not (d / need).is_file() and not (alt and (d / alt).is_file())]
-print(f"{need}: {len(stacks) - len(missing)}/{len(stacks)} stacks")
-sys.exit(1 if missing else 0)
+done = Path("data/v12_pool_sidecars.done").is_file()   # the data chain has tried every stack (twice)
+print(f"{need}: {len(stacks) - len(missing)}/{len(stacks)} stacks" + (" (data chain finished)" if done else ""))
+sys.exit(0 if not missing or done else 1)
 PYEOF
 }
 
