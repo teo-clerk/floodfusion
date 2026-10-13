@@ -1,0 +1,29 @@
+# v1.1 erratum (reports/v1_1_erratum.md): P4 re-scored with TerraMind trained as the protocol describes it
+# (modality dropout 0.5, one BatchNorm pass), beside the original TerraMind and the fusion model it was compared to.
+# Same pairs, strata, units and test as configs/datasets/cems_models.yaml; corrected and post hoc, so it is reported
+# beside the pre-registered P4, never instead of it. Read by floodfusion.cems_scores (make erratum-cems).
+
+primary_stratum: sar
+exclude: [EMSR664]
+optical_usable: 0.5
+sar_only_below: 0.1
+configs_dir: configs
+overlays: [configs/overlays/sen1floods11.yaml]
+overlapping_pairs: [EMSR773_AOI06, EMSR856_AOI07, EMSR864_AOI05, EMSR868_AOI01, EMSR868_AOI02]
+
+models:
+  - {key: s1f11_r9, name: "Fusion (S1F11)",
+     runs: [runs/v11/sen1floods11/official/official/row09_fusion_crossattn/seed42,
+            runs/v11/sen1floods11/official/official/row09_fusion_crossattn/seed43,
+            runs/v11/sen1floods11/official/official/row09_fusion_crossattn/seed44]}
+  - {key: s1f11_tm_fixed, name: "TerraMind-small (S1F11), corrected",
+     runs: [runs/v12/erratum/sen1floods11/official/official/cmp_terramind_small/seed42,
+            runs/v12/erratum/sen1floods11/official/official/cmp_terramind_small/seed43,
+            runs/v12/erratum/sen1floods11/official/official/cmp_terramind_small/seed44]}
+  - {key: s1f11_tm, name: "TerraMind-small (S1F11), as run in v1.1", role: descriptive,
+     runs: [runs/v11/sen1floods11/official/official/cmp_terramind_small/seed42,
+            runs/v11/sen1floods11/official/official/cmp_terramind_small/seed43,
+            runs/v11/sen1floods11/official/official/cmp_terramind_small/seed44]}
+tests:
+  - {id: P4c, question: "The task-specific fusion model vs the foundation model, TerraMind corrected (H4, erratum)",
+     a: s1f11_tm_fixed, b: s1f11_r9, subset: all}
