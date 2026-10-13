@@ -442,7 +442,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     report = ingest_geoid(args.raw, args.out, cfg, exclude_codes=kurosiwo_codes(args.kurosiwo_events),
                           events=args.events, workers=args.workers)
     LOGGER.info("summary: %s; excluded: %d events", report["summary"], len(report["excluded"]))
-    return 0
+    from floodfusion.data.ingest import build_dataset
+    from floodfusion.data.kurosiwo import SPLIT_EPSG
+
+    LOGGER.info("manifest %s", build_dataset(args.out, cfg, split_epsg=SPLIT_EPSG))
+    return 1 if report["summary"]["failed"] else 0
 
 
 if __name__ == "__main__":

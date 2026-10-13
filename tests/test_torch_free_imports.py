@@ -54,6 +54,7 @@ TORCH_FREE_MODULES = (
     "floodfusion.data.sidecars",
     "floodfusion.data.alphaearth",
     "floodfusion.prospective",
+    "floodfusion.data.pool",
 )
 
 
