@@ -266,7 +266,10 @@ def _fold_config(configs_dir: Path, row: int, overlays: Sequence[Path], fold: Fo
 EXTRA_ROWS = {14: "comparisons/terramind_small", 15: "variants/row09b_gate_bias0",
               16: "variants/row09c_cloud_augment", 17: "variants/row09r_sar_query",
               18: "variants/row02e_event_fallback", 19: "variants/row02s_seasonal",
-              # v1.2: the fair TerraMind (siamese pre/post; base + LoRA, base frozen, small + LoRA).
+              # v1.2: row 20, the reference design with context (both, seasonal only, AlphaEarth only) ...
+              20: "variants/row20_fusion_context", 21: "variants/row21_fusion_context_seasonal",
+              22: "variants/row22_fusion_context_aef",
+              # ... and the fair TerraMind (siamese pre/post; base + LoRA, base frozen, small + LoRA).
               24: "comparisons/terramind_base_fair", 25: "comparisons/terramind_base_fair_frozen",
               26: "comparisons/terramind_small_fair"}
 
@@ -279,7 +282,7 @@ def _config_name(row: int) -> str:
 
 #: Rows whose checkpoints are also evaluated SAR-only, and the run folder that evaluation goes to.
 SAR_ONLY_EVALUATED = {9: lambda name: "row11_fusion_eval_sar_only",
-                      **{row: (lambda name: f"{name}__eval_sar_only") for row in (14, 24, 25, 26)}}
+                      **{row: (lambda name: f"{name}__eval_sar_only") for row in (14, 20, 21, 22, 24, 25, 26)}}
 
 #: The reference row: under the affordable protocol it alone gets every seed.
 REFERENCE_ROW = 9

@@ -75,6 +75,8 @@ _S2_BANDS = ("GREEN", "NIR_BROAD", "SWIR_1")
 _S2_MEAN = (1718.197, 3083.234, 2424.884)
 _S2_STD = (2038.973, 1871.918, 1434.261)
 _REFLECTANCE_TO_DN = 10_000.0
+#: TerraMind pre-training statistics of its DEM modality (metres): the fair variants read a dem.tif sidecar.
+_DEM_MEAN, _DEM_STD = 670.665, 951.272
 _NECKS = [{"name": "SelectIndices", "indices": [2, 5, 8, 11]},
           {"name": "ReshapeTokensToImage", "remove_cls_token": False},
           {"name": "LearnedInterpolateToPyramidal"}]
@@ -89,7 +91,7 @@ class _Siamese(nn.Module):
         self.out_channels = [2 * c for c in encoder.out_channels]
 
     def forward(self, x: dict[str, torch.Tensor], **kwargs: Any) -> list[torch.Tensor]:
-        post = {k: v for k, v in x.items() if k != "S1RTC_pre"}
+        post = {k: v for k, v in x.items() if k != "S1RTC_pre"}   # DEM rides with the post-event pass
         after, before = self.encoder(post, **kwargs), self.encoder({"S1RTC": x["S1RTC_pre"]}, **kwargs)
         return [torch.cat([a, b.to(a.dtype)], dim=-1) for a, b in zip(after, before, strict=True)]
 
@@ -105,6 +107,8 @@ class TerraMindSegmenter(nn.Module):
             raise ImportError("the TerraMind row needs the optional extra: uv sync --extra fm") from exc
         modalities, bands = ["S2L2A", "S1RTC"], {"S2L2A": list(_S2_BANDS), "S1RTC": ["VV", "VH"]}
         self.siamese = cfg.architecture in FAIR_VARIANTS
+        if self.siamese:   # TerraMind's native terrain input, as our model reads slope, HAND and incidence
+            modalities, bands = [*modalities, "DEM"], {**bands, "DEM": ["DEM"]}
         if self.siamese:
             from terratorch.models.encoder_decoder_factory import _get_backbone
 
@@ -155,9 +159,18 @@ class TerraMindSegmenter(nn.Module):
 
     def forward(self, sar: torch.Tensor, terrain: torch.Tensor | None = None, optical: torch.Tensor | None = None,
                 optical_quality: torch.Tensor | None = None, optical_available: torch.Tensor | None = None,
+                context: torch.Tensor | None = None, context_available: torch.Tensor | None = None,
                 ) -> tuple[torch.Tensor, Any]:
         s1 = sar[:, :2] * self.sar_scale + self.sar_shift           # post VV, VH (z-scored dB)
-        pre = {"S1RTC_pre": sar[:, 2:4] * self.sar_scale + self.sar_shift} if self.siamese else {}
+        pre: dict[str, torch.Tensor] = {}
+        if self.siamese:
+            pre["S1RTC_pre"] = sar[:, 2:4] * self.sar_scale + self.sar_shift
+            # The dem.tif sidecar in metres, standardised as in pre-training; a stack without one reads the mean (0).
+            if context is not None and context_available is not None:
+                dem = (context[:, :1] - _DEM_MEAN) / _DEM_STD
+                pre["DEM"] = torch.where(context_available[:, :1].bool().view(-1, 1, 1, 1), dem, torch.zeros_like(dem))
+            else:
+                pre["DEM"] = sar.new_zeros(sar.shape[0], 1, *sar.shape[-2:])
         out_size = self.model.image_size_out or tuple(sar.shape[-2:])
         if optical is None or optical_available is None or not bool(optical_available.any()):
             features, size = self._encode({"S1RTC": s1, **pre})

@@ -310,6 +310,9 @@ class ModelConfig:
             "terramind_base_fair",  # v1.2 fair fight: siamese pre/post, LoRA (models/terramind.py)
             "terramind_base_fair_frozen",
             "terramind_small_fair",
+            "fusion_crossattn_ctx",  # v1.2 row 20: + seasonal and AlphaEarth context (data/sidecars.py)
+            "fusion_crossattn_ctx_seasonal",
+            "fusion_crossattn_ctx_aef",
         }
     )
 

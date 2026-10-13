@@ -223,6 +223,13 @@ _PRETRAINED = {"terramind_tiny", "terramind_small", "terramind_base_fair", "terr
                "terramind_small_fair"}
 
 
+def _context(cfg: ModelConfig) -> nn.Module:
+    from floodfusion.data.sidecars import sidecars_for
+    from floodfusion.models.segmenter import ContextFloodSegmenter
+
+    return ContextFloodSegmenter(cfg, sidecars_for(cfg.architecture))
+
+
 _REGISTRY: dict[str, Callable[..., nn.Module]] = {
     "terramind_tiny": _terramind,
     "terramind_small": _terramind,
@@ -234,6 +241,9 @@ _REGISTRY: dict[str, Callable[..., nn.Module]] = {
     "fusion_early": EarlyFusionSegmenter,
     "fusion_late": LateFusionSegmenter,
     "fusion_crossattn": FloodSegmenter,
+    "fusion_crossattn_ctx": _context,
+    "fusion_crossattn_ctx_seasonal": _context,
+    "fusion_crossattn_ctx_aef": _context,
 }
 
 

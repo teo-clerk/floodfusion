@@ -1,0 +1,11 @@
+# =============================================================================
+#  v1.2 row 22: the reference design (row 9) with context: AlphaEarth only
+#  (models/segmenter.py ContextFloodSegmenter, data/sidecars.py). Ablation on the pooled cross-validation;
+#  everything else is row 9's.
+# =============================================================================
+extends: ../row09_fusion_crossattn.yaml
+name: "row22_fusion_context_aef"
+ablation_row: 0   # outside the 13-row grid; keyed by name in the reports
+
+model:
+  architecture: "fusion_crossattn_ctx_aef"

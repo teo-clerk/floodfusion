@@ -148,9 +148,11 @@ def _load(run_dir: Path, data_root: Path | None, device: Any, force_sar_only: bo
 
 def _loader(records: Sequence[Any], cfg: ExperimentConfig) -> Any:
     from floodfusion.data.dataset import FloodChipDataset, build_dataloader
+    from floodfusion.data.sidecars import sidecars_for
     from floodfusion.train import EVAL_CONTEXT_PX
 
-    ds = FloodChipDataset(records, cfg.norm, cfg.data, cfg.grid, context_px=EVAL_CONTEXT_PX)
+    ds = FloodChipDataset(records, cfg.norm, cfg.data, cfg.grid, context_px=EVAL_CONTEXT_PX,
+                          sidecars=sidecars_for(cfg.model.architecture))
     return build_dataloader(ds, cfg.data, batch_size=cfg.train.micro_batch_size, shuffle=False, drop_last=False)
 
 

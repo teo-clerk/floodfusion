@@ -53,7 +53,8 @@ from floodfusion.models.encoders import ConvBlock, ModalityEncoder, TopDownMerge
 from floodfusion.models.fusion_module import CrossAttentionFusion, MissingModalityEmbedding
 from floodfusion.utils.shapes import ShapeError, assert_shape, named_dims
 
-__all__ = ["FloodSegmenter", "SegmentationHead", "UNetDecoder", "validate_backbone_config"]
+__all__ = ["CONTEXT_DROPOUT_P", "ContextFloodSegmenter", "FloodSegmenter", "SegmentationHead", "UNetDecoder",
+           "validate_backbone_config"]
 
 #: Expected flooded fraction of valid pixels (docs/05 section 8.2), used to initialise the
 #: head bias at the prior log-odds so training starts at the base rate, not at p = 0.5.
@@ -300,12 +301,14 @@ class FloodSegmenter(nn.Module):
         optical: torch.Tensor | None = None,
         optical_quality: torch.Tensor | None = None,
         optical_available: torch.Tensor | None = None,
+        context: torch.Tensor | None = None,
+        context_available: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:  # noqa: D102
         dims = named_dims()
         assert_shape(sar, ("B", N_SAR_CHANNELS, "H", "W"), dims, name="sar")
         assert_shape(terrain, ("B", N_TERRAIN_CHANNELS, "H", "W"), dims, name="terrain")
         batch = dims["B"]
-        x = torch.cat([sar, terrain], dim=1) if self.cfg.use_terrain else sar
+        x = self._sar_input(sar, terrain, context, context_available)
         s1, s2, s3, s4 = self.sar_encoder(x)
         f_sar = self.sar_merge(s3, s4)
 
@@ -331,6 +334,11 @@ class FloodSegmenter(nn.Module):
         logits = self.head(self.decoder(fused, (s1, s2)))
         assert_shape(logits, ("B", 1, "H", "W"), dims, name="logits")
         return logits, gate
+
+    def _sar_input(self, sar: torch.Tensor, terrain: torch.Tensor, context: torch.Tensor | None,
+                   context_available: torch.Tensor | None) -> torch.Tensor:
+        """The SAR encoder's input. The reference design reads no context (v1.2's subclass does)."""
+        return torch.cat([sar, terrain], dim=1) if self.cfg.use_terrain else sar
 
     def enable_gradient_checkpointing(self, enabled: bool = True) -> None:
         """Toggle activation checkpointing on the two memory-dominant stages.
@@ -381,3 +389,54 @@ def _quality_at(
     if optical is None:
         return torch.zeros_like(q)
     return q * available.view(-1, 1, 1, 1).to(q.dtype)
+
+
+#: Per sample and per sidecar, the probability that training hides the context (as modality dropout hides optical),
+#: so the model never relies on a layer a stack may lack.
+CONTEXT_DROPOUT_P = 0.3
+
+
+class ContextFloodSegmenter(FloodSegmenter):
+    """Row 20 (v1.2): the reference design, with sidecar context concatenated into the SAR + terrain encoder input.
+
+    Each sidecar group (:mod:`floodfusion.data.sidecars`) adds its channels and one indicator channel. Where a group
+    is missing for a sample (no layer on disk, or hidden by context dropout in training), its channels are replaced by
+    a learned constant per channel and the indicator is 0. A model trained this way also runs without context.
+    """
+
+    def __init__(self, cfg: ModelConfig, sidecars: tuple[str, ...]) -> None:
+        from floodfusion.data.sidecars import SIDECARS
+
+        super().__init__(cfg)
+        if not sidecars:
+            raise ValueError("a context model needs at least one sidecar")
+        self.sidecars = tuple(sidecars)
+        self.group_channels = tuple(SIDECARS[n].n_channels for n in self.sidecars)
+        self.sar_in_channels += sum(self.group_channels) + len(self.sidecars)
+        self.sar_encoder = ModalityEncoder(self.sar_in_channels, cfg)
+        self.missing_context = nn.ParameterList(nn.Parameter(torch.zeros(c)) for c in self.group_channels)
+
+    def _sar_input(self, sar: torch.Tensor, terrain: torch.Tensor, context: torch.Tensor | None,
+                   context_available: torch.Tensor | None) -> torch.Tensor:
+        base = super()._sar_input(sar, terrain, None, None)
+        batch, _, h, w = sar.shape
+        n_ctx = sum(self.group_channels)
+        if context is None:
+            context = sar.new_zeros(batch, n_ctx, h, w)
+            context_available = torch.zeros(batch, len(self.sidecars), dtype=torch.bool, device=sar.device)
+        if context.shape[1] != n_ctx or context_available is None or context_available.shape != (batch,
+                                                                                                    len(self.sidecars)):
+            raise ShapeError(f"context {tuple(context.shape)} / availability "
+                             f"{None if context_available is None else tuple(context_available.shape)} do not match "
+                             f"sidecars {self.sidecars} ({n_ctx} channels)")
+        available = context_available.bool()
+        if self.training:
+            available = available & (torch.rand(available.shape, device=available.device) >= CONTEXT_DROPOUT_P)
+        blocks, start = [], 0
+        for g, c in enumerate(self.group_channels):
+            values = context[:, start:start + c].to(sar.dtype)
+            keep = available[:, g].view(-1, 1, 1, 1)
+            filler = self.missing_context[g].to(sar.dtype).view(1, c, 1, 1).expand(batch, c, h, w)
+            blocks += [torch.where(keep, values, filler), keep.to(sar.dtype).expand(batch, 1, h, w)]
+            start += c
+        return torch.cat([base, *blocks], dim=1)
