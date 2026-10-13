@@ -23,7 +23,7 @@ from typing import Any
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
-SITE_FILES = ("index.html", "style.css", "app.js")
+SITE_FILES = ("index.html", "style.css", "app.js", "arena.html", "arena.js")
 FIGURES = ("gate_map.png",)
 HERO_PANELS = ("forli_vv.png", "forli_fusion.png", "forli_cems.png")
 EVENT_PREFIX = "S1F11_"
@@ -314,6 +314,112 @@ def site_data(root: Path = ROOT) -> dict[str, Any]:
             "replication": replication(reports)}
 
 
+# --- Arena (v1.2) -----------------------------------------------------------------------------------
+#: The v1.2 preview tables: (unit, restricted to units GFM covers) -> one table each.
+ARENA_TABLES = (("activation", False), ("cluster", False), ("activation", True), ("cluster", True))
+ARENA_METRICS = ("iou_tau", "iou_tau_binned", "iou_selfcal", "iou_oracle", "ap")
+ARENA_MANIFEST = "arena-manifest.json"
+
+
+def _finite(x: Any) -> float | None:
+    return None if x is None or (isinstance(x, float) and np.isnan(x)) else float(x)
+
+
+def _arena_scoreboard(reports: Path) -> dict[str, Any]:
+    """The v1.2 preview tables, or ``pending`` while ``reports/v12_cems_preview.json`` does not exist."""
+    path = reports / "v12_cems_preview.json"
+    if not path.is_file():
+        return {"status": "pending"}
+    report = json.loads(_read(path))
+    tables = []
+    for unit, gfm in ARENA_TABLES:
+        table = next((t for t in report["tables"] if t["unit"] == unit and t["gfm_common"] is gfm), None)
+        if table is None:
+            raise KeyError(f"{path.name}: no table for unit={unit!r}, gfm_common={gfm}")
+        models = {}
+        for key, row in table["models"].items():
+            missing = [m for m in ARENA_METRICS if m not in row]
+            if missing:
+                raise KeyError(f"{path.name}: {key} lacks {missing}")
+            models[key] = {"name": row["name"], "k": row["k"], **{m: _finite(row[m]) for m in ARENA_METRICS},
+                           "ci": {m: [_finite(v) for v in row["ci"][m]] for m in ARENA_METRICS}}
+        tables.append({"unit": unit, "gfm_common": gfm, "units": table["units"], "models": models})
+    return {"status": "ok", "tables": tables, "n_pairs": report["n_pairs"], "gfm_pairs": report["gfm_pairs"]}
+
+
+def _arena_maps(assets: Path) -> dict[str, Any]:
+    """The quicklook manifest with each layer's file, or ``pending``; a listed file that is missing fails loudly."""
+    path = assets / ARENA_MANIFEST
+    if not path.is_file():
+        return {"status": "pending", "pairs": []}
+    manifest = json.loads(_read(path))
+    pairs = []
+    for pair in manifest["pairs"]:
+        layers = {}
+        for key, layer in pair["layers"].items():
+            name = f"arena-{pair['key']}-{key}.webp"
+            if not (assets / name).is_file():
+                raise FileNotFoundError(f"{path.name} lists {name}, which is not in {assets}")
+            layers[key] = {"name": layer["name"], "iou": _finite(layer["iou"]), "src": f"assets/{name}"}
+        pairs.append({**{k: pair[k] for k in ("key", "activation", "aoi", "product", "sensors", "product_time",
+                                              "pass_time", "flood_km2")}, "layers": layers})
+    return {"status": "ok", "pairs": pairs}
+
+
+def _p4c(reports: Path) -> str | None:
+    """Erratum 1's corrected P4 in one sentence, or None while its report does not exist."""
+    path = reports / "v1_1_erratum_p4.json"
+    if not path.is_file():
+        return None
+    tests = json.loads(_read(path))["tests"]
+    parts = []
+    for unit in ("activation", "cluster"):
+        t = next(x for x in tests[unit] if x["id"] == "P4c")
+        parts.append(f"per {unit} {t['delta']:+.3f} [{t['ci'][0]:+.3f}, {t['ci'][1]:+.3f}], fusion better on "
+                     f"{t['wins']}/{t['k']}, p = {t['p']:.3f}")
+    return "Corrected P4 (fusion − TerraMind): " + "; ".join(parts) + " (v1.1 as run: +0.031 and +0.039)."
+
+
+def _errata(reports: Path) -> list[dict[str, Any]]:
+    link = "https://github.com/teo-clerk/floodfusion/blob/main/reports/v1_1_erratum.md"
+    p4c = _p4c(reports)
+    return [
+        {"id": "dropout", "title": "TerraMind trained without modality dropout",
+         "summary": "Its config set modality dropout to 0.5, but the training loop applied it only to the fusion "
+                    "models, so TerraMind's radar-only mode, used on most Copernicus floods, was barely trained. "
+                    "Its decoder's BatchNorm also saw sub-batches of one to three chips.",
+         "resolved": p4c is not None, "status": "Corrected re-run reported" if p4c else "Fixed · re-run in progress",
+         "result": p4c, "link": link},
+        {"id": "dem", "title": "Zero terrain past a DEM tile edge",
+         "summary": "Copernicus GLO-30 declares no nodata, so past a 1° tile boundary the terrain was read as flat "
+                    "ground at 0 m: slope and height above drainage were 0 on about 14 % of the CEMS benchmark's "
+                    "area and 6–8 % of the training sets'. TerraMind reads no terrain.",
+         "resolved": False, "status": "Fixed · data rebuilt for v1.2", "result": None, "link": link},
+    ]
+
+
+def _blind(reports: Path) -> dict[str, Any]:
+    """The blind test's progress: counts and statuses only (scores stay sealed until the stopping rule)."""
+    ledger = reports / "prospective" / "ledger.jsonl"
+    if not ledger.is_file():
+        return {"status": "not started", "status_text": "Not started: the models are frozen and the runner switched "
+                "on at the end of v1.2.", "k_activations": 0, "k_clusters": 0, "floods": []}
+    rows = [json.loads(line) for line in _read(ledger).splitlines() if line.strip()]
+    floods = [{"code": r["activation"], "date": r["event_date"], "status": r["status"]} for r in rows]
+    scored = {r["activation"] for r in rows if r["status"] == "scored"}
+    clusters = {r["cluster"] for r in rows if r["status"] == "scored"}
+    return {"status": "accruing", "status_text": f"Accruing: {len(scored)} activations scored, sealed.",
+            "k_activations": len(scored), "k_clusters": len(clusters), "floods": floods}
+
+
+def arena_data(root: Path = ROOT) -> dict[str, Any]:
+    """Everything the Arena shows, read from the committed reports and quicklooks."""
+    reports = root / "reports"
+    version = tomllib.loads(_read(root / "pyproject.toml"))["project"]["version"]
+    return {"version": version, "scoreboard": _arena_scoreboard(reports), "maps": _arena_maps(root / "assets"),
+            "errata": _errata(reports), "blind": _blind(reports)}
+
+
 # --- Figures ----------------------------------------------------------------------------------------
 
 def _runs(mask: np.ndarray) -> list[tuple[int, int]]:
@@ -362,6 +468,12 @@ def build(out: Path, root: Path = ROOT) -> Path:
     hero_panels(root / "assets" / "forli_hero.png", assets)
     payload = json.dumps(data, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
     (out / "data.js").write_text(f"window.FLOODFUSION = {payload};\n", encoding="utf-8")
+    arena = arena_data(root)
+    for pair in arena["maps"]["pairs"]:
+        for layer in pair["layers"].values():
+            shutil.copy2(root / layer["src"], assets / Path(layer["src"]).name)
+    payload = json.dumps(arena, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+    (out / "arena-data.js").write_text(f"window.FLOODFUSION_ARENA = {payload};\n", encoding="utf-8")
     return out / "index.html"
 
 

@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>floodfusion Arena</title>
+  <meta name="description" content="floodfusion v1.2 Arena: every model, including a fairly trained TerraMind and Copernicus's operational GFM, scored on the same Copernicus EMS flood maps, with a blind test on floods that had not happened when the models were frozen.">
+  <meta name="color-scheme" content="light dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b6e99'/%3E%3Cpath d='M4 20c4-4 8 4 12 0s8 4 12 0v8H4z' fill='%23fff'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="arena">
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <a class="brand" href="index.html">flood<span>fusion</span></a>
+    <nav class="topnav" aria-label="Sections">
+      <a href="#scoreboard">Scoreboard</a>
+      <a href="#maps">Maps</a>
+      <a href="#research">Research</a>
+      <a href="#errata">Errata</a>
+      <a href="#blind">Blind test</a>
+      <a href="index.html">Explainer</a>
+    </nav>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="theme-toggle" type="button" aria-label="Switch between light and dark theme">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/></svg>
+      </button>
+      <a class="btn btn-small" href="https://github.com/teo-clerk/floodfusion">GitHub</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <p class="wrap notice" id="no-data" hidden>The Arena's data is missing. Build it with
+    <code>uv run python scripts/build_site.py</code> and open <code>_site/arena.html</code>.</p>
+
+  <section class="hero arena-hero" id="top">
+    <div class="wrap">
+      <p class="eyebrow">floodfusion v1.2 · Arena</p>
+      <h1>Every model, the same floods, and Copernicus's own maps as referee</h1>
+      <p class="lede">Instead of asking <em>is this pixel water?</em>, v1.2 asks <em>is this water unusual for this
+        place and season?</em> Here that idea meets its opponents on equal terms:
+        a foundation model trained on the same labels, the operational Copernicus flood service, and a blind test on
+        floods that had not happened when the models were frozen.</p>
+      <div class="stats" id="arena-stats"></div>
+    </div>
+  </section>
+
+  <section class="section" id="scoreboard">
+    <div class="wrap">
+      <p class="kicker">1 · Scoreboard</p>
+      <h2>Copernicus EMS maps drawn on radar satellites, 2023–2026</h2>
+      <p class="section-lede">Every model maps every flood <a class="term" href="index.html#g-zeroshot">zero-shot</a>
+        and is scored against the Copernicus EMS delineation of the same day. Five ways to score it:
+        at the model's own threshold (τ*), the same on the binned scores, after a per-scene recalibration of the
+        flood prior, at the best single threshold chosen in hindsight, and threshold-free
+        (<a class="term" href="index.html#g-ap">AP</a>). A win that flips between them is not a win.</p>
+      <div class="panel">
+        <div class="arena-controls">
+          <div class="segmented small" role="radiogroup" aria-label="Score" id="metric"></div>
+          <div class="segmented small" role="radiogroup" aria-label="Unit" id="unit"></div>
+          <div class="segmented small" role="radiogroup" aria-label="Floods" id="scope"></div>
+        </div>
+        <div class="chart" id="scoreboard-chart"></div>
+        <p class="footnote" id="scoreboard-note"></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt" id="maps">
+    <div class="wrap">
+      <p class="kicker">2 · Maps</p>
+      <h2>Drag the divider: two models, one flood</h2>
+      <p class="section-lede">Floods drawn by a seeded rule, blind to every score. Inside the region Copernicus
+        observed (yellow edge), each map is coloured against its delineation.</p>
+      <div class="panel">
+        <div class="arena-controls">
+          <label class="arena-select">Flood <select id="pair"></select></label>
+          <label class="arena-select">Left <select id="left"></select></label>
+          <label class="arena-select">Right <select id="right"></select></label>
+        </div>
+        <div class="swipe" id="arena-swipe">
+          <img id="arena-left" alt="" draggable="false">
+          <img id="arena-right" alt="" draggable="false">
+          <div class="swipe-handle" id="arena-handle" aria-hidden="true"><span></span></div>
+          <span class="swipe-tag swipe-tag-left" id="arena-tag-left"></span>
+          <span class="swipe-tag swipe-tag-right" id="arena-tag-right"></span>
+          <input type="range" id="arena-range" min="0" max="100" value="50" step="0.5" aria-label="Divider position">
+        </div>
+        <p class="footnote"><span class="key key-hit"></span> hit · <span class="key key-false"></span> false alarm ·
+          <span class="key key-miss"></span> miss · <span class="key key-edge"></span> edge of the region Copernicus
+          observed · background: Sentinel-1 VV after the event. <span id="pair-facts"></span></p>
+        <p class="notice" id="maps-pending" hidden>The map quicklooks are rendered from the models' predictions and
+          will appear once <code>scripts/arena_assets.py</code> has run.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="research">
+    <div class="wrap">
+      <p class="kicker">3 · Research landscape (October 2026)</p>
+      <h2>Why a bigger network will not win, and what might</h2>
+      <p class="section-lede">Numbers in this section are reported by others, on their own benchmarks; they are
+        set apart from this project's results and cited.</p>
+      <div class="cards two">
+        <article class="panel research-card">
+          <h3>The encoder is not the bottleneck</h3>
+          <p>On GEOID-Flood's 219 Copernicus floods, every foundation model lands at 0.45–0.48 flood IoU, and a
+            32M-parameter Swin-T matches them. The authors conclude that training design matters more than the
+            encoder; models trained on Kuro Siwo transfer almost as well as on their own set (0.54–0.57 against
+            0.59–0.60).</p>
+          <p class="cite">Chiriaco et al., <a href="https://arxiv.org/abs/2608.02315">GEOID-Flood</a>, ECCV-W 2026.
+            See also Tulbure et al., <a href="https://arxiv.org/abs/2512.02055">arXiv 2512.02055</a>.</p>
+        </article>
+        <article class="panel research-card">
+          <h3>The real incumbent is operational</h3>
+          <p>Copernicus GFM maps every Sentinel-1 scene with three algorithms and a majority vote, within hours,
+            and its archive is open. Its next version (2027) adds a deep-learning member and hydraulic flood
+            expansion. Beating a foundation model on a benchmark matters less than beating this.</p>
+          <p class="cite">CEMS, <a href="https://global-flood.emergency.copernicus.eu/">Global Flood Monitoring</a>;
+            Krullikowski et al., <a href="https://arxiv.org/abs/2304.12488">arXiv 2304.12488</a>.</p>
+        </article>
+        <article class="panel research-card">
+          <h3>Retrospective benchmarks are running out</h3>
+          <p>New training sets now cover the same Copernicus activations as this project's test set (GEOID-Flood
+            reaches EMSR871; IBM and ESA's ImpactMesh covers hundreds of events). A model trained on them has seen
+            the test. Only floods that happen after a model is frozen stay clean, hence the blind test below.</p>
+          <p class="cite"><a href="https://github.com/IBM/ImpactMesh">ImpactMesh</a> (IBM, ESA Φ-lab).</p>
+        </article>
+        <article class="panel research-card">
+          <h3>Context helps more than capacity</h3>
+          <p>What separates a flood from a dark field is what the place normally looks like: its radar a year
+            earlier, its land cover, where water can flow. Land-cover priors improved every backbone on held-out
+            floods, TerraMind included.</p>
+          <p class="cite">Thasma et al., <a href="https://arxiv.org/abs/2606.29134">arXiv 2606.29134</a>;
+            Tellman, <a href="https://iclr.cc/virtual/2026/10021855">ICLR 2026</a>.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt" id="errata">
+    <div class="wrap">
+      <p class="kicker">4 · Errata to v1.1</p>
+      <h2>Two defects found while building v1.2, and what they change</h2>
+      <p class="section-lede">Both were found after v1.1's results were reported. The published numbers stand as
+        computed; corrected runs are reported beside them, never instead.</p>
+      <div class="cards two" id="errata-cards"></div>
+    </div>
+  </section>
+
+  <section class="section" id="blind">
+    <div class="wrap">
+      <p class="kicker">5 · Blind test</p>
+      <h2>Floods that had not happened when the models were frozen</h2>
+      <p class="section-lede">Every eligible Copernicus flood activation from EMSR899 on is scored by models frozen
+        before it, under rules committed before it. Scores stay sealed until the stopping rule is met: at least 8
+        clusters and 10 activations, or 31 December 2027.</p>
+      <div class="panel" id="blind-panel"></div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    <p>floodfusion <span data-bind="version"></span> · MIT licence ·
+      <a href="https://github.com/teo-clerk/floodfusion">github.com/teo-clerk/floodfusion</a> ·
+      <a href="index.html">the explainer</a></p>
+    <p class="muted">Contains modified Copernicus Sentinel data, processed by Microsoft Planetary Computer.
+      Copernicus EMS rapid-mapping products and Global Flood Monitoring © European Union, Copernicus Emergency
+      Management Service. Copernicus DEM © DLR e.V. 2010–2014 and © Airbus Defence and Space GmbH 2014–2018,
+      provided under COPERNICUS by the European Union and ESA. Kuro Siwo: Bountos et al., NeurIPS 2024, CC BY 4.0.
+      GEOID-Flood: Chiriaco et al., 2026, CC BY 4.0. Sen1Floods11: Bonafilia et al., 2020. TerraMind: IBM and ESA.
+      Developed with AI assistance (Claude Code); the design decisions, verification and results were reviewed by
+      the author.</p>
+  </div>
+</footer>
+
+<div class="tooltip" id="tooltip" role="tooltip" hidden></div>
+<script src="arena-data.js"></script>
+<script src="arena.js"></script>
+</body>
+</html>

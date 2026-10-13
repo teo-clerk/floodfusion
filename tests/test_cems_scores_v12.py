@@ -156,3 +156,9 @@ def test_the_v12_spec_holds_every_v11_model_plus_the_corrected_terramind_and_gfm
     assert keys[len(v11["models"]):] == ["s1f11_tm_fixed", "gfm"] and spec["tests"] == []
     assert {k: spec[k] for k in ("exclude", "primary_stratum", "overlapping_pairs")} == \
         {k: v11[k] for k in ("exclude", "primary_stratum", "overlapping_pairs")}
+
+
+def test_bootstrap_interval_brackets_the_mean_and_needs_two_units() -> None:
+    lo, hi = v12._bootstrap_ci([0.2, 0.4, 0.6, 0.8])
+    assert lo < 0.5 < hi and v12._bootstrap_ci([0.2, 0.4, 0.6, 0.8]) == [lo, hi]   # seeded
+    assert all(np.isnan(v12._bootstrap_ci([0.5])))

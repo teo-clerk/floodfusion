@@ -43,6 +43,7 @@ __all__ = [
     "load_scores",
     "main",
     "model_priors",
+    "pair_counts",
     "score",
     "summary",
     "tile_counts",
@@ -200,6 +201,14 @@ def check_against_v11(scores: Mapping[str, Any], v11: Mapping[str, Any]) -> list
     return bad
 
 
+def pair_counts(scores: Mapping[str, Any], spec: Mapping[str, Any]) -> dict[str, int]:
+    """Pairs of the primary stratum with scored pixels, and how many of them GFM covers (>= the minimum share)."""
+    pairs = [e for e in scores["pairs"].values() if e["scored_px"] and e["pair"]["stratum"] == spec["primary_stratum"]
+             and e["pair"]["activation"] not in spec["exclude"]]
+    covered = [e for e in pairs if 1.0 - e.get("gfm_missing_px", 0) / e["scored_px"] >= GFM_MIN_COVERAGE]
+    return {"n_pairs": len(pairs), "gfm_pairs": len(covered)}
+
+
 def _seed_hists(entries: Sequence[Mapping[str, Any]], key: str) -> dict[str, dict[str, np.ndarray]]:
     """``{seed: {"pos", "neg", "all"}}`` of one model, pooled over a unit's pairs (seeds kept apart)."""
     out: dict[str, dict[str, np.ndarray]] = {}
@@ -256,6 +265,18 @@ def _unit_set(groups: Mapping[str, list[dict[str, Any]]], *, gfm_covered: bool) 
 
 
 METRICS = ("iou_tau", "iou_tau_binned", "iou_selfcal", "iou_oracle", "ap")
+#: Resamples of the percentile bootstrap over units (seeded: the report regenerates byte for byte).
+N_BOOTSTRAP = 2000
+
+
+def _bootstrap_ci(values: Sequence[float], *, seed: int = 0) -> list[float]:
+    """95 % percentile interval of the macro mean over units, resampling units; NaNs with fewer than two units."""
+    v = np.asarray(values, dtype=np.float64)
+    if len(v) < 2:
+        return [math.nan, math.nan]
+    rng = np.random.default_rng(seed)
+    means = v[rng.integers(0, len(v), size=(N_BOOTSTRAP, len(v)))].mean(axis=1)
+    return [float(np.quantile(means, 0.025)), float(np.quantile(means, 0.975))]
 
 
 def summary(scores: Mapping[str, Any], spec: Mapping[str, Any], *, unit: str = "activation",
@@ -296,7 +317,8 @@ def summary(scores: Mapping[str, Any], spec: Mapping[str, Any], *, unit: str = "
             per[name] = row
         means = {m: [r[m] for r in per.values() if math.isfinite(r[m])] for m in METRICS}
         rows[key] = {"name": scores["models"][key]["name"], "k": len(per), "per_unit": per,
-                     **{m: (float(np.mean(v)) if v else math.nan) for m, v in means.items()}}
+                     **{m: (float(np.mean(v)) if v else math.nan) for m, v in means.items()},
+                     "ci": {m: _bootstrap_ci(v) for m, v in means.items()}}
     return {"unit": unit, "gfm_common": gfm_common, "units": names, "models": rows}
 
 
@@ -352,7 +374,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise SystemExit(f"{len(bad)} counts differ from v1.1's committed scores, e.g. {bad[:3]}")
     tables = [summary(scores, spec, unit=u, gfm_common=g) for g in (False, True) for u in ("activation", "cluster")]
     args.out.write_text(_markdown(tables) + "\n", encoding="utf-8")
-    write_json(args.out.with_suffix(".json"), {"tables": tables})
+    write_json(args.out.with_suffix(".json"), {"tables": tables, **pair_counts(scores, spec)})
     return 0
 
 
