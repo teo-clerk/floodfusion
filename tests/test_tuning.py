@@ -30,15 +30,26 @@ def _fold0(windows: dict[str, str], val_group: str = "V") -> SplitAssignment:
 
 def test_the_inner_split_holds_out_whole_groups_of_fold_0s_training_data() -> None:
     windows = {f"g{g}_c{i}": f"G{g}" for g in range(10) for i in range(10)} | {"v0": "V", "v1": "V"}
-    inner = tuning.inner_split(_fold0(windows), windows)
-    assert set(inner.train_chips) | set(inner.val_chips) == {c for c, g in windows.items() if g != "V"}
+    grid = {c for c in windows if not c.endswith(("_c1", "_c3"))}        # two overlapping windows per group
+    inner = tuning.inner_split(_fold0(windows), windows, grid)
+    held = {windows[c] for c in inner.val_chips}
+    assert set(inner.train_chips) == {c for c, g in windows.items() if g not in held | {"V"}}
     assert not set(inner.train_basins) & set(inner.val_basins)
     assert {windows[c] for c in inner.val_chips} == set(inner.val_basins)
-    assert len(inner.val_chips) == 20                                     # two of ten equal groups: 20 %
+    assert len(held) == 2 and len(inner.val_chips) == 16                 # 20 % of windows; grid chips scored
     assert inner.test_chips == ("v0", "v1") and inner.test_basins == ("V",)   # fold 0's validation, never scored
-    assert inner == tuning.inner_split(_fold0(windows), windows)          # seeded
+    assert inner == tuning.inner_split(_fold0(windows), windows, grid)    # seeded
     with pytest.raises(ValueError, match="two training groups"):
-        tuning.inner_split(_fold0({"a": "G0", "v": "V"}), {"a": "G0", "v": "V"})
+        tuning.inner_split(_fold0({"a": "G0", "v": "V"}), {"a": "G0", "v": "V"}, {"a", "v"})
+
+
+def test_one_large_group_does_not_push_validation_far_past_the_target() -> None:
+    windows = {f"big_c{i}": "BIG" for i in range(60)} | {f"g{g}_c{i}": f"G{g}" for g in range(8) for i in range(5)}
+    windows |= {"v0": "V"}
+    for seed in range(20):
+        inner = tuning.inner_split(_fold0(windows), windows, set(windows), seed=seed)
+        assert "BIG" not in inner.val_basins                              # 60 % of the windows: never closer
+        assert 0.1 <= len(inner.val_chips) / 100 <= 0.3
 
 
 def test_the_best_rate_wins_and_an_exact_tie_goes_to_the_earlier_rate() -> None:
@@ -90,14 +101,23 @@ def test_each_family_trains_once_per_rate_and_hands_over_its_best(tmp_path: Path
     score = {"row09_fusion_crossattn": {3e-5: 0.40, 1e-4: 0.45, 3e-4: 0.44},
              "terramind_small_fair": {3e-5: 0.30, 1e-4: 0.35, 3e-4: 0.41}}
 
-    def fake_main(argv):
+    def fake_main(argv):                                                 # records what train.fit would record
+        from floodfusion.config import config_sha256, config_to_dict
+
         run_dir = Path(argv[argv.index("--run-dir") + 1])
-        rate = float(next(a for a in argv if a.startswith("train.learning_rate=")).split("=")[1])
+        sets = [argv[i + 1] for i, a in enumerate(argv) if a == "--set"]
+        rate = float(next(a for a in sets if a.startswith("train.learning_rate=")).split("=")[1])
         calls.append((run_dir.parent.name, rate))
+        cfg = load_config(Path(argv[argv.index("--config") + 1]), overlays=[Path("configs/overlays/kurosiwo.yaml")],
+                          overrides=[*sets, f"train.seed={argv[argv.index('--seed') + 1]}"])
+        data = real_load(cfg, Path(argv[argv.index("--data-root") + 1]))
         run_dir.mkdir(parents=True)
-        (run_dir / "run.json").write_text(json.dumps({"status": "finished",
-                                                      "best_val_macro_iou": score[run_dir.parent.name][rate]}))
+        (run_dir / "run.json").write_text(json.dumps({
+            "status": "finished", "best_val_macro_iou": score[run_dir.parent.name][rate],
+            "config_sha256": config_sha256(config_to_dict(data.cfg)), "split_sha256": data.split_sha256}))
         return 0
+
+    real_load = train.load_training_data
 
     monkeypatch.setattr(train, "main", fake_main)
     reports, runs = tmp_path / "reports", tmp_path / "runs"
@@ -114,3 +134,7 @@ def test_each_family_trains_once_per_rate_and_hands_over_its_best(tmp_path: Path
     assert "3.0e-04" in (reports / "v12_lr_terramind_small_fair.yaml").read_text()
     assert json.loads((reports / "v12_tuning.json").read_text())["rows"]["terramind_small_fair"]["chosen"] == 3e-4
     assert tuning.main(argv) == 0 and len(calls) == 6                   # resumable: nothing trained twice
+    stale = runs / "row09_fusion_crossattn" / "lr0.0001" / "run.json"
+    stale.write_text(json.dumps({**json.loads(stale.read_text()), "config_sha256": "an older setting"}))
+    with pytest.raises(ValueError, match="another setting"):
+        tuning.main(argv)

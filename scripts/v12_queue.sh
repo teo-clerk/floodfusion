@@ -44,6 +44,7 @@ wait_until() {   # wait_until <hours> <command...>: poll until the command succe
   shift
   if [ "$HOLDS_LOCK" = 1 ]; then flock -u 9; fi
   until "$@"; do
+    if [ $? -eq 3 ]; then echo "giving up: $*" >&2; exit 1; fi        # 3: will never be ready
     if [ "$(date +%s)" -ge "$deadline" ]; then echo "timed out waiting for: $*" >&2; exit 1; fi
     sleep 300
   done
@@ -86,7 +87,15 @@ alt = {"seasonal.tif": "seasonal.json"}.get(need)
 missing = [d for d in stacks if not (d / need).is_file() and not (alt and (d / alt).is_file())]
 done = Path("data/v12_pool_sidecars.done").is_file()   # the data chain has tried every stack (twice)
 print(f"{need}: {len(stacks) - len(missing)}/{len(stacks)} stacks" + (" (data chain finished)" if done else ""))
-sys.exit(0 if not missing or done else 1)
+if not missing:
+    sys.exit(0)
+if not done:
+    sys.exit(1)                                          # not ready yet
+if len(missing) <= 0.01 * len(stacks):                   # read as unavailable (reports/v1_2_deviations.md)
+    print(f"WARNING: {len(missing)} pooled stacks have no {need}: {sorted(d.name for d in missing)[:20]}")
+    sys.exit(0)
+print(f"REFUSING: {len(missing)} pooled stacks (> 1 %) have no {need}; fix the data chain (data/logs) first")
+sys.exit(3)
 PYEOF
 }
 
@@ -149,9 +158,11 @@ print(build_dataset('data/geoid', load_config('configs/base.yaml'), split_epsg=S
     ours=$($PY -c "import json; print({'row09_fusion_crossattn': 9, 'row21_fusion_context_seasonal': 21}[
       json.load(open('reports/v12_selection.json'))['chosen']])")
     tm=$(tm_name)
-    finals="--protocol all --seeds 42 43 44 --seed-protocol full --baseline-rows"
-    $PY -m floodfusion.crossval run $POOL_ARGS $(lr row09_fusion_crossattn) $finals --learned-rows "$ours"
-    $PY -m floodfusion.crossval run $POOL_ARGS $(lr "$tm") $finals --learned-rows "$(tm_row "$tm")"
+    # Their own runs root: three seeds here, one in the CV, and crossval's protocol.json pins seeds per row.
+    finals="--data-root $POOL --overlay configs/overlays/kurosiwo.yaml --runs-root runs/v12/final --protocol all"
+    finals="$finals --seeds 42 43 44 --seed-protocol full --baseline-rows"
+    $PY -m floodfusion.crossval run $finals $(lr row09_fusion_crossattn) --learned-rows "$ours"
+    $PY -m floodfusion.crossval run $finals $(lr "$tm") --learned-rows "$(tm_row "$tm")"
     ;;
   *)
     echo "usage: $0 ${STAGES// /|}" >&2

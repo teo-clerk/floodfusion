@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -110,8 +111,9 @@ def test_every_test_stack_of_every_fold_is_predicted_whole(tmp_path: Path) -> No
     scores = ca.score_runs([run], manifest, predictor=predictor)
     assert seen == ["S2", "S3"]                                          # test stacks only
     stacks = scores["runs"][str(run)]["stacks"]
-    assert {k: v["group"] for k, v in stacks.items()} == {"S2": "G2", "S3": "G3"}
-    assert sum(stacks["S2"]["plain"]["pos"]) == N * N // 2 - 2          # (0, 0) SAR nodata, (0, 1) layover
+    assert {Path(k).parent.name: v["group"] for k, v in stacks.items()} == {"S2": "G2", "S3": "G3"}
+    s2 = next(v for k, v in stacks.items() if Path(k).parent.name == "S2")
+    assert sum(s2["plain"]["pos"]) == N * N // 2 - 2                     # (0, 0) SAR nodata, (0, 1) layover
     out, report = tmp_path / "scores.json.gz", tmp_path / "addons.json"
     import gzip
     with gzip.open(out, "wt", encoding="utf-8") as f:
@@ -157,3 +159,15 @@ def test_selection_prefers_the_simpler_model_within_the_margin(tmp_path: Path, p
     choice = json.loads(out.read_text())
     assert choice["chosen"] == expected
     assert choice["add_ons"] == (["selfcal", "hand"] if expected == "row21" else [])
+
+
+def test_dry_groups_are_reported_not_averaged_and_an_undefined_score_cannot_be_selected() -> None:
+    dry = np.zeros((N, N), bool)
+    alarms = (np.full((N, N), 0.9), dry, np.full((N, N), 40.0))          # no flood; the HAND cut removes every alarm
+    clean = _flood_left(0.9, 0.1, hand_right=2.0)
+    result = ca.adoption({"runs": {"r": {"tau": 0.5, "pi0": 0.5, "stacks": {
+        "a": _entry(*clean, "A"), "d": _entry(*alarms, "D")}}}})
+    assert result["n_groups"] == 1 and result["dry_groups_not_scored"] == ["D"]
+    assert all(math.isfinite(v) for v in result["macro_iou"].values())
+    with pytest.raises(ValueError, match="no defined CV IoU"):
+        ca.select({"row09": {"macro_iou": {"plain": math.nan}}, "row21": {"macro_iou": {"plain": 0.5}}})

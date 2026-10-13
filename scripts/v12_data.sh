@@ -26,12 +26,12 @@ if [ "$(ks_failed)" != "0" ]; then   # resumable: only what is missing or failed
     || echo "Kuro Siwo ingest: $(ks_failed) tiles still failed; continuing with the rest" >&2
 fi
 
-twice() {   # a resumable step, retried once for transient network errors; never stops the chain
-  "$@" || "$@" || echo "still failing after a retry (continuing): $*" >&2
+twice() {   # a resumable step, retried once for transient network errors; never stops the chain, but is recorded
+  "$@" || "$@" || { echo "still failing after a retry (continuing): $*" >&2; echo "$*" >> data/v12_pool_sidecars.failed; }
 }
 
 echo "== training pool: DEM and seasonal sidecars, $(date -u +%FT%TZ)"
-rm -f data/v12_pool_sidecars.done
+rm -f data/v12_pool_sidecars.done data/v12_pool_sidecars.failed
 $PY -m floodfusion.data.sidecars link --root data/kurosiwo_v12 --from-root data/kurosiwo
 twice $PY -m floodfusion.data.sidecars dem --root data/kurosiwo_v12 data/geoid
 twice $PY -m floodfusion.data.seasonal --root data/geoid

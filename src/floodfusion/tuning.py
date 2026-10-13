@@ -4,7 +4,8 @@ The rule (``reports/v1_2_deviations.md``, fixed before any pooled run):
 
 - **Grid:** :data:`GRID` for every family. 1e-4 is both families' configured default.
 - **Inner split** (:func:`inner_split`): fold 0's training groups are divided by whole groups.
-  - About :data:`INNER_VAL_SHARE` of their windows (seeded) go to validation; the rest train.
+  - Whole groups, taken in a seeded order, go to validation while each brings the validation share of windows closer
+    to :data:`INNER_VAL_SHARE`; the rest train. Validation, like CV's, scores evaluation-grid chips only.
   - Fold 0's own validation chips fill the test part, which training requires but never scores. Every part stays
     group-disjoint.
 - **Choice** (:func:`best_rate`): the rate with the best inner-validation macro IoU (``best_val_macro_iou``). On an
@@ -12,7 +13,8 @@ The rule (``reports/v1_2_deviations.md``, fixed before any pooled run):
 - **Hand-over:** the chosen rate is written as an overlay (``reports/v12_lr_<run name>.yaml``). That family's CV and
   finals pass it after the dataset overlay.
 
-Runs go to ``runs/v12/tune/<run name>/lr<rate>/`` and are resumable: a finished run is not trained again.
+Runs go to ``runs/v12/tune/<run name>/lr<rate>/`` and are resumable. A finished run is reused only if its recorded
+configuration hash and split file hash are the ones this rule would produce now; otherwise the stage refuses.
 """
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ import argparse
 import json
 import logging
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -38,21 +40,27 @@ SEED = 42
 SPLIT_FILE, NORM_FILE = "tune/inner.json", "tune/inner.norm_stats.json"
 
 
-def inner_split(fold0: Any, windows: Mapping[str, str], *, seed: int = 0) -> Any:
-    """The inner split of ``fold0`` (a :class:`~floodfusion.splits.SplitAssignment`); ``windows`` maps chip -> group."""
+def inner_split(fold0: Any, windows: Mapping[str, str], eval_grid: Collection[str], *, seed: int = 0) -> Any:
+    """The inner split of ``fold0`` (a :class:`~floodfusion.splits.SplitAssignment`).
+
+    ``windows`` maps chip -> group; ``eval_grid`` holds the evaluation-grid chips (the only ones validation scores).
+    """
     groups = sorted(set(fold0.train_basins))
     if len(groups) < 2:
         raise ValueError("an inner split needs at least two training groups")
     per_group = Counter(windows[c] for c in fold0.train_chips)
     target = INNER_VAL_SHARE * len(fold0.train_chips)
     val: list[str] = []
+    total = 0
     for g in (groups[i] for i in np.random.default_rng(seed).permutation(len(groups))):
-        if sum(per_group[v] for v in val) >= target or len(val) == len(groups) - 1:
+        if len(val) == len(groups) - 1:
             break
-        val.append(g)
-    val_set = set(val)
+        if abs(total + per_group[g] - target) < abs(total - target):   # closer to the target with g
+            val.append(g)
+            total += per_group[g]
+    val_set = set(val) or {min(groups, key=lambda g: (per_group[g], g))}   # every group overshoots: the smallest
     train_chips = tuple(c for c in fold0.train_chips if windows[c] not in val_set)
-    val_chips = tuple(c for c in fold0.train_chips if windows[c] in val_set)
+    val_chips = tuple(c for c in fold0.train_chips if windows[c] in val_set and c in eval_grid)
     return replace(fold0, train_chips=train_chips, val_chips=val_chips, test_chips=fold0.val_chips,
                    train_basins=tuple(g for g in groups if g not in val_set), val_basins=tuple(sorted(val_set)),
                    test_basins=fold0.val_basins)
@@ -82,7 +90,7 @@ def _write_inner(chip_dir: Path, cfg: Any) -> None:
     sha = load_manifest_meta(manifest)["manifest_sha256"]
     records = {r.chip_id: r for r in load_manifest(manifest)}
     split = inner_split(load_splits(chip_dir / "cv" / "kfold__fold0.json", expected_manifest_sha256=sha),
-                        {c: r.basin_id for c, r in records.items()})
+                        {c: r.basin_id for c, r in records.items()}, {c for c, r in records.items() if r.eval_grid})
     (chip_dir / "tune").mkdir(parents=True, exist_ok=True)
     norm = compute_norm_stats([records[c] for c in split.train_chips], cfg.norm, cfg.grid, seed=0)
     atomic_write_bytes(chip_dir / NORM_FILE, json.dumps({
@@ -94,9 +102,23 @@ def _write_inner(chip_dir: Path, cfg: Any) -> None:
                 len(split.val_basins))
 
 
+def _finished(record_path: Path, expected: Mapping[str, str]) -> bool:
+    """Whether a finished run of exactly this setting exists; a finished run of another setting is an error."""
+    if not record_path.is_file():
+        return False
+    record = json.loads(record_path.read_text(encoding="utf-8"))
+    if record.get("status") != "finished":
+        return False
+    stale = {k: (record.get(k), v) for k, v in expected.items() if record.get(k) != v}
+    if stale:
+        raise ValueError(f"{record_path.parent} was trained with another setting {stale}; move it away to retrain")
+    return True
+
+
 def tune_row(row: int, data_root: Path, overlays: Sequence[Path], runs_root: Path) -> dict[str, Any]:
     """Train ``row`` once per rate of :data:`GRID` on the inner split (resumable); return the rates' results."""
     from floodfusion import train
+    from floodfusion.config import config_sha256, config_to_dict, load_config
     from floodfusion.crossval import _config_name
 
     config = Path("configs") / f"{_config_name(row)}.yaml"
@@ -104,14 +126,19 @@ def tune_row(row: int, data_root: Path, overlays: Sequence[Path], runs_root: Pat
     results = {}
     for rate in GRID:
         run_dir = runs_root / name / f"lr{rate:g}"
-        record = run_dir / "run.json"
-        done = record.is_file() and json.loads(record.read_text(encoding="utf-8")).get("status") == "finished"
-        if not done:
+        overrides = [f"data.split_file_name={SPLIT_FILE}", f"data.norm_stats_file={NORM_FILE}",
+                     "data.split_strategy=leave_one_basin_out", f"train.learning_rate={_yaml_float(rate)}"]
+        data = train.load_training_data(load_config(config, overlays=overlays,
+                                                    overrides=[*overrides, f"train.seed={SEED}"]), data_root)
+        # The run records the configuration as training saw it (with the split's norm statistics loaded).
+        expected = {"config_sha256": config_sha256(config_to_dict(data.cfg)), "split_sha256": data.split_sha256}
+        if not _finished(run_dir / "run.json", expected):
             train.main(["--config", str(config), "--data-root", str(data_root), "--seed", str(SEED),
                         *[a for o in overlays for a in ("--overlay", str(o))], "--run-dir", str(run_dir),
-                        "--set", f"data.split_file_name={SPLIT_FILE}", "--set", f"data.norm_stats_file={NORM_FILE}",
-                        "--set", "data.split_strategy=leave_one_basin_out", "--set", f"train.learning_rate={_yaml_float(rate)}"])
-        results[rate] = float(json.loads(record.read_text(encoding="utf-8"))["best_val_macro_iou"])
+                        *[a for o in overrides for a in ("--set", o)]])
+            _finished(run_dir / "run.json", expected)                 # the run just written must match too
+        record = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+        results[rate] = float(record["best_val_macro_iou"])
         LOGGER.info("%s lr %g: inner-val macro IoU %.4f", name, rate, results[rate])
     return {"run_name": name, "results": {f"{r:g}": v for r, v in results.items()}, "chosen": best_rate(results)}
 

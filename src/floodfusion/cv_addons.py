@@ -11,12 +11,14 @@ prediction:
 - **both.**
 
 **The rule** (``reports/v1_2_deviations.md``, fixed before any pooled-CV run):
-- confusion counts are pooled per split group, and IoU is averaged over groups;
+- confusion counts are pooled per split group, and IoU is averaged over the groups with flooded pixels (IoU is then
+  defined under every arm: the add-ons change predictions, never labels; dry groups are counted in the report);
 - an add-on is adopted if it raises that mean by at least :data:`MIN_GAIN` **and** raises the IoU of more than half of
   the groups.
 
 **Scored pixels** are those the chip metrics score (:func:`floodfusion.data.encoding.normalise`): no validity flag,
-finite SAR, terrain and label.
+finite SAR, terrain and label, over the **whole** stack. Chip metrics score evaluation-grid test windows only, so a
+stack's edges and dropped windows count here and not there.
 """
 
 from __future__ import annotations
@@ -91,10 +93,11 @@ def adoption(scores: Mapping[str, Any]) -> dict[str, Any]:
                 tp, fp, fn = _counts(entry, arm, run["tau"], run["pi0"])
                 acc = groups.setdefault(entry["group"], {}).setdefault(arm, [0, 0, 0])
                 acc[0], acc[1], acc[2] = acc[0] + tp, acc[1] + fp, acc[2] + fn
-    iou = {g: {arm: (c[0] / sum(c) if sum(c) else math.nan) for arm, c in arms.items()} for g, arms in groups.items()}
-    scored = sorted(g for g, v in iou.items() if not math.isnan(v["plain"]))
+    scored = sorted(g for g, arms in groups.items() if arms["plain"][0] + arms["plain"][2] > 0)   # tp + fn: floods
+    iou = {g: {arm: c[0] / sum(c) for arm, c in groups[g].items()} for g in scored}
     macro = {arm: float(np.mean([iou[g][arm] for g in scored])) if scored else math.nan for arm in ARMS}
-    result: dict[str, Any] = {"n_groups": len(scored), "macro_iou": macro, "per_group": iou}
+    result: dict[str, Any] = {"n_groups": len(scored), "dry_groups_not_scored": sorted(set(groups) - set(scored)),
+                              "macro_iou": macro, "per_group": iou}
     for arm in ARMS[1:]:
         helped = sum(iou[g][arm] > iou[g]["plain"] for g in scored)
         gain = macro[arm] - macro["plain"]
@@ -110,6 +113,9 @@ def select(reports: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
     """
     names = list(reports)
     plain = {n: reports[n]["macro_iou"]["plain"] for n in names}
+    undefined = [n for n, v in plain.items() if not math.isfinite(v)]
+    if undefined:
+        raise ValueError(f"no defined CV IoU for {undefined}: nothing to select on")
     best = max(names, key=lambda n: plain[n])
     chosen = names[0] if plain[best] - plain[names[0]] <= TIE_MARGIN + _EPS else best
     return {"candidates": plain, "chosen": chosen, "rule": f"best plain macro IoU; within {TIE_MARGIN} of "
@@ -144,7 +150,7 @@ def score_runs(run_dirs: Sequence[Path], manifest: Path, *,
         for stack, group in sorted(fold_stacks(run_dir, manifest).items()):
             raw, _, _ = read_event_stack(stack)
             scored, label, hand_m = scene_layers(raw, cfg.grid, cfg.norm)
-            stacks[stack.parent.name] = {"group": group, **stack_entry(predict(stack), scored, label, hand_m)}
+            stacks[str(stack)] = {"group": group, **stack_entry(predict(stack), scored, label, hand_m)}
         runs[str(run_dir)] = {"tau": float(ev["tau_star"]), "pi0": float(ev["calibration"]["pi_deploy"]),
                               "stacks": stacks}
         LOGGER.info("%s: %d test stacks", run_dir, len(stacks))
