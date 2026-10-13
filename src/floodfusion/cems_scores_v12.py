@@ -57,6 +57,8 @@ LOGGER = logging.getLogger(__name__)
 GFM_KEY = "gfm"
 #: A unit counts in a GFM comparison only if GFM covers this share of its scored pixels.
 GFM_MIN_COVERAGE = 0.95
+
+
 def tile_counts(prob: np.ndarray, tau: float, calibrated: bool, label: np.ndarray,
                 scored: np.ndarray) -> list[list[int]]:
     """v1.1's ``[[tp, fp, fn, tn], ...]`` at τ* then on its oracle grid: v1.1's own function, so they cannot drift."""
@@ -198,16 +200,19 @@ def check_against_v11(scores: Mapping[str, Any], v11: Mapping[str, Any]) -> list
     return bad
 
 
-def _pooled_hist(entries: Sequence[Mapping[str, Any]], key: str) -> dict[str, np.ndarray] | None:
-    total: dict[str, np.ndarray] = {}
+def _seed_hists(entries: Sequence[Mapping[str, Any]], key: str) -> dict[str, dict[str, np.ndarray]]:
+    """``{seed: {"pos", "neg", "all"}}`` of one model, pooled over a unit's pairs (seeds kept apart)."""
+    out: dict[str, dict[str, np.ndarray]] = {}
     for entry in entries:
-        for seed_hist in entry.get("hist", {}).get(key, {}).values():
-            for name, counts in seed_hist.items():
-                total[name] = total.get(name, 0) + np.asarray(counts, dtype=np.int64)
-    return total or None
+        for seed, hist in entry.get("hist", {}).get(key, {}).items():
+            acc = out.setdefault(seed, {})
+            for name, counts in hist.items():
+                acc[name] = acc.get(name, 0) + np.asarray(counts, dtype=np.int64)
+    return out
 
 
 def _units(scores: Mapping[str, Any], spec: Mapping[str, Any], unit: str) -> dict[str, list[dict[str, Any]]]:
+    """The primary stratum's pairs grouped per activation or per cluster (EMSR664 and empty pairs dropped)."""
     from floodfusion.cems_scores import activation_clusters
 
     cluster_of = activation_clusters(scores["activations"]) if unit == "cluster" else {}
@@ -220,49 +225,79 @@ def _units(scores: Mapping[str, Any], spec: Mapping[str, Any], unit: str) -> dic
     return out
 
 
-def summary(scores: Mapping[str, Any], spec: Mapping[str, Any], *, unit: str = "activation") -> dict[str, Any]:
-    """Per model, macro over units of the primary stratum: IoU at τ*, self-calibrated IoU, oracle IoU and AP.
+def _iou(tp: int, fp: int, fn: int) -> float:
+    return tp / (tp + fp + fn) if tp + fp + fn else math.nan
 
-    Seeds pool per unit, as in v1.1. The self-calibration runs per unit on the unit's unlabelled histogram, from the
-    model's mean deployment prior and τ*. GFM enters only units it covers on >= ``GFM_MIN_COVERAGE`` of the scored
-    pixels. Descriptive: v1.2's confirmatory tests are the blind ones.
+
+def _seed_metrics(hist: Mapping[str, np.ndarray], prior: Mapping[str, float] | None) -> dict[str, float]:
+    """One seed's threshold-free and threshold-moved metrics; self-calibration needs the seed's τ* and prior."""
+    pos, neg = hist["pos"], hist["neg"]
+    row = {"ap": histograms.average_precision(pos, neg), "iou_oracle": histograms.oracle_iou(pos, neg)[0]}
+    if prior is not None:
+        tau = prior["tau"]
+        row["iou_tau_binned"] = _iou(*histograms.confusion_above(pos, neg, tau)[:3])
+        shifted = histograms.shifted_threshold(tau, histograms.em_prior_shift(hist["all"], prior["pi0"]))
+        row["iou_selfcal"] = _iou(*histograms.confusion_above(pos, neg, shifted)[:3])
+    return row
+
+
+def _unit_set(groups: Mapping[str, list[dict[str, Any]]], *, gfm_covered: bool) -> list[str]:
+    """Units with reference flood in their scored region (and, if asked, covered by GFM on >= the minimum share)."""
+    out = []
+    for name, entries in groups.items():
+        scored = sum(e["scored_px"] for e in entries)
+        if sum(e["flood_px"] for e in entries) == 0:
+            continue
+        if gfm_covered and (scored == 0 or 1.0 - sum(e.get("gfm_missing_px", 0) for e in entries) / scored
+                            < GFM_MIN_COVERAGE):
+            continue
+        out.append(name)
+    return sorted(out)
+
+
+METRICS = ("iou_tau", "iou_tau_binned", "iou_selfcal", "iou_oracle", "ap")
+
+
+def summary(scores: Mapping[str, Any], spec: Mapping[str, Any], *, unit: str = "activation",
+            gfm_common: bool = False) -> dict[str, Any]:
+    """Per model, macro over **one** unit set of the primary stratum.
+
+    - **IoU at τ***: v1.1's definition, on exact pixels with seeds pooled.
+    - **The histogram metrics**, per seed with that seed's own τ* and deployment prior, then averaged over seeds:
+      IoU at τ* on the binned scores (the baseline the self-calibration must be read against), self-calibrated IoU,
+      oracle IoU and AP.
+
+    The unit set is units with reference flood in their scored region. With ``gfm_common``, only units GFM covers on
+    at least :data:`GFM_MIN_COVERAGE` of their scored pixels, so every model is compared with GFM on the same
+    floods. GFM itself is shown only in that table. Descriptive: v1.2's confirmatory tests are the blind ones.
     """
     from floodfusion.cems_scores import _add, _cm
 
     groups = _units(scores, spec, unit)
+    names = _unit_set(groups, gfm_covered=gfm_common)
     rows: dict[str, Any] = {}
     for key in scores["models"]:
-        priors = list(scores.get("priors", {}).get(key, {}).values())
-        tau = float(np.mean([p["tau"] for p in priors])) if priors else 0.5
-        pi0 = float(np.mean([p["pi0"] for p in priors])) if priors else None
+        if key == GFM_KEY and not gfm_common:
+            continue
+        priors = scores.get("priors", {}).get(key, {})
         per: dict[str, dict[str, float]] = {}
-        for name, entries in groups.items():
-            if key == GFM_KEY:
-                scored = sum(e["scored_px"] for e in entries)
-                missing = sum(e.get("gfm_missing_px", 0) for e in entries)
-                if scored == 0 or 1.0 - missing / scored < GFM_MIN_COVERAGE:
-                    continue
+        for name in names:
             pooled = None
-            for e in entries:
+            for e in groups[name]:
                 for cms in e["models"].get(key, {}).values():
                     pooled = _add(pooled, cms)
             if pooled is None:
                 continue
+            seeds = [_seed_metrics(h, priors.get(seed)) for seed, h in _seed_hists(groups[name], key).items()]
             row = {"iou_tau": _cm(pooled[0]).iou}
-            hist = _pooled_hist(entries, key)
-            if hist is not None and hist["pos"].sum() > 0:
-                row["ap"] = histograms.average_precision(hist["pos"], hist["neg"])
-                row["iou_oracle"] = histograms.oracle_iou(hist["pos"], hist["neg"])[0]
-                if pi0 is not None:
-                    shifted = histograms.shifted_threshold(tau, histograms.em_prior_shift(hist["all"], pi0))
-                    tp, fp, fn, _ = histograms.confusion_above(hist["pos"], hist["neg"], shifted)
-                    row["iou_selfcal"] = tp / (tp + fp + fn) if tp + fp + fn else math.nan
+            for m in METRICS[1:]:
+                values = [r[m] for r in seeds if m in r and math.isfinite(r[m])]
+                row[m] = float(np.mean(values)) if values else math.nan
             per[name] = row
-        metrics = {m: [r[m] for r in per.values() if m in r and math.isfinite(r[m])]
-                   for m in ("iou_tau", "iou_selfcal", "iou_oracle", "ap")}
+        means = {m: [r[m] for r in per.values() if math.isfinite(r[m])] for m in METRICS}
         rows[key] = {"name": scores["models"][key]["name"], "k": len(per), "per_unit": per,
-                     **{m: (float(np.mean(v)) if v else math.nan) for m, v in metrics.items()}}
-    return {"unit": unit, "models": rows}
+                     **{m: (float(np.mean(v)) if v else math.nan) for m, v in means.items()}}
+    return {"unit": unit, "gfm_common": gfm_common, "units": names, "models": rows}
 
 
 def _markdown(tables: Sequence[Mapping[str, Any]]) -> str:
@@ -270,15 +305,19 @@ def _markdown(tables: Sequence[Mapping[str, Any]]) -> str:
         return "—" if not math.isfinite(x) else f"{x:.3f}"
 
     lines = ["# CEMS benchmark, v1.2 scoring (descriptive)", "",
-             "Primary stratum (products drawn on radar), EMSR664 excluded. Macro over units, seeds pooled per unit.",
-             "GFM: units it covers on at least 95 % of the scored pixels. Exploratory: this benchmark has been seen.",
-             ""]
+             "Primary stratum (products drawn on radar), EMSR664 excluded; units with reference flood in their scored "
+             "region. IoU at τ* is v1.1's definition (exact pixels, seeds pooled; v1.1's own table also counted units "
+             "without reference flood). The other columns are per seed, with the seed's τ* and prior, then averaged: "
+             "IoU at τ* on the binned scores is the baseline to read the self-calibrated IoU against. "
+             "Exploratory: this benchmark has been seen.", ""]
     for table in tables:
-        lines += [f"## Per {table['unit']}", "", "| Model | K | IoU at τ* | IoU, self-calibrated | IoU, oracle | AP |",
-                  "| --- | --- | --- | --- | --- | --- |"]
+        scope = "units covered by GFM (≥ 95 % of scored pixels): every model on the same floods" \
+            if table["gfm_common"] else "all units with reference flood"
+        lines += [f"## Per {table['unit']}: {scope} (K = {len(table['units'])})", "",
+                  "| Model | K | IoU at τ* | IoU at τ*, binned | IoU, self-calibrated | IoU, oracle | AP |",
+                  "| --- | --- | --- | --- | --- | --- | --- |"]
         for row in table["models"].values():
-            lines.append(f"| {row['name']} | {row['k']} | {fmt(row['iou_tau'])} | {fmt(row['iou_selfcal'])} | "
-                         f"{fmt(row['iou_oracle'])} | {fmt(row['ap'])} |")
+            lines.append(f"| {row['name']} | {row['k']} | " + " | ".join(fmt(row[m]) for m in METRICS) + " |")
         lines.append("")
     return "\n".join(lines)
 
@@ -311,7 +350,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     bad = check_against_v11(scores, json.loads(args.v11_scores.read_text(encoding="utf-8")))
     if bad:
         raise SystemExit(f"{len(bad)} counts differ from v1.1's committed scores, e.g. {bad[:3]}")
-    tables = [summary(scores, spec, unit=u) for u in ("activation", "cluster")]
+    tables = [summary(scores, spec, unit=u, gfm_common=g) for g in (False, True) for u in ("activation", "cluster")]
     args.out.write_text(_markdown(tables) + "\n", encoding="utf-8")
     write_json(args.out.with_suffix(".json"), {"tables": tables})
     return 0

@@ -102,3 +102,68 @@ def test_wrapper_matches_terratorchs_own_forward_on_an_odd_size(model, available
             inputs = {"S2L2A": s2[i:i + 1], "S1RTC": s1[i:i + 1]} if has_optical else {"S1RTC": s1[i:i + 1]}
             upstream = model.model(inputs).output
             torch.testing.assert_close(ours[i:i + 1], upstream.reshape(1, 1, 70, 50), rtol=1e-4, atol=1e-5)
+
+
+FAIR = Path(__file__).resolve().parents[1] / "configs" / "comparisons" / "terramind_small_fair.yaml"
+
+
+@pytest.fixture(scope="module")
+def fair() -> TerraMindSegmenter:
+    torch.manual_seed(0)
+    return TerraMindSegmenter(load_config(FAIR).model, pretrained=False).eval()
+
+
+@pytest.mark.slow
+def test_fair_variant_trains_only_lora_and_the_decoder(fair) -> None:
+    from floodfusion.models.lora import LoRALinear
+
+    enc = fair.model.encoder
+    trainable = {n for n, p in enc.named_parameters() if p.requires_grad}
+    assert trainable and all(n.endswith(("lora_a", "lora_b")) for n in trainable)
+    assert sum(isinstance(m, LoRALinear) for m in enc.modules()) == 2 * 12          # qkv + proj in 12 blocks
+    assert enc.out_channels == [2 * c for c in enc.encoder.out_channels]          # post and pre tokens side by side
+
+
+@pytest.mark.slow
+def test_fair_variant_reads_the_pre_event_radar(fair) -> None:
+    sar = torch.randn(2, 5, 64, 64)
+    changed = sar.clone()
+    changed[:, 2:4] += 3.0                                                         # a different pre-event scene
+    with torch.inference_mode():
+        a, _ = fair(sar, None, None, None, None)
+        b, _ = fair(changed, None, None, None, None)
+        c, _ = fair(sar[:, [0, 1, 2, 3, 4]], None, None, None, None)
+    assert not torch.allclose(a, b)
+    torch.testing.assert_close(a, c)
+
+
+@pytest.mark.slow
+def test_fair_variant_routes_mixed_optical_and_keeps_one_decoder_pass(fair) -> None:
+    seen: list[int] = []
+    handle = fair.model.decoder.register_forward_pre_hook(lambda _m, args: seen.append(args[0][0].shape[0]))
+    try:
+        sar, opt = torch.randn(3, 5, 64, 64), torch.rand(3, 4, 64, 64)
+        with torch.inference_mode():
+            mixed, _ = fair(sar, None, opt, None, torch.tensor([True, False, True]))
+            alone, _ = fair(sar[1:2], None, None, None, None)
+    finally:
+        handle.remove()
+    assert seen[0] == 3
+    torch.testing.assert_close(mixed[1:2], alone, rtol=1e-4, atol=1e-5)
+
+
+def test_every_fair_variant_is_registered_for_dropout_and_its_sar_only_sibling() -> None:
+    from floodfusion.case_study import SAR_ONLY_SIBLINGS
+    from floodfusion.config import ModelConfig
+    from floodfusion.crossval import EXTRA_ROWS, SAR_ONLY_EVALUATED
+    from floodfusion.models.terramind import FAIR_VARIANTS
+    from floodfusion.models.zoo import _PRETRAINED
+    from floodfusion.train import OPTICAL_FUSION_ARCHITECTURES
+
+    for row, arch in zip((24, 25, 26), ("terramind_base_fair", "terramind_base_fair_frozen", "terramind_small_fair"),
+                         strict=True):
+        assert arch in FAIR_VARIANTS and arch in ModelConfig.ARCHITECTURES and arch in _PRETRAINED
+        assert arch in OPTICAL_FUSION_ARCHITECTURES and EXTRA_ROWS[row] == f"comparisons/{arch}"
+        assert SAR_ONLY_EVALUATED[row](f"cmp_{arch}") == f"cmp_{arch}__eval_sar_only"
+        assert SAR_ONLY_SIBLINGS[f"cmp_{arch}"] == f"cmp_{arch}__eval_sar_only"
+        assert load_config(CONFIG.with_name(f"{arch}.yaml")).model.architecture == arch

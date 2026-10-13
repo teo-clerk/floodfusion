@@ -109,25 +109,35 @@ def test_score_loop_keeps_v1_1_counts_histograms_and_gfm_gaps(tmp_path, monkeypa
     assert v12.load_scores(path)["pairs"]["EMSR700_AOI01"]["scored_px"] == entry["scored_px"]
 
 
-def test_summary_applies_the_gfm_coverage_rule_and_self_calibrates() -> None:
+def test_summary_uses_one_unit_set_per_table_and_per_seed_thresholds() -> None:
     prob, label, scored, valid = _tile(4)
     entry_a: dict = {"pair": {"activation": "EMSR1", "stratum": "sar"}, "scored_px": int(scored.sum()),
-                     "gfm_missing_px": 0}
+                     "flood_px": int((label & scored).sum()), "gfm_missing_px": 0}
     entry_b: dict = {"pair": {"activation": "EMSR2", "stratum": "sar"}, "scored_px": int(scored.sum()),
-                     "gfm_missing_px": int(scored.sum()) // 2}            # GFM covers half: out of GFM's rows
-    for entry in (entry_a, entry_b):
-        for key, run in (("m", "seed42"), ("gfm", "gfm")):
-            v12.add_tile(entry, key, run, v12.tile_counts(prob, 0.25, True, label, scored),
-                         v12.tile_histograms(prob, label, scored, valid))
-    scores = {"pairs": {"a": entry_a, "b": entry_b}, "activations": {},
-              "priors": {"m": {"seed42": {"tau": 0.25, "pi0": 0.3}}},
+                     "flood_px": int((label & scored).sum()), "gfm_missing_px": int(scored.sum()) // 2}
+    entry_c: dict = {"pair": {"activation": "EMSR3", "stratum": "sar"}, "scored_px": int(scored.sum()),
+                     "flood_px": 0, "gfm_missing_px": 0}                  # no reference flood: in no table
+    hist = v12.tile_histograms(prob, label, scored, valid)
+    for entry in (entry_a, entry_b, entry_c):
+        for seed in ("seed42", "seed43"):
+            v12.add_tile(entry, "m", seed, v12.tile_counts(prob, 0.25, True, label, scored), hist)
+        v12.add_tile(entry, "gfm", "gfm", v12.tile_counts(prob, 0.5, False, label, scored), hist)
+    priors = {"seed42": {"tau": 0.25, "pi0": 0.3}, "seed43": {"tau": 0.5, "pi0": 0.3}}
+    scores = {"pairs": {"a": entry_a, "b": entry_b, "c": entry_c}, "activations": {}, "priors": {"m": priors},
               "models": {"m": {"name": "Model"}, "gfm": {"name": "GFM"}}}
-    table = v12.summary(scores, {"exclude": (), "primary_stratum": "sar"})
-    assert table["models"]["m"]["k"] == 2 and table["models"]["gfm"]["k"] == 1
+    spec = {"exclude": (), "primary_stratum": "sar"}
+    table = v12.summary(scores, spec)
+    assert table["units"] == ["EMSR1", "EMSR2"] and set(table["models"]) == {"m"}   # GFM only in its own table
     m = table["models"]["m"]
-    assert 0 < m["iou_tau"] <= m["iou_oracle"] + 1e-9 and 0 < m["ap"] <= 1
-    assert np.isfinite(m["iou_selfcal"]) and np.isnan(table["models"]["gfm"]["iou_selfcal"])   # GFM: no prior
-    assert "| Model | 2 |" in v12._markdown([table])
+    per_seed = [v12._iou(*histograms.confusion_above(hist["pos"], hist["neg"], t)[:3]) for t in (0.25, 0.5)]
+    assert m["iou_tau_binned"] == pytest.approx(float(np.mean(per_seed)))       # each seed at its own tau*
+    assert m["k"] == 2 and 0 < m["iou_tau"] <= m["iou_oracle"] + 1e-9 and 0 < m["ap"] <= 1
+    assert np.isfinite(m["iou_selfcal"])
+    common = v12.summary(scores, spec, gfm_common=True)
+    assert common["units"] == ["EMSR1"] and common["models"]["m"]["k"] == common["models"]["gfm"]["k"] == 1
+    assert np.isnan(common["models"]["gfm"]["iou_selfcal"])                     # GFM has no deployment prior
+    text = v12._markdown([table, common])
+    assert "| Model | 2 |" in text and "same floods (K = 1)" in text
 
 
 def test_regression_against_v1_1_names_every_differing_count() -> None:

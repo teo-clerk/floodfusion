@@ -37,8 +37,9 @@ class LoRALinear(nn.Module):
         for p in self.base.parameters():
             p.requires_grad_(False)
         self.rank, self.scale = rank, alpha / rank
-        self.lora_a = nn.Parameter(torch.empty(rank, base.in_features))
-        self.lora_b = nn.Parameter(torch.zeros(base.out_features, rank))
+        device = base.weight.device   # fp32 factors on the layer's device, whenever LoRA is applied
+        self.lora_a = nn.Parameter(torch.empty(rank, base.in_features, device=device))
+        self.lora_b = nn.Parameter(torch.zeros(base.out_features, rank, device=device))
         nn.init.kaiming_uniform_(self.lora_a, a=math.sqrt(5))
         self.dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
 
@@ -49,13 +50,14 @@ class LoRALinear(nn.Module):
 
 def apply_lora(model: nn.Module, *, targets: Iterable[str] = DEFAULT_TARGETS, rank: int = 8, alpha: float = 16.0,
                dropout: float = 0.0) -> list[str]:
-    """Replace every ``nn.Linear`` whose qualified name ends with a target suffix; return the names replaced."""
+    """Replace every ``nn.Linear`` whose qualified name ends with a target (whole name components, so ``xattn.qkv``
+    never matches ``attn.qkv``); return the names replaced."""
     suffixes = tuple(targets)
     replaced = []
     for name, module in list(model.named_modules()):
         for child_name, child in list(module.named_children()):
             full = f"{name}.{child_name}" if name else child_name
-            if isinstance(child, nn.Linear) and full.endswith(suffixes):
+            if isinstance(child, nn.Linear) and any(full == x or full.endswith("." + x) for x in suffixes):
                 setattr(module, child_name, LoRALinear(child, rank=rank, alpha=alpha, dropout=dropout))
                 replaced.append(full)
     if not replaced:

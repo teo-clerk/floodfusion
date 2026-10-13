@@ -238,7 +238,10 @@ class _Model:
 
 #: The SAR-only evaluation of a model with an optical input, beside its run: row 9's is row 11.
 SAR_ONLY_SIBLINGS = {"row09_fusion_crossattn": "row11_fusion_eval_sar_only",
-                     "cmp_terramind_small": "cmp_terramind_small__eval_sar_only"}
+                     "cmp_terramind_small": "cmp_terramind_small__eval_sar_only",
+                     **{f"cmp_{a}": f"cmp_{a}__eval_sar_only" for a in ("terramind_base_fair",
+                                                                         "terramind_base_fair_frozen",
+                                                                         "terramind_small_fair")}}
 
 
 def sar_only_calibration(run_dir: Path) -> dict[str, float] | None:

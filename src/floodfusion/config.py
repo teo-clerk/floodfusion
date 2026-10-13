@@ -307,6 +307,9 @@ class ModelConfig:
             "fusion_crossattn",  # rows 9-13 (the reference design)
             "terramind_tiny",  # comparison: TerraMind-1.0 foundation model (optional extra)
             "terramind_small",
+            "terramind_base_fair",  # v1.2 fair fight: siamese pre/post, LoRA (models/terramind.py)
+            "terramind_base_fair_frozen",
+            "terramind_small_fair",
         }
     )
 

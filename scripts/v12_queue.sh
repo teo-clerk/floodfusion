@@ -7,16 +7,23 @@
 #   scripts/v12_queue.sh cems-preview  # every v1.1 model + the corrected TerraMind + Copernicus GFM on CEMS 2023-26,
 #                                      # with score histograms (descriptive; needs `erratum` and `make gfm` first)
 #
-# One floodfusion GPU job at a time: the queue holds a lock that every v1.2 GPU job takes.
+# One floodfusion GPU job at a time: the queue (and the v1.2 blind-test runner) hold /tmp/floodfusion-gpu.lock;
+# ad-hoc GPU commands do not, so run them only when no queue is running.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+
+STAGES="erratum-official erratum cems-preview"
+case " $STAGES " in
+  *" ${1:-} "*) ;;
+  *) echo "usage: $0 ${STAGES// /|}" >&2; exit 2 ;;
+esac
 
 if [ -n "$(git status --porcelain -- src configs pyproject.toml uv.lock Makefile)" ]; then
   echo "refusing: uncommitted changes under the code paths (src, configs, pyproject.toml, uv.lock, Makefile)" >&2
   exit 1
 fi
-exec 9>"${TMPDIR:-/tmp}/floodfusion-gpu.lock"
-flock -n 9 || { echo "another floodfusion GPU job holds ${TMPDIR:-/tmp}/floodfusion-gpu.lock" >&2; exit 1; }
+exec 9>/tmp/floodfusion-gpu.lock
+flock -n 9 || { echo "another floodfusion GPU job holds /tmp/floodfusion-gpu.lock" >&2; exit 1; }
 echo "v1.2 queue '${1:-}' at $(git rev-parse --short HEAD), $(date -u +%FT%TZ)"
 
 PY="uv run --frozen python"

@@ -29,6 +29,17 @@ has optical, **clouded pixels** (quality below the clear threshold) are set to T
 pre-training mean (0 after standardisation): it has no per-pixel gate, unlike row 9, and is
 not handed cloud tops as if they were ground.
 
+**The fair variants (v1.2,** :data:`FAIR_VARIANTS` **).** v1.1's TerraMind saw a single date, with a frozen
+encoder. The v1.2 opponent is TerraMind as strong as an 8 GB GPU allows, trained on the same data as our model:
+
+- **Siamese.** One encoder runs twice with shared weights: on the post-event inputs (S1, plus S2 where usable) and on
+  the pre-event S1. Its tokens are concatenated per layer, so the decoder sees ``2 × D`` channels and learns the
+  change itself. The pre-event pass has no S2: the stack has no pre-event optical, and a difference post − pre would
+  confound "optical present" with "change".
+- **Adaptation.** LoRA of rank :data:`LORA_RANK` on the encoder's attention projections
+  (:mod:`floodfusion.models.lora`), or a frozen encoder. Size and adaptation follow the rule logged in
+  ``reports/v1_2_deviations.md`` before any result: base with LoRA, else base frozen, else small with LoRA.
+
 Caveats stated wherever its numbers appear: its encoder was pre-trained on global
 Sentinel-1/2 data (so "never saw the event" holds for the decoder only); the band subset and
 necks follow IBM's recipe, developed on Sen1Floods11's official splits; the training schedule
@@ -47,10 +58,18 @@ from torch import nn
 from floodfusion.config import ModelConfig
 from floodfusion.data.chipping import CLEAR_QUALITY
 
-__all__ = ["TERRAMIND_VARIANTS", "TerraMindSegmenter"]
+__all__ = ["FAIR_VARIANTS", "LORA_ALPHA", "LORA_RANK", "TERRAMIND_ARCHITECTURES", "TERRAMIND_VARIANTS",
+           "TerraMindSegmenter"]
 
-#: Architecture name -> TerraTorch backbone.
+#: Architecture name -> TerraTorch backbone (v1.1: single date, frozen encoder).
 TERRAMIND_VARIANTS = {"terramind_tiny": "terramind_v1_tiny", "terramind_small": "terramind_v1_small"}
+LORA_RANK = 8
+LORA_ALPHA = 16.0
+#: v1.2 fair-fight variants: architecture name -> (TerraTorch backbone, LoRA rank; 0 = frozen encoder). Siamese.
+FAIR_VARIANTS = {"terramind_base_fair": ("terramind_v1_base", LORA_RANK),
+                 "terramind_base_fair_frozen": ("terramind_v1_base", 0),
+                 "terramind_small_fair": ("terramind_v1_small", LORA_RANK)}
+TERRAMIND_ARCHITECTURES = frozenset(TERRAMIND_VARIANTS) | frozenset(FAIR_VARIANTS)
 _S2_BANDS = ("GREEN", "NIR_BROAD", "SWIR_1")
 #: TerraMind pre-training statistics of those bands (S2L2A digital numbers).
 _S2_MEAN = (1718.197, 3083.234, 2424.884)
@@ -59,6 +78,20 @@ _REFLECTANCE_TO_DN = 10_000.0
 _NECKS = [{"name": "SelectIndices", "indices": [2, 5, 8, 11]},
           {"name": "ReshapeTokensToImage", "remove_cls_token": False},
           {"name": "LearnedInterpolateToPyramidal"}]
+
+
+class _Siamese(nn.Module):
+    """One TerraMind encoder on the post-event inputs and on the pre-event S1 (``S1RTC_pre``); tokens concatenated."""
+
+    def __init__(self, encoder: nn.Module) -> None:
+        super().__init__()
+        self.encoder = encoder
+        self.out_channels = [2 * c for c in encoder.out_channels]
+
+    def forward(self, x: dict[str, torch.Tensor], **kwargs: Any) -> list[torch.Tensor]:
+        post = {k: v for k, v in x.items() if k != "S1RTC_pre"}
+        after, before = self.encoder(post, **kwargs), self.encoder({"S1RTC": x["S1RTC_pre"]}, **kwargs)
+        return [torch.cat([a, b.to(a.dtype)], dim=-1) for a, b in zip(after, before, strict=True)]
 
 
 class TerraMindSegmenter(nn.Module):
@@ -70,17 +103,30 @@ class TerraMindSegmenter(nn.Module):
             from terratorch.models import EncoderDecoderFactory
         except ImportError as exc:  # pragma: no cover - depends on the optional extra
             raise ImportError("the TerraMind row needs the optional extra: uv sync --extra fm") from exc
+        modalities, bands = ["S2L2A", "S1RTC"], {"S2L2A": list(_S2_BANDS), "S1RTC": ["VV", "VH"]}
+        self.siamese = cfg.architecture in FAIR_VARIANTS
+        if self.siamese:
+            from terratorch.models.encoder_decoder_factory import _get_backbone
+
+            name, rank = FAIR_VARIANTS[cfg.architecture]
+            backbone: Any = {"backbone": _Siamese(_get_backbone(name, pretrained=pretrained, modalities=modalities,
+                                                                bands=bands))}
+        else:
+            rank = 0
+            backbone = {"backbone": TERRAMIND_VARIANTS[cfg.architecture], "backbone_pretrained": pretrained,
+                        "backbone_modalities": modalities, "backbone_bands": bands}
         self.model = EncoderDecoderFactory().build_model(
-            task="segmentation", backbone=TERRAMIND_VARIANTS[cfg.architecture], backbone_pretrained=pretrained,
-            backbone_modalities=["S2L2A", "S1RTC"],
-            backbone_bands={"S2L2A": list(_S2_BANDS), "S1RTC": ["VV", "VH"]},
-            necks=_NECKS, decoder="UNetDecoder", decoder_channels=list(cfg.decoder_channels),
-            head_dropout=cfg.dropout, num_classes=1,
+            task="segmentation", **backbone, necks=_NECKS, decoder="UNetDecoder",
+            decoder_channels=list(cfg.decoder_channels), head_dropout=cfg.dropout, num_classes=1,
         )
         if self.model.aux_heads:   # _decode reproduces PixelWiseModel.forward's main head only
             raise ValueError("the TerraMind wrapper does not support auxiliary heads")
         for p in self.model.encoder.parameters():
             p.requires_grad_(False)
+        if rank:
+            from floodfusion.models.lora import apply_lora
+
+            apply_lora(self.model.encoder, rank=rank, alpha=LORA_ALPHA)
         self.sar_scale = nn.Parameter(torch.ones(1, 2, 1, 1))
         self.sar_shift = nn.Parameter(torch.zeros(1, 2, 1, 1))
         self.register_buffer("s2_mean", torch.tensor(_S2_MEAN).view(1, 3, 1, 1), persistent=False)
@@ -111,19 +157,21 @@ class TerraMindSegmenter(nn.Module):
                 optical_quality: torch.Tensor | None = None, optical_available: torch.Tensor | None = None,
                 ) -> tuple[torch.Tensor, Any]:
         s1 = sar[:, :2] * self.sar_scale + self.sar_shift           # post VV, VH (z-scored dB)
+        pre = {"S1RTC_pre": sar[:, 2:4] * self.sar_scale + self.sar_shift} if self.siamese else {}
         out_size = self.model.image_size_out or tuple(sar.shape[-2:])
         if optical is None or optical_available is None or not bool(optical_available.any()):
-            features, size = self._encode({"S1RTC": s1})
+            features, size = self._encode({"S1RTC": s1, **pre})
             return self._decode(features, size, out_size), None
         s2 = (optical[:, :3].clamp(0.0, 1.0) * _REFLECTANCE_TO_DN - self.s2_mean) / self.s2_std
         if optical_quality is not None:
             s2 = torch.where(optical_quality >= CLEAR_QUALITY, s2, torch.zeros_like(s2))
         available = optical_available.bool()
         if bool(available.all()):
-            features, size = self._encode({"S2L2A": s2, "S1RTC": s1})
+            features, size = self._encode({"S2L2A": s2, "S1RTC": s1, **pre})
             return self._decode(features, size, out_size), None
-        with_optical, size = self._encode({"S2L2A": s2[available], "S1RTC": s1[available]})
-        sar_only, _ = self._encode({"S1RTC": s1[~available]})
+        with_optical, size = self._encode({"S2L2A": s2[available], "S1RTC": s1[available],
+                                           **{k: v[available] for k, v in pre.items()}})
+        sar_only, _ = self._encode({"S1RTC": s1[~available], **{k: v[~available] for k, v in pre.items()}})
         order = torch.cat([available.nonzero().flatten(), (~available).nonzero().flatten()])
         inverse = torch.argsort(order)
         features = [torch.cat([a, b.to(a.dtype)])[inverse] for a, b in zip(with_optical, sar_only, strict=True)]

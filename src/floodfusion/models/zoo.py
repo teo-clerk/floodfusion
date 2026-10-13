@@ -219,12 +219,16 @@ def _terramind(cfg: ModelConfig, *, pretrained: bool = True) -> nn.Module:
 
 
 #: Architectures whose constructor fetches pre-trained weights (the rest train from scratch).
-_PRETRAINED = {"terramind_tiny", "terramind_small"}
+_PRETRAINED = {"terramind_tiny", "terramind_small", "terramind_base_fair", "terramind_base_fair_frozen",
+               "terramind_small_fair"}
 
 
 _REGISTRY: dict[str, Callable[..., nn.Module]] = {
     "terramind_tiny": _terramind,
     "terramind_small": _terramind,
+    "terramind_base_fair": _terramind,
+    "terramind_base_fair_frozen": _terramind,
+    "terramind_small_fair": _terramind,
     "unet_sar": UNetSegmenter,
     "unet_optical": UNetSegmenter,
     "fusion_early": EarlyFusionSegmenter,

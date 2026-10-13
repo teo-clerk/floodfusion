@@ -93,7 +93,8 @@ ROW6_MIN_CLEAR_FRACTION = 0.9
 #: Architectures with an optical input, to which modality dropout applies. TerraMind was missing from
 #: this set in v1.1, so it trained without dropout although its config sets 0.5 (``reports/v1_1_erratum.md``).
 OPTICAL_FUSION_ARCHITECTURES = frozenset({"fusion_early", "fusion_late", "fusion_crossattn",
-                                          "terramind_tiny", "terramind_small"})
+                                          "terramind_tiny", "terramind_small", "terramind_base_fair",
+                                          "terramind_base_fair_frozen", "terramind_small_fair"})
 
 
 # ---------------------------------------------------------------------------

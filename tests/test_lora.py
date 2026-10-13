@@ -57,3 +57,14 @@ def test_bf16_autocast_and_bad_arguments() -> None:
         LoRALinear(nn.Linear(8, 8), rank=0)
     with pytest.raises(ValueError, match=r"no nn\.Linear"):
         apply_lora(nn.Sequential(nn.Conv2d(1, 1, 1)))
+
+
+def test_factors_sit_on_the_layers_device_and_names_match_whole_components() -> None:
+    layer = LoRALinear(nn.Linear(4, 4, device="meta"), rank=2)
+    assert layer.lora_a.device.type == layer.lora_b.device.type == "meta"
+    block = nn.Module()
+    block.xattn = nn.Module()
+    block.xattn.qkv = nn.Linear(4, 12)
+    block.attn = nn.Module()
+    block.attn.qkv = nn.Linear(4, 12)
+    assert apply_lora(block, targets=("attn.qkv",), rank=2) == ["attn.qkv"]
