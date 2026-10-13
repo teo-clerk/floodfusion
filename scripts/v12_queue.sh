@@ -11,7 +11,8 @@
 #                                      # (run it only here: the queue holds the GPU lock it needs)
 #   scripts/v12_queue.sh pool          # (CPU) the pooled training set and its grouped folds, once both ingests are done
 #   scripts/v12_queue.sh cv            # pooled cross-validation, one seed: row 9, the fair TerraMind, row 21 —
-#                                      # each starts when its sidecars (none, DEM, seasonal) cover every pooled stack
+#                                      # each starts when its sidecars (none, DEM, seasonal) cover every pooled stack;
+#                                      # then the inference add-ons on whole test stacks of rows 9 and 21
 #
 # One floodfusion GPU job at a time: the queue (and the v1.2 blind-test runner) hold /tmp/floodfusion-gpu.lock;
 # ad-hoc GPU commands do not, so run them only when no queue is running.
@@ -44,6 +45,11 @@ wait_until() {   # wait_until <hours> <command...>: poll until the command succe
   done
   if [ "$HOLDS_LOCK" = 1 ]; then flock 9; fi   # blocking: a GPU job started meanwhile finishes first
   return 0
+}
+addons() {   # addons <run folder>: the inference add-ons on whole test stacks of that row's five CV runs
+  $PY -m floodfusion.cv_addons score --runs runs/v12/pool/kfold/fold*/"$1"/seed42 \
+    --manifest "$POOL/chips/manifest.parquet" --out "reports/v12_addons_$1.json.gz"
+  $PY -m floodfusion.cv_addons report --scores "reports/v12_addons_$1.json.gz" --out "reports/v12_addons_$1.json"
 }
 no_ingest() { ! pgrep -f "floodfusion.data.geoid ingest|floodfusion.data.kurosiwo ingest" > /dev/null; }
 [ "$1" = pool ] || gpu_lock   # the pool stage is CPU only
@@ -113,10 +119,12 @@ print(build_dataset('data/geoid', load_config('configs/base.yaml'), split_epsg=S
     [ -n "$tm" ] || { echo "no fair TerraMind fits in memory (reports/v12_tm_probe.json): CV not started" >&2; exit 1; }
     tm_row=$($PY -c "print({'terramind_base_fair': 24, 'terramind_base_fair_frozen': 25, 'terramind_small_fair': 26}['$tm'])")
     $PY -m floodfusion.crossval run $POOL_ARGS $ONE_SEED --learned-rows 9
+    addons row09_fusion_crossattn
     wait_until 48 pool_covered dem.tif
     $PY -m floodfusion.crossval run $POOL_ARGS $ONE_SEED --learned-rows "$tm_row"
     wait_until 48 pool_covered seasonal.tif
     $PY -m floodfusion.crossval run $POOL_ARGS $ONE_SEED --learned-rows 21
+    addons row21_fusion_context_seasonal
     ;;
   *)
     echo "usage: $0 ${STAGES// /|}" >&2

@@ -55,6 +55,7 @@ TORCH_FREE_MODULES = (
     "floodfusion.data.alphaearth",
     "floodfusion.prospective",
     "floodfusion.data.pool",
+    "floodfusion.cv_addons",
 )
 
 
