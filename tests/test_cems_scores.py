@@ -149,3 +149,17 @@ def test_the_no_optical_windows_of_a_fusion_model_are_read_with_its_sar_only_cal
     expected = 1 / (1 + np.exp(-(z + sar_cal["offset"]) / sar_cal["temperature"]))
     np.testing.assert_allclose(out[used], prob[used], rtol=1e-6)
     np.testing.assert_allclose(out[~used], expected[~used], rtol=1e-4)
+
+
+def test_the_committed_report_regenerates_from_the_committed_scores(tmp_path) -> None:
+    from pathlib import Path
+
+    from floodfusion.cems_scores import main
+
+    root = Path(__file__).resolve().parents[1]
+    out = tmp_path / "cems.md"
+    assert main(["report", "--spec", str(root / "configs" / "datasets" / "cems_models.yaml"),
+                 "--scores", str(root / "reports" / "cems_benchmark_scores.json"), "--out", str(out)]) == 0
+    assert out.read_text(encoding="utf-8") == (root / "reports" / "cems_benchmark.md").read_text(encoding="utf-8")
+    assert json.loads(out.with_suffix(".json").read_text(encoding="utf-8")) == \
+        json.loads((root / "reports" / "cems_benchmark.json").read_text(encoding="utf-8"))

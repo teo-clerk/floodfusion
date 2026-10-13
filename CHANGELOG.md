@@ -2,16 +2,63 @@
 
 All notable changes; the format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [1.1.0] — 2026-10
+
+A pre-registered test of v1.0's claims on independent references. The protocol
+(`reports/protocol_v1_1.md`) was committed before any v1.1 model was trained. Every change since is in
+`reports/v1_1_deviations.md`.
+
+### Results
+- **CEMS benchmark, 38 flood activations** (2023-03 to 2026-03) drawn on commercial radar satellites, zero-shot.
+  Supported, at both unit definitions:
+  - **H1:** change-aware flood labels beat water labels on the same chips, +0.06 IoU.
+  - **H4:** the fusion model beats TerraMind-small at each model's own threshold, +0.03.
+
+  Not supported:
+  - **H2:** fusion beats the SAR U-Net where optical is usable, +0.04, not significant.
+  - **H3:** non-inferiority without optical, −0.02, which holds per activation but not per cluster.
+- **Training data outweigh architecture on independent maps.** Kuro Siwo-trained models score 0.39–0.40,
+  Sen1Floods11-trained ones 0.23–0.28, and the physics baseline 0.371.
+- **Kuro Siwo cross-validation** (36 floods, 29 groups): fusion 0.535 vs SAR U-Net 0.505, not significant.
+  Optical adds 0.002 at inference.
+- **Replications at the v1.1 code:**
+  - Sen1Floods11 leave-one-event-out: fusion 0.608 vs 0.343.
+  - The synthetic grid and the stress curves, within 0.017 IoU of v1.0.
+- **Stage A diagnostics of the v1.0 models** (`reports/stage_a_diagnostics.md`). Under a partial cloud the fusion
+  model misses most flood beneath it. The CEMS benchmark confirms this: −0.06 against the SAR U-Net on partly
+  cloudy activations.
 
 ### Added
+- `floodfusion.data.kurosiwo`: Kuro Siwo ingest with flood and water label sets on identical chips, 100 km split
+  groups and per-AOI registration.
+- `floodfusion.cems_benchmark` and `floodfusion.cems_scores`: the eligibility census, pair preparation and the
+  pre-registered tests, with activation and cluster units and an exact one-sided non-inferiority test.
+- `floodfusion.data.seasonal` and `floodfusion.data.passes`: year-earlier Sentinel-1 references and pass coverage.
+  Baseline variants 2e (event-pooled threshold fallback) and 2s (seasonal reference).
+- `floodfusion.crossfit`: calibration across events, with cross-fitted cost-optimal and conformal thresholds.
+- Fusion variants 9b (gate bias 0), 9c (synthetic clouds in training) and 9r (query from SAR).
+- Grouped k-fold cross-validation; SAR-only calibration for every model with an optical input.
+- `scripts/v11_queue.sh` (the whole run, resumable) and `scripts/cems_strata.py`.
 - **Interactive explainer** (`site/`, published to GitHub Pages by `.github/workflows/pages.yml`).
   `scripts/build_site.py` reads the results from the committed reports instead of copying them into the
   page.
 
 ### Fixed
+- Windows without optical are scored with the model's SAR-only calibration.
+- Refined Lee no longer divides by zero on constant windows.
+- Monte Carlo p-values use (count + 1)/(n + 1).
+- The Planetary Computer client backs off on rate limits.
 - The README's protocol-gap sentence now separates the trained models (at most +0.015 IoU at τ*) from the
-  fusion model run without optical (up to +0.091). None of these gaps is significant.
+  fusion model run without optical (up to +0.091). None of these gaps is significant. The v1.1 re-run puts
+  the SAR U-Net's gap at up to +0.11, again not significant.
+
+### Known issues
+- `make cems-data` re-runs the CEMS census against the live API and overwrites the frozen census. To reproduce,
+  run only `python -m floodfusion.cems_benchmark prepare`.
+- The Kuro Siwo variants were stopped by the pre-registered 12 GPU-hour cap. Their fold-0 smoke runs still appear in
+  the Kuro Siwo table, marked as not comparable.
+- In `cems_benchmark.md`, the partial-cloud table repeats one comparison under P1 and P2.
+- Whether variant 9c fixes the partial-cloud failure was not tested.
 
 ## [1.0.0] — 2026-10
 

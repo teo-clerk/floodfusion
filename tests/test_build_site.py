@@ -129,3 +129,50 @@ def test_main_writes_the_site(tmp_path, capsys):
     _script().main(["--out", str(tmp_path / "public")])
     assert (tmp_path / "public" / "index.html").is_file()
     assert "index.html" in capsys.readouterr().out
+
+
+def test_v11_numbers_come_from_the_reports(site):
+    _, data = site
+    reports = ROOT / "reports"
+    cems = json.loads((reports / "cems_benchmark.json").read_text(encoding="utf-8"))
+    tests = {t["id"]: t for t in data["cems"]["tests"]}
+    assert sorted(tests) == ["P1", "P2", "P3", "P4"]
+    assert sorted(t["hypothesis"] for t in tests.values()) == ["H1", "H2", "H3", "H4"]
+    for unit, results in cems["tests"].items():
+        for t in results:
+            shown = tests[t["id"]]["units"][unit]
+            assert (shown["delta"], shown["k"], shown["wins"], shown["holds"]) == (t["delta"], t["k"], t["wins"], t["holds"])
+    # The "Supported" column of cems_benchmark.md, not a re-derivation of it.
+    assert {k: t["supported"] for k, t in tests.items()} == {"P1": "no verdict", "P2": "no", "P3": "yes", "P4": "yes"}
+    assert data["cems"]["n_activations"] == len(cems["units"]["activation"])
+    assert data["cems"]["n_clusters"] == len(cems["units"]["cluster"])
+    strata = json.loads((reports / "cems_benchmark_strata.json").read_text(encoding="utf-8"))
+    primary = next(v for title, v in strata.items() if title.startswith("Drawn on radar"))
+    for subset, v in primary.items():
+        assert data["cems"]["subsets"][subset]["k"] == len(v["units"])
+        assert {k: m["iou"] for k, m in data["cems"]["subsets"][subset]["models"].items()} == \
+            {m["key"]: m["iou"] for m in v["models"]}
+    assert {k: m["iou"] for k, m in data["cems"]["subsets"]["all"]["models"].items()} == \
+        {k: m["iou"] for k, m in cems["models"].items()}
+
+    ks = json.loads((reports / "v11_kurosiwo_table.json").read_text(encoding="utf-8"))
+    assert {r["key"]: r["iou"] for r in data["kurosiwo"]["rows"]} == {k: ks["rows"][k]["iou"] for k in _script().KS_ROWS}
+    assert data["kurosiwo"]["n_groups"] == len(ks["events"])
+    replication = json.loads((reports / "v11_sen1floods11_table.json").read_text(encoding="utf-8"))
+    assert {f"{g['row']}/seed{g['seed']}": g["delta"] for g in data["replication"]["protocol_gap"]} == \
+        {run: gap["iou_tau"]["delta"] for run, gap in replication["protocol_gap"].items()}
+
+
+def test_hypothesis_codes_are_read_from_the_question():
+    pattern = _script()._HYPOTHESIS
+    assert pattern.search("Fusion helps (H2)")[1] == "H2"
+    assert pattern.search("No worse than the SAR U-Net (R2 in practice, H3)")[1] == "H3"
+    assert pattern.sub("", "No worse (R2 in practice, H3)") == "No worse"
+    assert pattern.search("A question with (R3) only") is None
+
+
+def test_cems_refuses_a_report_without_a_grouped_model(monkeypatch):
+    module = _script()
+    monkeypatch.setattr(module, "CEMS_GROUPS", (*module.CEMS_GROUPS, ("Extra", {"not_a_model": "Missing"})))
+    with pytest.raises(ValueError, match="not_a_model"):
+        module.cems(ROOT / "reports")

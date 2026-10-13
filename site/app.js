@@ -294,6 +294,31 @@
       protocolTrained: signed(Math.max(...trained.map((p) => p.iou_tau.delta))),
       gateStart: fixed(gate.start, 2),
       gateClearRange: range(gate.by_cloud.map((g) => g.clear), 2),
+      ...cemsBindings(D.cems, D.kurosiwo, D.replication),
+    };
+  }
+
+  function cemsBindings(cems, ks, replication) {
+    const test = (id) => cems.tests.find((t) => t.id === id).units.activation;
+    const all = cems.subsets.all.models, partial = cems.subsets.partial.models;
+    const month = (text) => `${MONTHS[Number(text.slice(5, 7)) - 1]} ${text.slice(0, 4)}`;
+    const trained = replication.protocol_gap.filter((p) => ["4", "9", "cmp_terramind_small"].includes(p.row));
+    return {
+      cemsActivations: String(cems.n_activations),
+      cemsClusters: String(cems.n_clusters),
+      cemsPairs: String(cems.n_pairs),
+      cemsPeriod: `${month(cems.first_month)} to ${month(cems.last_month)}`,
+      cemsP1Delta: signed(test("P1").delta, 2),
+      cemsP1K: String(test("P1").k),
+      cemsP3Delta: signed(test("P3").delta, 2),
+      cemsPartialDelta: signed(partial.s1f11_r9.iou - partial.s1f11_r4.iou, 2),
+      cemsKsRange: range([all.ks_r4.iou, all.ks_r9_flood.iou], 2),
+      cemsS1Range: range([all.s1f11_r4.iou, all.s1f11_r9.iou], 2),
+      cemsBaseline: fixed(all.r2.iou),
+      cemsTmOracle: fixed(all.s1f11_tm.oracle),
+      cemsFusionOracle: fixed(all.s1f11_r9.oracle),
+      ksGroups: String(ks.n_groups),
+      protocolTrainedV11: signed(Math.max(...trained.map((p) => p.delta))),
     };
   }
 
@@ -443,11 +468,13 @@
     table.replaceChildren(h("thead", {}, head), h("tbody", {}, body));
   }
 
-  function gapBar(gap, bound) {
+  function gapBar(gap, bound, margin = null) {
     const W = 260, H = 26, x = linear(-bound, bound, 8, W - 8);
     const tone = gap.significant ? "var(--good)" : "var(--muted)";
     return s("svg", { viewBox: `0 0 ${W} ${H}`, "aria-hidden": "true" },
       s("line", { x1: x(0), x2: x(0), y1: 2, y2: H - 2, style: { stroke: "var(--muted)", "stroke-dasharray": "3 3" } }),
+      margin == null ? null : s("line", { x1: x(-margin), x2: x(-margin), y1: 2, y2: H - 2,
+                                          style: { stroke: "var(--warn)", "stroke-width": "2" } }),
       s("line", { x1: x(gap.ci[0]), x2: x(gap.ci[1]), y1: H / 2, y2: H / 2,
                   style: { stroke: tone, "stroke-width": "3", "stroke-linecap": "round" } }),
       s("circle", { cx: x(gap.delta), cy: H / 2, r: 6, style: { fill: tone, stroke: "var(--surface)", "stroke-width": "2" } }));
@@ -718,7 +745,97 @@
     radioGroup([...document.querySelectorAll("#matrix-region button")], (b) => { region = b.dataset.region; draw(); });
   }
 
-  // ------------------------------------------------------------------ 6 · synthetic
+  // ------------------------------------------------------------------ 6 · thirty-eight floods (v1.1)
+  const CEMS_COLORS = { s1f11_r4: "--c-sar", s1f11_r9: "--c-fusion", s1f11_r11: "--c-noopt", s1f11_tm: "--c-tm",
+                        ks_r4: "--c-sar", ks_r9_flood: "--c-fusion", ks_r11_flood: "--c-noopt", ks_r9_water: "--c-mndwi",
+                        r2: "--c-phys", r2s: "--c-otsu" };
+  const KS_COLORS = { 2: "--c-phys", row02s_seasonal: "--c-otsu", 4: "--c-sar", 9: "--c-fusion", 11: "--c-noopt" };
+  const SUBSETS = { all: "All floods", optical: "≥ 50 % clear", partial: "10–50 % clear", sar_only: "< 10 % clear" };
+  const MIN_UNITS = 8;  // the protocol's minimum for a verdict, repeated here only to label small subsets
+  const pText = (p) => (p < 0.001 ? "p < 0.001" : `p = ${fixed(p)}`);
+
+  function testList(list, cems) {
+    const name = (key) => cems.names[key] ?? key;
+    const units = cems.tests.flatMap((t) => Object.values(t.units));
+    const bound = Math.ceil(Math.max(...units.flatMap((u) => u.ci.map(Math.abs))) * 10) / 10;
+    list.replaceChildren(...cems.tests.map((t) => {
+      const { activation: a, cluster: c } = t.units;
+      const unitText = (u, label) => (u.holds == null ? `${label}: K = ${u.k}, no verdict`
+        : `${label}: ${signed(u.delta)}, ${u.wins}/${u.k}, ${pText(u.p_holm ?? u.p)}`);
+      const tone = t.supported === "yes" ? "badge sig" : "badge ns";
+      const text = { yes: "supported", no: "not supported" }[t.supported] ?? t.supported;
+      return h("li", {},
+        h("div", { class: "gap-q" }, h("b", {}, `${t.hypothesis} `), t.question, h("small", {}, `${name(t.b)} − ${name(t.a)}`)),
+        h("div", { class: "gap-bar" },
+          gapBar({ delta: a.delta, ci: a.ci, significant: a.holds }, bound, t.margin),
+          gapBar({ delta: c.delta, ci: c.ci, significant: c.holds }, bound, t.margin)),
+        h("div", { class: "gap-verdict" }, h("b", {}, `${signed(a.delta)} IoU`),
+          unitText(a, "activations"), h("br"), unitText(c, "clusters"), h("br"), h("span", { class: tone }, text)));
+    }));
+  }
+
+  function cemsChart(container, note, cems, subset) {
+    const data = cems.subsets[subset], rowH = 26, headH = 26, top = 24;
+    const rows = cems.groups.flatMap((g) => [{ head: g.label },
+      ...g.models.map((m) => ({ ...m, ...data.models[m.key] })).filter((m) => m.iou != null)]);
+    const W = widthOf(container), left = Math.min(230, Math.round(W * 0.42)), right = 56;
+    const H = top + rows.reduce((sum, r) => sum + (r.head ? headH : rowH), 0) + 6;
+    const hi = Math.ceil(Math.max(...rows.filter((r) => !r.head).map((r) => r.ci[1] ?? r.iou)) * 10) / 10;
+    const x = linear(0, hi, left, W - right);
+    const svg = svgRoot(W, H, `Mean IoU of every model on the ${SUBSETS[subset]} activations`, "group");
+    for (let v = 0; v <= hi + 1e-9; v += 0.1) {
+      svg.append(s("line", { x1: x(v), x2: x(v), y1: top - 6, y2: H - 4, style: { stroke: "var(--c-grid)" } }),
+                 s("text", { x: x(v), y: top - 10, "text-anchor": "middle" }, v.toFixed(1)));
+    }
+    let y = top;
+    for (const r of rows) {
+      if (r.head) {
+        svg.append(s("text", { x: 0, y: y + headH - 8, class: "label", style: { "font-weight": "700" } }, r.head));
+        y += headH;
+        continue;
+      }
+      const mid = y + rowH / 2, color = `var(${CEMS_COLORS[r.key] || "--muted"})`;
+      const tip = `${cems.names[r.key]}: IoU ${fixed(r.iou)} [${fixed(r.ci[0], 2)}, ${fixed(r.ci[1], 2)}]`
+        + (r.oracle == null ? "" : ` · best single threshold ${fixed(r.oracle)}`);
+      svg.append(s("text", { x: left - 10, y: mid + 4, "text-anchor": "end", class: "label" }, r.label),
+                 withTip(s("rect", { x: x(0), y: mid - 8, width: Math.max(1, x(r.iou) - x(0)), height: 16, rx: 3,
+                                     tabindex: 0, style: { fill: color } }), tip),
+                 r.ci[0] == null ? null : s("line", { x1: x(r.ci[0]), x2: x(r.ci[1]), y1: mid, y2: mid,
+                                                    style: { stroke: "var(--text)", "stroke-width": "1.5" } }),
+                 s("text", { x: x(Math.max(r.iou, r.ci[1] ?? r.iou)) + 6, y: mid + 4 }, fixed(r.iou)));
+      y += rowH;
+    }
+    container.replaceChildren(svg);
+    note.textContent = `${data.k} activations in this subset.`
+      + (data.k < MIN_UNITS ? " Fewer than 8: indicative only." : "")
+      + " Bars: mean IoU at each model's own threshold; lines: 95 % interval over activations.";
+  }
+  const drawCems = chartSlot(cemsChart);
+
+  function ksTable(table, note, ks) {
+    const head = h("tr", {}, h("th", {}, "Model"), h("th", { class: "num" }, "IoU at τ* [95 % CI]"), h("th", { class: "num" }, "Seeds"));
+    const body = ks.rows.map((r) => h("tr", { class: r.key === "9" ? "highlight" : null },
+      h("td", {}, h("span", { class: "model-cell" }, h("span", { class: "swatch", style: { background: `var(${KS_COLORS[r.key] || "--muted"})` } }), r.label)),
+      h("td", { class: "num" }, `${fixed(r.iou)} [${fixed(r.ci[0], 2)}, ${fixed(r.ci[1], 2)}]`),
+      h("td", { class: "num" }, r.seeds.length ? String(r.seeds.length) : "—")));
+    table.replaceChildren(h("thead", {}, head), h("tbody", {}, body));
+    const g94 = ks.gaps.find((g) => g.key === "9-4"), g911 = ks.gaps.find((g) => g.key === "9-11");
+    note.textContent = `Fusion − SAR-only U-Net: ${signed(g94.delta)} IoU, better in ${g94.wins}/${g94.n} groups, `
+      + `Holm p = ${fixed(g94.p_holm)} (${g94.significant ? "significant" : "not significant"}). Removing optical at `
+      + `inference costs ${signed(g911.delta)}: the gain comes from training, not from the optical input.`;
+  }
+
+  function initCems(cems, ks) {
+    testList(byId("cems-tests"), cems);
+    const box = byId("cems-subsets");
+    for (const key of Object.keys(SUBSETS).filter((k) => k in cems.subsets)) {
+      box.append(h("button", { type: "button", role: "radio", "data-subset": key }, SUBSETS[key]));
+    }
+    radioGroup([...box.querySelectorAll("button")], (b) => drawCems(byId("cems-chart"), byId("cems-note"), cems, b.dataset.subset));
+    ksTable(byId("ks-table"), byId("ks-note"), ks);
+  }
+
+  // ------------------------------------------------------------------ 7 · synthetic
   const FACTORS = {
     wind_speed_ms: { label: "Wind speed", unit: "m/s",
                      text: "Wind roughens open water until it looks like land. A fixed threshold cannot adapt; the learned models partly can." },
@@ -887,6 +1004,7 @@
   initGate(DATA.synthetic.gate);
   initFloods(DATA.sen1floods11);
   initForli(DATA.forli, facts);
+  initCems(DATA.cems, DATA.kurosiwo);
   initStress(DATA.synthetic.stress);
   initAblation(DATA.synthetic);
 })();

@@ -314,6 +314,7 @@ select { font: inherit; color: var(--text); background: var(--surface); border: 
 .gap-q { font-size: 0.93rem; }
 .gap-q small { display: block; color: var(--muted); font-family: var(--font-mono); font-size: 0.78rem; }
 .gap-bar svg { width: 100%; height: 26px; display: block; }
+.test-list .gap-bar svg + svg { margin-top: 4px; opacity: 0.8; }
 .gap-verdict { text-align: right; font-size: 0.84rem; white-space: nowrap; }
 .gap-verdict b { display: block; font-variant-numeric: tabular-nums; font-size: 0.95rem; }
 .badge { display: inline-block; font: 600 0.72rem var(--font-body); letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; margin-top: 3px; }
@@ -322,6 +323,10 @@ select { font: inherit; color: var(--text); background: var(--surface); border: 
 @media (max-width: 720px) {
   .gap-list li { grid-template-columns: 1fr auto; }
   .gap-bar { grid-column: 1 / -1; grid-row: 2; }
+}
+@media (max-width: 720px) {
+  .test-list li { grid-template-columns: 1fr; }
+  .test-list .gap-verdict { text-align: left; white-space: normal; }
 }
 
 /* ---------------------------------------------------------------- registration arrows */

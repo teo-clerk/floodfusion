@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>floodfusion, explained</title>
-  <meta name="description" content="An interactive explainer of floodfusion: flood maps from Sentinel-1 radar, fused with Sentinel-2 where the sky is clear, tested on ten real floods and against Copernicus EMS.">
+  <meta name="description" content="An interactive explainer of floodfusion: flood maps from Sentinel-1 radar, fused with Sentinel-2 where the sky is clear, tested on ten held-out floods and on 38 independent Copernicus EMS flood maps with questions fixed in advance.">
   <meta name="color-scheme" content="light dark">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b6e99'/%3E%3Cpath d='M4 20c4-4 8 4 12 0s8 4 12 0v8H4z' fill='%23fff'/%3E%3C/svg%3E">
@@ -22,6 +22,7 @@
       <a href="#fusion">Fusion</a>
       <a href="#floods">Ten floods</a>
       <a href="#forli">Forlì</a>
+      <a href="#independent">38 floods</a>
       <a href="#stress">Synthetic</a>
       <a href="#lessons">Lessons</a>
       <a href="#reproduce">Reproduce</a>
@@ -48,9 +49,11 @@
           <h1>Flood maps from radar that a duty officer can act on at 3 a.m.</h1>
           <p class="lede">floodfusion maps floods from Sentinel-1 radar, which sees through cloud, and adds
             Sentinel-2 only where the sky is clear. This page explains how it works and what it achieved.
-            Its charts and results are generated from the reports in the repository.</p>
+            Version 1.1 then tested it on <span data-bind="cemsActivations"></span> independent floods, with
+            questions fixed in advance. The training labels mattered more than the optical input. Its charts and
+            results are generated from the reports in the repository.</p>
           <div class="hero-actions">
-            <a class="btn" href="#floods">See the results</a>
+            <a class="btn" href="#independent">See the results</a>
             <a class="btn btn-ghost" href="#pipeline">How it works</a>
           </div>
         </div>
@@ -68,14 +71,15 @@
             floods, each scored by a model that never saw it (SAR-only U-Net: <span data-bind="sarIoU"></span>)</p>
         </div>
         <div class="stat">
-          <p class="stat-value"><span data-bind="fusionWins"></span></p>
-          <p class="stat-label">floods where fusion beats the SAR-only model
-            (<a class="term" href="#g-holm">Holm</a>-adjusted p = <span data-bind="fusionHolm"></span>)</p>
+          <p class="stat-value"><span data-bind="cemsP1Delta"></span></p>
+          <p class="stat-label">IoU the fusion model adds where optical is usable, on independent Copernicus EMS
+            maps (<span data-bind="cemsP1K"></span> floods; not significant). On Sen1Floods11:
+            +<span data-bind="fusionGain"></span></p>
         </div>
         <div class="stat">
-          <p class="stat-value"><span data-bind="forliGain"></span></p>
-          <p class="stat-label">IoU added by Sentinel-2, scored against Copernicus EMS's own map of the 2023
-            Forlì flood</p>
+          <p class="stat-value"><span data-bind="cemsP3Delta"></span></p>
+          <p class="stat-label">IoU gained on <span data-bind="cemsActivations"></span> independent floods by
+            training on change-aware flood labels instead of water labels (pre-registered; supported)</p>
         </div>
       </div>
     </div>
@@ -323,8 +327,15 @@
           <em>more</em> open under cloud. There, the network learned that radar suffices: fusion and the
           SAR-only U-Net tie. What the design guarantees still holds: on ten real floods the fusion model with
           optical removed scores <span data-bind="noOptIoU"></span>, against <span data-bind="sarIoU"></span>
-          for the SAR-only U-Net. With optical, it scores <span data-bind="fusionIoU"></span>, so optical clearly
-          contributes on real data. How the gate behaves there is the next measurement.</p>
+          for the SAR-only U-Net. With optical, it scores <span data-bind="fusionIoU"></span>. Those labels were
+          drawn on the optical image the model sees, though.</p>
+        <p><b>Measured on real data since:</b>
+          <a href="https://github.com/teo-clerk/floodfusion/blob/main/reports/stage_a_diagnostics.md">Stage A</a>
+          found that the gate opens when optical is present but barely reacts to per-pixel cloud. Under a cloud
+          covering <em>part</em> of a scene, the model misses most of the flood beneath it. The guarantee holds
+          for a whole scene without optical, not pixel by pixel. On <a href="#independent">independent maps</a>,
+          partly cloudy floods cost fusion <span data-bind="cemsPartialDelta"></span> IoU against the SAR-only
+          U-Net.</p>
         <figure class="wide-figure">
           <a href="assets/gate_map.png"><img src="assets/gate_map.png" width="1400" height="313" loading="lazy"
                alt="Five panels for one synthetic chip: the optical image, its quality mask, the learned gate, the radar image and the prediction. The gate is brightest along the edge of the cloud mask."></a>
@@ -378,7 +389,7 @@
         <ul class="gap-list" id="flood-gaps"></ul>
         <p class="footnote">† Sen1Floods11's labels were drawn mostly on the Sentinel-2 image that the model
           also sees, so gaps involving optical partly measure agreement with the annotators. The Forlì case
-          below is the independent check.<br>‡ TerraMind's encoder saw global Sentinel-1 and Sentinel-2 data in
+          and the <a href="#independent">38 independent floods</a> below are the independent checks.<br>‡ TerraMind's encoder saw global Sentinel-1 and Sentinel-2 data in
           pre-training, so "never saw the flood" holds for its decoder only. It follows IBM's recipe, developed on
           Sen1Floods11's official split, and ran one seed.</p>
       </div>
@@ -512,10 +523,84 @@
     </div>
   </section>
 
-  <!-- ============================================================ SYNTHETIC -->
-  <section class="section alt" id="stress">
+  <!-- ============================================================ INDEPENDENT (v1.1) -->
+  <section class="section alt" id="independent">
     <div class="wrap">
-      <p class="kicker">6 · Controlled experiments</p>
+      <p class="kicker">6 · Thirty-eight independent floods (v1.1)</p>
+      <h2>Four questions fixed in advance, answered on Copernicus EMS's maps</h2>
+      <p class="section-lede">Forlì is one flood. Before training a single new model, version 1.1 committed four
+        questions and the rules for answering them to the repository (a
+        <a class="term" href="#g-prereg">pre-registration</a>). They are answered on
+        <b><span data-bind="cemsActivations"></span> flood activations</b> (<span data-bind="cemsPeriod"></span>)
+        that Copernicus EMS mapped on commercial radar satellites, not on Sentinel.
+        <span data-bind="cemsPairs"></span> of their maps were paired with a Sentinel-1 pass within 24 hours, and
+        every model ran <a class="term" href="#g-zeroshot">zero-shot</a>. A result counts only if it holds for
+        single activations <em>and</em> for the <span data-bind="cemsClusters"></span> clusters of activations
+        within 100 km and 60 days, so one storm across neighbouring regions is not counted twice.</p>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>The four pre-registered questions</h3>
+          <p class="muted">The difference in IoU (B − A) with its 95 % paired interval, per activation (upper
+            bar) and per cluster (lower bar). Verdicts use an exact <a class="term" href="#g-signflip">sign-flip
+            test</a>, <a class="term" href="#g-holm">Holm</a>-adjusted; no verdict below 8 units.</p>
+        </div>
+        <ul class="gap-list test-list" id="cems-tests"></ul>
+        <p class="footnote">H3 is a <a class="term" href="#g-noninf">non-inferiority</a> test: fusion may lose at
+          most 0.05 IoU, tested one-sided at 2.5 %. H1 compares two training recipes on identical Kuro Siwo chips:
+          labels marking the water a flood brought, or all water. The rules are in the
+          <a href="https://github.com/teo-clerk/floodfusion/blob/main/reports/protocol_v1_1.md">protocol</a>, and
+          every change since in the
+          <a href="https://github.com/teo-clerk/floodfusion/blob/main/reports/v1_1_deviations.md">deviations log</a>.</p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Every model on the same floods, by cloud cover</h3>
+          <p class="muted">Mean IoU over activations at each model's own calibrated threshold, with a 95 %
+            interval. Choose the activations by how much of them Sentinel-2 saw clearly. Hover a bar for the
+            value at the best single threshold.</p>
+        </div>
+        <div class="segmented" role="radiogroup" aria-label="Activations by cloud cover" id="cems-subsets"></div>
+        <div class="chart" id="cems-chart"></div>
+        <p class="footnote" id="cems-note"></p>
+      </div>
+
+      <div class="cards two">
+        <article class="panel">
+          <h3>What it means</h3>
+          <ul class="ticks">
+            <li><b>The fusion gain does not carry over.</b> On Sen1Floods11, fusion beats the SAR-only U-Net by
+              +<span data-bind="fusionGain"></span>. On independent radar-drawn maps where optical is usable, the
+              gain is <span data-bind="cemsP1Delta"></span>, not significant. Sen1Floods11's labels were drawn on
+              the optical image the model sees.</li>
+            <li><b>Labels matter more than the architecture.</b> The same networks trained on Kuro Siwo's
+              radar-drawn flood labels score <span data-bind="cemsKsRange"></span>, against
+              <span data-bind="cemsS1Range"></span> trained on Sen1Floods11. The physics baseline, with no
+              learning, scores <span data-bind="cemsBaseline"></span>.</li>
+            <li><b>Partial cloud is a real weakness.</b> On floods 10–50 % clear, fusion scores
+              <span data-bind="cemsPartialDelta"></span> against the SAR-only U-Net.</li>
+            <li><b>TerraMind loses on its threshold, not its ranking.</b> At each model's own threshold, fusion
+              wins (H4). At the best single threshold, TerraMind scores <span data-bind="cemsTmOracle"></span>
+              against fusion's <span data-bind="cemsFusionOracle"></span>.</li>
+          </ul>
+        </article>
+        <article class="panel">
+          <h3>Kuro Siwo: floods labelled on radar</h3>
+          <p>Floods from the Kuro Siwo dataset (Bountos et al., 2024), in
+            <span data-bind="ksGroups"></span> groups of floods within 100 km. Each group is tested by a model that
+            never saw it (grouped five-fold).</p>
+          <div class="table-wrap"><table class="data-table compact" id="ks-table"></table></div>
+          <p class="footnote" id="ks-note"></p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ SYNTHETIC -->
+  <section class="section" id="stress">
+    <div class="wrap">
+      <p class="kicker">7 · Controlled experiments</p>
       <h2>Turning one knob at a time (synthetic data)</h2>
       <p class="section-lede">Real floods mix every difficulty at once. A physics-based synthetic benchmark
         varies one factor at a time on <span data-bind="nLandscapes"></span> landscapes no model trained on. These numbers validate the
@@ -547,43 +632,45 @@
   </section>
 
   <!-- ============================================================ LESSONS -->
-  <section class="section" id="lessons">
+  <section class="section alt" id="lessons">
     <div class="wrap">
-      <p class="kicker">7 · What we learned</p>
+      <p class="kicker">8 · What we learned</p>
       <h2>Findings, including the uncomfortable ones</h2>
       <div class="cards three">
         <article class="card lesson good">
-          <h3>Optical pays off where the sky is clear</h3>
-          <p>+<span data-bind="fusionGain"></span> IoU over the SAR-only U-Net on all <span data-bind="nEvents"></span>
-            held-out floods, and +<span data-bind="forliGainPlain"></span> against an independent Copernicus EMS
-            map.</p>
-        </article>
-        <article class="card lesson good">
-          <h3>Losing optical costs nothing extra</h3>
-          <p>With optical removed, the fusion model performs like the SAR-only model, as the gate's design
-            guarantees: cloud costs what radar alone costs, never more.</p>
-        </article>
-        <article class="card lesson good">
-          <h3>A foundation model, frozen, is close</h3>
-          <p>IBM/ESA's TerraMind-1.0-small with a trained decoder scores <span data-bind="tmIoU"></span>, behind
-            the fusion model on <span data-bind="tmWins"></span> floods, but the difference is not significant. Its
-            encoder saw global Sentinel-1/2 data in pre-training.</p>
+          <h3>The training labels matter most</h3>
+          <p>On independent maps, change-aware flood labels beat water labels by <span data-bind="cemsP3Delta"></span>
+            IoU (pre-registered, supported). Models trained on Kuro Siwo score <span data-bind="cemsKsRange"></span>,
+            against <span data-bind="cemsS1Range"></span> for the same networks trained on Sen1Floods11.</p>
         </article>
         <article class="card lesson warn">
-          <h3>Benchmark geometry needed fixing</h3>
-          <p>Sentinel-2 from 2016–2019 sits 1–3 px off the radar, and the labels follow it. Left uncorrected,
-            this penalises every radar model. The fix uses the labels, which is disclosed and checked
-            independently.</p>
+          <h3>Optical helped on its own labels</h3>
+          <p>+<span data-bind="fusionGain"></span> IoU on Sen1Floods11, whose labels were drawn on the optical
+            image. On independent radar-drawn maps where optical is usable: <span data-bind="cemsP1Delta"></span>,
+            not significant.</p>
         </article>
         <article class="card lesson warn">
-          <h3>Zero-shot radar over-maps fields</h3>
-          <p>At Forlì without optical, the learned radar path loses to the physics baseline. Next steps:
-            regional fine-tuning and a seasonal reference image.</p>
+          <h3>Partial cloud defeats the gate</h3>
+          <p>With no optical at all, the fusion model performs like the SAR-only model. Under a cloud covering part
+            of a scene it misses most of the flood beneath it. Partly cloudy independent floods cost it
+            <span data-bind="cemsPartialDelta"></span> IoU.</p>
+        </article>
+        <article class="card lesson">
+          <h3>A frozen foundation model is close</h3>
+          <p>TerraMind-1.0-small scores <span data-bind="tmIoU"></span> on the ten floods. On independent maps the
+            fusion model beats it at each model's own threshold (H4), but not at the best single threshold. The
+            difference is how well a threshold transfers.</p>
         </article>
         <article class="card lesson warn">
-          <h3>The gate barely trained</h3>
-          <p>On synthetic data it stayed near its starting value. The guarantee holds, but the intended "open
-            where clear" behaviour has not been shown yet.</p>
+          <h3>Zero-shot, learned radar over-maps</h3>
+          <p>The physics baseline (<span data-bind="cemsBaseline"></span>) beats every Sen1Floods11-trained network on
+            the independent floods, as it did at Forlì. A seasonal reference image helps on benchmark labels but not
+            on Copernicus EMS's maps.</p>
+        </article>
+        <article class="card lesson warn">
+          <h3>The gate responds to presence, not quality</h3>
+          <p>On synthetic data it stayed near its starting value. On real data it opens when optical is present,
+            but barely reacts to per-pixel cloud.</p>
         </article>
         <article class="card lesson warn">
           <h3>Guarantees don't travel between floods</h3>
@@ -591,20 +678,25 @@
             <span data-bind="nEvents"></span> new floods. Floods are not exchangeable.</p>
         </article>
         <article class="card lesson">
-          <h3>The published split barely flatters</h3>
-          <p>Scored on the same chips, the within-flood protocol adds at most <span data-bind="protocolTrained"></span>
-            IoU for the trained models, none of it significant. Smaller than expected, and reported as measured.</p>
+          <h3>The published split's flattery is unstable</h3>
+          <p>The within-flood protocol added at most <span data-bind="protocolTrained"></span> IoU for the trained
+            models in v1.0, and up to <span data-bind="protocolTrainedV11"></span> in the v1.1 re-run. Neither is
+            significant: one draw is not an estimate.</p>
         </article>
         <article class="card lesson">
-          <h3>Archives have gaps</h3>
-          <p>One event's radar image is missing from the archive, so the event was dropped. Another lacks
-            its geometry annotation, so an orbit model replaces it, validated to within 0.74° of incidence.</p>
+          <h3>Benchmarks and archives need fixing</h3>
+          <p>Sentinel-2 from 2016–2019 sits 1–3 px off the radar, and the labels follow it. The fix uses the
+            labels, which is disclosed and checked independently. One event's radar image is missing from the
+            archive, so that event was dropped.</p>
         </article>
       </div>
 
       <div class="panel">
         <h3>Where the map must not be used</h3>
         <ul class="ticks two-col">
+          <li><b>Partial cloud:</b> remove partly cloudy optical altogether, so radar maps the scene.</li>
+          <li><b>A new region, with a Sen1Floods11-trained model:</b> on independent maps it scores below the
+            physics baseline.</li>
           <li><b>Dense canopy and dense urban areas:</b> "dry" there means "not seen". They are flagged, not
             mapped.</li>
           <li><b>Radar shadow and layover</b> carry no information and are excluded.</li>
@@ -619,9 +711,9 @@
   </section>
 
   <!-- ============================================================ REPRODUCE -->
-  <section class="section alt" id="reproduce">
+  <section class="section" id="reproduce">
     <div class="wrap">
-      <p class="kicker">8 · Reproduce</p>
+      <p class="kicker">9 · Reproduce</p>
       <h2>Every number regenerates from a commit</h2>
       <p class="section-lede">No account or API key is needed. Each report records the git commit it was made
         at, and the table builders refuse runs made with different code, data or test sets.</p>
@@ -633,7 +725,12 @@ make test                          # offline test suite (CPU)
 make demo SEED_PROTOCOL=full       # synthetic benchmark: 13-row ablation, 3 seeds (~1.5 h)
 make stress                        # single-factor stress curves and the gate figure
 make s1f11 S1F11_LEARNED="4 9 14"  # Sen1Floods11 leave-one-event-out (~9 h on an 8 GB GPU)
-make forli                         # EMSR664 Forlì: every Sentinel-1 pass vs every CEMS map</code></pre>
+make forli                         # EMSR664 Forlì: every Sentinel-1 pass vs every CEMS map
+# v1.1 (~45 GPU-hours): Kuro Siwo, the CEMS benchmark, seasonal references, then every run in order
+make kurosiwo-data v11-splits
+uv run --frozen python -m floodfusion.cems_benchmark prepare
+make seasonal
+scripts/v11_queue.sh all</code></pre>
       </div>
       <p class="muted">Sen1Floods11 declares no licence, so its labels are downloaded by each user and never
         redistributed, and neither are weights trained on them.</p>
@@ -641,7 +738,7 @@ make forli                         # EMSR664 Forlì: every Sentinel-1 pass vs ev
   </section>
 
   <!-- ============================================================ GLOSSARY -->
-  <section class="section" id="glossary">
+  <section class="section alt" id="glossary">
     <div class="wrap">
       <p class="kicker">Glossary</p>
       <h2>Terms used on this page</h2>
@@ -659,6 +756,8 @@ make forli                         # EMSR664 Forlì: every Sentinel-1 pass vs ev
         <div id="g-stac"><dt>STAC</dt><dd>SpatioTemporal Asset Catalog: a standard way to search and describe satellite images. floodfusion both searches STAC catalogues and writes a STAC Item for its product.</dd></div>
         <div id="g-cog"><dt>COG (Cloud-Optimized GeoTIFF)</dt><dd>A GeoTIFF laid out so that a viewer can stream just the part it needs over HTTP.</dd></div>
         <div id="g-zeroshot"><dt>Zero-shot</dt><dd>Applied to a region and event the model never saw in training, with no fine-tuning.</dd></div>
+        <div id="g-prereg"><dt>Pre-registration</dt><dd>Writing down the questions, the test data and the rules for answering them, and committing them before any result exists, so the results cannot shape the questions.</dd></div>
+        <div id="g-noninf"><dt>Non-inferiority test</dt><dd>Asks whether a model is no worse than another by more than a stated margin, here 0.05 IoU. Passing it does not mean "better", only "not meaningfully worse".</dd></div>
         <div id="g-cems"><dt>Copernicus EMS</dt><dd>The Copernicus Emergency Management Service, whose rapid-mapping service delineates floods for civil protection within hours of an activation.</dd></div>
       </dl>
     </div>

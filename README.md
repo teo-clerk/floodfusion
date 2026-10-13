@@ -2,8 +2,9 @@
 
 **Flood maps from Sentinel-1 radar that a duty officer can act on at 03:00.** The maps are calibrated,
 ship with an exclusion mask saying where they must not be trusted, and use Sentinel-2 only where it is
-clear. They are tested on ten real floods, against the published benchmark split, and against Copernicus
-EMS's own delineations of the 2023 Emilia-Romagna floods.
+clear. Version 1.1 tests them on **38 independent floods mapped by Copernicus EMS**, with four questions
+fixed in advance, and on two benchmarks with every flood held out: Sen1Floods11 (10 floods) and Kuro Siwo
+(36 floods). Its main finding: **the training labels matter more than the optical input.**
 
 [![ci](https://github.com/teo-clerk/floodfusion/actions/workflows/ci.yml/badge.svg)](https://github.com/teo-clerk/floodfusion/actions/workflows/ci.yml)
 ![python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
@@ -22,8 +23,92 @@ Copernicus EMS's COSMO-SkyMed delineation of 21 May (right).*
 
 ## Results at a glance
 
+### v1.1: four questions fixed in advance, tested on 38 independent floods
+
+The [protocol](reports/protocol_v1_1.md) was committed before any v1.1 model was trained. Every change since is in
+the [deviations log](reports/v1_1_deviations.md).
+
+**The test set:**
+- **Source:** Copernicus EMS delineations of 38 flood activations, March 2023 to March 2026.
+- **The maps were drawn on commercial radar satellites** (COSMO-SkyMed, PAZ, ICEYE, RADARSAT-2, TerraSAR-X), not on
+  Sentinel. That makes it the conservative test for an optical input.
+- **Coverage:** 75 map/Sentinel-1 pass pairs, each within 24 h, covering 55,779 km² with 3,395 km² of mapped flood.
+- **Scoring:** every model is applied zero-shot at its own calibrated threshold.
+- **When a result counts:** only if it holds for single activations *and* for clusters of activations within
+  100 km and 60 days of each other ([report](reports/cems_benchmark.md)).
+
+| Pre-registered question | Per activation | Per cluster | Supported |
+| --- | --- | --- | --- |
+| **H1** Change-aware *flood* labels beat *water* labels (same chips, same model) | +0.059 IoU, better in 33/38, Holm p < 0.001 | +0.062, 27/30, p < 0.001 | **yes** |
+| **H4** The task-specific fusion model vs the TerraMind foundation model | +0.031, 24/38, Holm p = 0.034 | +0.039, 20/30, p = 0.009 | **yes**, but see below |
+| **H2** Fusion beats the SAR U-Net where optical is usable (≥ 50 % clear) | +0.038, 5/8, Holm p = 0.34 | K = 7: no verdict | no |
+| **H3** Without optical (< 10 % clear), fusion is no worse than the SAR U-Net (margin 0.05) | −0.020, non-inferior (p = 0.004) | −0.024, not shown (p = 0.029 > 0.025) | no |
+
+**Every model on the same 38 floods:** macro IoU at each model's own threshold. Breakdowns by map type and cloud
+cover are in the [strata report](reports/cems_benchmark_strata.md).
+
+| Model | Trained on Sen1Floods11 (water drawn on optical) | Trained on Kuro Siwo (flood drawn on radar) |
+| --- | --- | --- |
+| U-Net, SAR only | 0.281 | 0.394 |
+| Cross-attention fusion | 0.258 | **0.397** |
+| The same fusion model, optical removed at inference | 0.272 | 0.398 |
+| Fusion trained on *water* labels of the same Kuro Siwo chips | — | 0.338 |
+| TerraMind-1.0-small, frozen + UNet decoder | 0.226 | — |
+
+The physics baseline (adaptive threshold + change + terrain masks, no learning; one offset set on Sen1Floods11
+validation) scores **0.371**.
+
+**What it means:**
+- **The fusion gain does not carry over to independent maps.**
+  - On Sen1Floods11 the fusion model beats the SAR U-Net by +0.26 on all ten floods.
+  - On the radar-drawn CEMS maps, where optical is usable, the gain is +0.04 and not significant.
+  - Sen1Floods11's labels were mostly drawn on the very Sentinel-2 image the fusion model sees.
+- **The partial-cloud weakness is real.** Where 10–50 % of the scene is clear, fusion scores 0.06 below the SAR
+  U-Net and wins on only 2 of 15 activations (descriptive). The per-pixel gate does not hand cloudy pixels to the
+  radar path ([Stage A](reports/stage_a_diagnostics.md)).
+- **The training data matter more than the architecture.**
+  - The same networks trained on Kuro Siwo's radar-drawn flood labels score 0.39–0.40, against 0.26–0.28 trained on
+    Sen1Floods11.
+  - The physics baseline, with no learning (0.371), beats every Sen1Floods11-trained network.
+  - Trained on Kuro Siwo, the fusion model gets nothing from optical: 0.397 with it, 0.398 without.
+- **TerraMind's loss is mostly a threshold that does not transfer.** At the best single threshold for each model,
+  TerraMind is slightly ahead (0.270 vs 0.260). H4 holds as tested, at each model's own threshold.
+- **Absolute agreement is modest.** CEMS products are drawn on 1–3 m images up to a day from the Sentinel-1 pass, and
+  they are generalised by an analyst. The seven activations mapped on optical very-high-resolution images agree with
+  every tested model at only 0.10–0.13 IoU (indicative, K = 7).
+- **No variant replaces the reference model.** The pre-registered variants (gate bias, cloud augmentation, reversed
+  attention) ran on Sen1Floods11 only. The 12 GPU-hour cap stopped them on Kuro Siwo. The best, attention with
+  the query from SAR, gains +0.026 on 7 of 10 floods: unadjusted, single seed, no verdict.
+
+**Kuro Siwo, 36 floods with labels drawn on radar,** in 29 groups of floods within 100 km, grouped five-fold
+([table](reports/v11_kurosiwo_table.md); descriptive):
+
+| Model | IoU at τ* |
+| --- | --- |
+| Physics baseline | 0.417 |
+| Physics baseline, seasonal reference (same date a year earlier) | 0.520 |
+| U-Net, SAR only | 0.505 |
+| Cross-attention fusion | 0.535 |
+| The same fusion model, optical removed at inference | 0.533 |
+
+- **Fusion vs SAR U-Net:** +0.030, better in 21 of 29 groups, not significant after Holm. The gain comes from
+  training, not from the optical input at inference: removing optical costs only 0.002.
+- **The seasonal reference.** Replacing the recent pre-event reference with the seasonal one (the same date a year
+  earlier) lifts the physics baseline:
+  - by +0.087 here (17 of 29 groups);
+  - by +0.175 on Sen1Floods11 (9 of 10 floods).
+
+  Benchmark labels count seasonal water, which a recent reference already shows as wet. On CEMS the seasonal reference
+  does not help (0.340 vs 0.371), likely because CEMS separates the flood from the water present just before the
+  event.
+
+### v1.0: ten Sen1Floods11 floods held out, and Forlì
+
 **Ten real floods, each held out.** Sen1Floods11, re-ingested; leave-one-event-out — every event is
-scored by a model that never saw it ([full table](reports/sen1floods11_table.md)).
+scored by a model that never saw it ([full table](reports/sen1floods11_table.md)). The v1.1 re-run at the frozen
+v1.1 code replicates it ([table](reports/v11_sen1floods11_table.md)):
+- fusion 0.608 against the SAR U-Net's 0.343 (+0.265, all 10 floods, Holm p = 0.018);
+- TerraMind 0.572.
 
 | Model | IoU at τ* | AP |
 | --- | --- | --- |
@@ -48,6 +133,13 @@ scored by a model that never saw it ([full table](reports/sen1floods11_table.md)
 - **The published within-event split barely flatters the trained models**: at most +0.015 IoU at τ* for
   the SAR U-Net, the fusion model and TerraMind, against +0.048 for the synthetic leakage row. The fusion
   model run without optical gains up to +0.091. None of these gaps is significant.
+
+  The v1.1 re-run is noisier. At τ*, across seeds, the official split scores higher than leave-one-event-out by:
+  - SAR U-Net: +0.02 to +0.11 (AP +0.05 to +0.11);
+  - fusion model: −0.03 to +0.06;
+  - TerraMind: −0.05 to +0.00.
+
+  None is significant after Holm. One draw of this gap is not a stable estimate.
 - **Conformal recall control holds on average but not per flood**: the mean per-chip miss rate is 0.08–0.11 at
   α = 0.1, but it holds on only 5–8 of 10 new floods. Events are not exchangeable.
 - **Physics rules built on backscatter change fail on these labels**: in 8 of 10 events the labelled water did
@@ -80,6 +172,10 @@ four CEMS delineations (COSMO-SkyMed, RADARSAT-2, PAZ) observed, against the del
   - the fusion gate barely trained, averaging 0.12–0.17 over clear sky ([gate diagnostic](reports/gate_diagnostic.md)).
 - **Under wind** (0.5 → 10 m/s), the physics baseline collapses (IoU 0.74 → 0.006) while the learned models
   degrade gracefully (0.60 → 0.53).
+- **Replicated at the v1.1 code** ([grid](reports/v11_ablation_table.md), [stress](reports/v11_stress.md)):
+  - fusion 0.675 against SAR-only 0.675;
+  - plain BCE 0.726;
+  - every stress-curve point within 0.017 IoU of v1.0.
 
 Every report names the git SHA it was produced at, and regenerates from it. The table builders refuse runs
 made from different code, mixed datasets or mixed test sets.
@@ -171,6 +267,21 @@ make forli                         # EMSR664 Forlì: every Sentinel-1 pass vs ev
 uv run python scripts/build_site.py  # the interactive explainer, from the reports -> _site/index.html
 ```
 
+**v1.1** (about 45 GPU-hours on an RTX 4060 Laptop, one job at a time):
+
+```bash
+make s1f11-download s1f11-ingest s1f11-splits    # Sen1Floods11, as above
+make kurosiwo-data v11-splits                    # Kuro Siwo polygons -> flood-label and water-label chips, folds
+uv run --frozen python -m floodfusion.cems_benchmark prepare   # the CEMS pairs of the committed census
+make seasonal                                    # year-earlier Sentinel-1 references for every stack
+scripts/v11_queue.sh smoke && scripts/v11_queue.sh all          # every run, CEMS scores, tables, synthetic grid
+uv run --frozen python scripts/cems_strata.py    # every CEMS model per stratum and cloud subset
+```
+
+The CEMS census is frozen in `configs/datasets/cems_benchmark.json`. `make cems-data` re-runs it against the live
+CEMS API and overwrites that file, so a reproduction should run only `prepare`. Use `uv run --frozen`: `uv.lock`
+is one of the code paths the table builders check.
+
 The TerraMind comparison (row 14) needs the optional extra: `uv sync --extra dev --extra fm`.
 `docker build -t floodfusion .` gives the same locked environment; `docker run --rm floodfusion` runs
 the tests. [`notebooks/walkthrough.ipynb`](notebooks/walkthrough.ipynb) walks one small event from stack
@@ -178,6 +289,10 @@ to product in about 30 s on a CPU.
 
 ## Where the map must not be used
 
+- **Under a partial cloud.** Fusion misses most flood beneath a cloud that covers part of a scene. Remove partly
+  cloudy optical altogether, so the radar path maps the scene.
+- **In a new region, from a Sen1Floods11-trained model.** On independent CEMS maps those models score below the
+  physics baseline; the Kuro Siwo-trained ones do not.
 - **Under dense canopy and in dense urban areas** "dry" means "not seen". These areas are flagged, not mapped.
 - **Radar shadow and layover** carry no information and are excluded.
 - **Wind** can hide open water.
@@ -190,13 +305,16 @@ More in [`MODEL_CARD.md`](MODEL_CARD.md) and [`DATA_CARD.md`](DATA_CARD.md).
 ```
 src/floodfusion/
 ├── data/          STAC matching, archive access, the shared per-grid assembly, Sentinel-1 annotation and
-│                  Range–Doppler geocoder, orbit-model geometry, Sen1Floods11 and CEMS clients,
-│                  remote-input guards (http.py), chipping, dataset, the synthetic benchmark
+│                  Range–Doppler geocoder, orbit-model geometry, Sen1Floods11, Kuro Siwo and CEMS clients,
+│                  pass coverage, seasonal references, remote-input guards (http.py), chipping, dataset,
+│                  the synthetic benchmark
 ├── models/        encoders, cross-attention fusion + gate, segmenter, ablation zoo, losses, TerraMind wrapper
 ├── masks.py       slope, local incidence, shadow/layover, HAND, validity flags
 ├── baselines.py · baseline_runner.py     the physics baseline (adaptive threshold + change + masks)
 ├── train.py · evaluate.py · calibration.py (incl. conformal risk control)
-├── crossval.py · cv_report.py            leave-one-event-out, the published split, the protocol gap
+├── crossval.py · cv_report.py            leave-one-event-out, grouped k-fold, the published split, the protocol gap
+├── cems_benchmark.py · cems_scores.py    the CEMS benchmark: census, pairs, the pre-registered tests
+├── crossfit.py                           calibration across events (cross-fitted thresholds)
 ├── ablation.py · reporting.py · stress.py · case_study.py · products.py · predict.py
 configs/           one frozen YAML per ablation row, overlays, comparisons/, event definitions
 tests/             unit, integration and end-to-end tests (markers: slow, gpu, network, data)
@@ -210,8 +328,8 @@ design decision or acceptance check each piece of code implements.
 
 ## Citing
 
-See [`CITATION.cff`](CITATION.cff). Please also cite Sen1Floods11 (Bonafilia et al., 2020) if you use
-its labels.
+See [`CITATION.cff`](CITATION.cff). Please also cite Sen1Floods11 (Bonafilia et al., 2020) and Kuro Siwo
+(Bountos et al., NeurIPS 2024 Datasets and Benchmarks) if you use their labels.
 
 ## Acknowledgements
 
@@ -219,6 +337,7 @@ Contains modified Copernicus Sentinel data, processed by Microsoft Planetary Com
 products: © European Union, Copernicus Emergency Management Service. Copernicus DEM: © DLR e.V.
 2010–2014 and © Airbus Defence and Space GmbH 2014–2018, provided under COPERNICUS by the European Union
 and ESA. JRC Global Surface Water: EC JRC / Google. ESA WorldCover 2021. TerraMind: IBM and ESA.
+Kuro Siwo annotations: Orion AI Lab, CC BY 4.0 (re-downloaded by the user; nothing is redistributed here).
 Developed with AI assistance (Claude Code); the design decisions, verification and results were reviewed
 by the author.
 

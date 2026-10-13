@@ -20,8 +20,12 @@
   - Focal + soft-Dice loss on a balanced chip sampler; AdamW, warmup + cosine schedule, bf16.
   - Per-sample modality dropout (p = 0.5), so the SAR-only case is trained, not hoped for.
   - Calibration (prior correction, temperature, Platt when it helps) is fitted on validation only.
+- **Training data.**
+  - Sen1Floods11: water labels drawn mostly on Sentinel-2.
+  - Kuro Siwo (v1.1): flood labels drawn on Sentinel-1, and the same chips relabelled as water.
+  - The two are separate models; no model mixes the datasets.
 - **Code and reproduction.** `src/floodfusion`; every reported number regenerates from a git SHA
-  (`make demo`, `make s1f11`, `make forli`). Licence: MIT.
+  (`make demo`, `make s1f11`, `make forli`; v1.1: `scripts/v11_queue.sh all`). Licence: MIT.
 
 ## Intended use
 
@@ -41,7 +45,16 @@
 
 ## Evaluation data and protocol
 
-- **Sen1Floods11, re-ingested** (`reports/sen1floods11_table.md`).
+- **CEMS benchmark, v1.1** (`reports/cems_benchmark.md`, `reports/cems_benchmark_strata.md`).
+  - **The confirmatory test set.** Copernicus EMS delineations of 38 flood activations, 2023-03 to 2026-03, drawn on
+    commercial radar satellites.
+  - **Pairing:** each delineation is paired with a Sentinel-1 pass within 24 h, selected by a rule committed before
+    any v1.1 model was trained (`reports/protocol_v1_1.md`).
+  - **Tests:** four pre-registered tests. A result counts only if it holds per activation and per cluster of
+    neighbouring activations.
+- **Kuro Siwo, v1.1** (`reports/v11_kurosiwo_table.md`, `reports/v11_kurosiwo_water_table.md`): 36 floods in 29
+  groups, with labels drawn on radar. Grouped five-fold: each group is tested once by a model that never saw it.
+- **Sen1Floods11, re-ingested** (`reports/sen1floods11_table.md`; v1.1 re-run: `reports/v11_sen1floods11_table.md`).
   - 10 flood events on 5 continents, labels from the dataset, every input re-fetched.
   - Leave-one-event-out: each event is tested once by a model that never saw it.
   - Verdicts are exact sign-flip permutation tests over events, Holm-adjusted.
@@ -58,7 +71,25 @@
 
 All numbers come from the release runs; each report records its git SHA.
 
-- **Sen1Floods11, leave-one-event-out (10 events), IoU at τ\* = 0.25.**
+- **CEMS benchmark (v1.1, 38 activations, zero-shot, IoU at each model's own τ\*).**
+
+  | Model | Trained on Sen1Floods11 | Trained on Kuro Siwo |
+  | --- | --- | --- |
+  | Fusion | 0.258 | 0.397 |
+  | SAR-only U-Net | 0.281 | 0.394 |
+  | TerraMind-small | 0.226 | — |
+
+  The physics baseline scores 0.371.
+
+  **The pre-registered tests:**
+  - Flood labels beat water labels: +0.06, supported.
+  - Fusion beats TerraMind: +0.03, supported. At each model's best threshold the order reverses (0.260 vs 0.270).
+  - Fusion beats the SAR U-Net where optical is usable: +0.04, not supported.
+  - Fusion is non-inferior without optical: −0.02, which holds per activation, not per cluster, so not supported.
+- **Kuro Siwo, grouped five-fold (v1.1, 29 groups).** Fusion 0.535, SAR U-Net 0.505, the same fusion model without
+  optical 0.533, physics baseline 0.417. Fusion vs SAR U-Net is +0.030 and not significant.
+- **Sen1Floods11, leave-one-event-out (10 events), IoU at τ\* = 0.25.** The v1.1 re-run replicates these numbers:
+  fusion 0.608, SAR U-Net 0.343, +0.265 on 10 of 10 events.
   - Fusion (3 seeds): **0.625**, AP 0.769.
   - The same model without optical: 0.383.
   - SAR-only U-Net: 0.365.
@@ -80,9 +111,15 @@ All numbers come from the release runs; each report records its git SHA.
 
 ## Factors and known failure modes
 
-- **Optical's measured value is partly agreement with the annotators.** Sen1Floods11 labels were
-  drawn mostly on the Sentinel-2 image the model also sees. The CEMS comparison is the independent
-  check.
+- **Optical's measured value is mostly agreement with the annotators.**
+  - Sen1Floods11 labels were drawn mostly on the Sentinel-2 image the model also sees, where fusion gains +0.26.
+  - On the independent, radar-drawn CEMS maps where optical is usable, the gain is +0.04 and not significant.
+  - Trained on Kuro Siwo's radar-drawn labels, the model uses almost nothing from optical at inference (0.397 with
+    it, 0.398 without).
+- **Training labels matter more than the architecture.** On CEMS:
+  - the same fusion network scores 0.397 trained on Kuro Siwo flood labels, 0.338 on water labels of the same chips,
+    and 0.258 on Sen1Floods11;
+  - Sen1Floods11-trained models score below the physics baseline (0.371) in a new region.
 - **Change versus amplitude.** On labels that mark water on a date rather than a change, rules
   built on backscatter change are penalised. In 8 of 10 Sen1Floods11 events the labelled flood
   shows no backscatter drop against a same-orbit reference up to 60 days earlier.
@@ -98,8 +135,13 @@ All numbers come from the release runs; each report records its git SHA.
   all missed (IoU 0.02–0.03, against 0.21 when the same chip is run SAR-only), while clear pixels keep their
   accuracy even next to the cloud edge. On real data the gate opens with optical (≈ 0.25–0.48 against
   0.14–0.19 with the missing embedding) but barely responds to the per-pixel quality
-  (`reports/stage_a_diagnostics.md`, A1 and A2). Until this is fixed, mask partly cloudy optical out entirely,
-  or run the SAR-only mode, where clouds cover flood-prone ground.
+  (`reports/stage_a_diagnostics.md`, A1 and A2).
+  - **Confirmed on independent maps.** On CEMS activations 10–50 % clear, fusion scores 0.06 below the SAR U-Net
+    and wins on only 2 of 15 (descriptive).
+  - **Training with synthetic clouds (variant 9c) does not change the leave-one-event-out score** (−0.004, single
+    seed). Whether it fixes the per-pixel failure was not tested.
+  - Until it is fixed, mask partly cloudy optical out entirely, or run the SAR-only mode, where clouds cover
+    flood-prone ground.
 - **Geometry.**
   - Sentinel-2 L2A of 2016–2019 sits 1–3 px from the radar geometry, and Sen1Floods11 labels follow it.
     Labels and optical are registered to the SAR per event, using the labels' water edges where the

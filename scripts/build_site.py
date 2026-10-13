@@ -39,6 +39,26 @@ S1F11_ROWS = {
     "cmp_terramind_small": "TerraMind-1.0-small",
 }
 
+#: The Kuro Siwo rows shown (v1.1), in display order; every number comes from the report.
+KS_ROWS = {
+    "2": "Physics baseline",
+    "row02s_seasonal": "Physics baseline, seasonal reference",
+    "4": "U-Net, SAR only",
+    "9": "Cross-attention fusion",
+    "11": "Fusion, optical removed",
+}
+#: The CEMS benchmark's models grouped by what they learned from, in display order, with short labels for the
+#: chart; every number comes from the report.
+CEMS_GROUPS = (
+    ("Trained on Sen1Floods11", {"s1f11_r4": "U-Net, SAR only", "s1f11_r9": "Fusion",
+                                 "s1f11_r11": "Fusion, optical removed", "s1f11_tm": "TerraMind-small"}),
+    ("Trained on Kuro Siwo", {"ks_r4": "U-Net, SAR only", "ks_r9_flood": "Fusion",
+                              "ks_r11_flood": "Fusion, optical removed", "ks_r9_water": "Fusion, water labels"}),
+    ("No learning", {"r2": "Physics baseline", "r2s": "Physics, seasonal ref."}),
+)
+CEMS_PRIMARY = "Drawn on radar satellites"   # the title prefix of the primary stratum in cems_benchmark_strata.json
+_HYPOTHESIS = re.compile(r"\s*\((?:[^()]*,\s*)?(H\d)\)")  # "(H2)", "(R2 in practice, H3)"
+
 _BACKGROUND = 720  # an RGB pixel whose channels sum to this or more is the figure's white background
 _PANEL_FILL = 0.9  # a column or row belongs to a map panel when this share of it is not background
 _SEPARATOR = re.compile(r"^\|\s*:?-+:?\s*\|")  # a GFM delimiter row: | --- | :-- | --: |
@@ -219,12 +239,72 @@ def synthetic(reports: Path) -> dict[str, Any]:
             "stress": stress, "gate": {"start": float(start[1]), "by_cloud": gate}}
 
 
+def _cems_test(by_unit: dict[str, dict[str, Any]], supported: str) -> dict[str, Any]:
+    first = next(iter(by_unit.values()))
+    hypothesis = _HYPOTHESIS.search(first["question"])
+    return {"id": first["id"], "hypothesis": hypothesis[1] if hypothesis else "",
+            "question": _HYPOTHESIS.sub("", first["question"]).strip(), "a": first["a"], "b": first["b"],
+            "subset": first["subset"], "margin": first["margin"], "supported": supported,
+            "units": {unit: {"k": t["k"], "wins": t["wins"], "delta": t["delta"], "ci": t["ci"], "p": t["p"],
+                             "p_holm": t.get("holm_p"), "holds": t["holds"], "verdict": t["verdict"]}
+                      for unit, t in by_unit.items()}}
+
+
+def cems(reports: Path) -> dict[str, Any]:
+    """The v1.1 benchmark: the pre-registered tests at both units, and every model per optical subset."""
+    report = json.loads(_read(reports / "cems_benchmark.json"))
+    supported = {row["Test"]: row["Supported (holds at both units)"]
+                 for row in table(md_tables(_read(reports / "cems_benchmark.md")), "Pre-registered tests")}
+    tests = {}
+    for unit, results in report["tests"].items():
+        for t in results:
+            tests.setdefault(t["id"], {})[unit] = t
+    strata = json.loads(_read(reports / "cems_benchmark_strata.json"))
+    primary = next(v for title, v in strata.items() if title.startswith(CEMS_PRIMARY))
+    names = {m["key"]: m["name"] for m in primary["all"]["models"]}
+    missing = [key for _, models in CEMS_GROUPS for key in models if key not in names]
+    if missing:
+        raise ValueError(f"cems_benchmark_strata.json has no results for {missing}")
+    subsets = {subset: {"k": len(v["units"]),
+                        "models": {m["key"]: {"iou": m["iou"], "ci": m["ci"], "oracle": m["oracle"]}
+                                   for m in v["models"]}}
+               for subset, v in primary.items()}
+    scores = json.loads(_read(reports / "cems_benchmark_scores.json"))
+    activations = set(report["units"]["activation"])
+    pairs = [p["pair"] for p in scores["pairs"].values() if p["pair"]["activation"] in activations
+             and p["pair"]["stratum"] == "sar" and p["scored_px"]]
+    dates = sorted(scores["activations"][a]["eventTime"][:7] for a in activations)
+    return {"tests": [_cems_test(by_unit, supported[test_id]) for test_id, by_unit in tests.items()],
+            "names": names, "groups": [{"label": label, "models": [{"key": k, "label": short} for k, short in models.items()]}
+                                      for label, models in CEMS_GROUPS],
+            "subsets": subsets, "n_activations": len(activations), "n_clusters": len(report["units"]["cluster"]),
+            "n_pairs": len(pairs), "first_month": dates[0], "last_month": dates[-1]}
+
+
+def kurosiwo(reports: Path) -> dict[str, Any]:
+    """The v1.1 Kuro Siwo grouped five-fold table (flood labels): the main rows and the paired gaps."""
+    report = json.loads(_read(reports / "v11_kurosiwo_table.json"))
+    md = md_tables(_read(reports / "v11_kurosiwo_table.md"))
+    rows = [{"key": key, "label": label, "iou": r["iou"], "ci": r["ci"], "seeds": r["seeds"]}
+            for key, label in KS_ROWS.items() if (r := report["rows"].get(key)) is not None]
+    return {"rows": rows, "gaps": _gaps(report, md, "Paired gaps"), "n_groups": len(report["events"])}
+
+
+def replication(reports: Path) -> dict[str, Any]:
+    """The v1.1 re-run of Sen1Floods11: the protocol gap at τ* per learned row and seed."""
+    report = json.loads(_read(reports / "v11_sen1floods11_table.json"))
+    return {"protocol_gap": [{"row": run.split("/")[0], "seed": run.split("/")[1].removeprefix("seed"),
+                              "delta": gap["iou_tau"]["delta"]}
+                             for run, gap in report["protocol_gap"].items()]}
+
+
 def site_data(root: Path = ROOT) -> dict[str, Any]:
     """Everything the page shows, read from the committed reports."""
     reports = root / "reports"
     version = tomllib.loads(_read(root / "pyproject.toml"))["project"]["version"]
     return {"version": version, "sen1floods11": sen1floods11(reports), "forli": forli(reports),
-            "synthetic": synthetic(reports)}
+            "synthetic": synthetic(reports), "cems": cems(reports), "kurosiwo": kurosiwo(reports),
+            "replication": replication(reports)}
 
 
 # --- Figures ----------------------------------------------------------------------------------------

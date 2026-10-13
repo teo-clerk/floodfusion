@@ -19,6 +19,7 @@ from typing import Any
 
 from floodfusion.cems_scores import _PX_KM2, _cm, _fmt, _oracle, _subset, load_spec, units
 from floodfusion.metrics import basin_bootstrap_ci, macro_iou
+from floodfusion.runs import write_json
 
 SUBSETS = (("all", "every unit"), ("optical", "≥ 50 % clear"), ("partial", "10–50 % clear"),
            ("sar_only", "< 10 % clear"))
@@ -87,7 +88,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     lines, result = build(json.loads(args.scores.read_text(encoding="utf-8")), load_spec(args.spec))
     args.out.write_text("\n".join(lines), encoding="utf-8")
-    args.out.with_suffix(".json").write_text(json.dumps(result, indent=2), encoding="utf-8")
+    write_json(args.out.with_suffix(".json"), result)   # NaN (no interval for K = 1) becomes null
     print(f"wrote {args.out}")
     return 0
 

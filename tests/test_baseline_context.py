@@ -126,3 +126,75 @@ def test_an_acquisition_without_data_over_the_grid_is_skipped_not_fatal(tmp_path
     assert record["status"] == "ok" and record["n_scenes"] == 3 and len(record["skipped_acquisitions"]) == 1
     vv, _ = read_seasonal(d)
     assert np.allclose(vv, -9.0)
+
+
+def _rtc_items(days: tuple[str, ...]) -> list[dict]:
+    from shapely.geometry import box, mapping
+
+    swath = box(14.0, 44.0, 16.0, 45.0)
+    return [{"id": f"s{i}", "collection": "sentinel-1-rtc", "bbox": list(swath.bounds), "geometry": mapping(swath),
+             "properties": {"datetime": f"{day}T05:20:00Z", "sat:relative_orbit": 95, "sat:orbit_state": "descending"}}
+            for i, day in enumerate(days)]
+
+
+def test_too_few_acquisitions_with_data_leave_the_reference_insufficient(tmp_path, monkeypatch) -> None:
+    import floodfusion.data.archive as archive
+    import floodfusion.data.sources as sources
+    from floodfusion.data.stac import InMemoryCatalogue
+
+    d = _stack(tmp_path)
+    items = _rtc_items(("2022-12-20", "2023-01-01", "2023-01-13"))
+
+    def read(items, grid, pol):
+        if items[0]["id"] != "s0":
+            raise ValueError("gamma0_VV: no finite pixels")
+        return np.full((grid.height, grid.width), -9.0), {}
+
+    monkeypatch.setattr(sources, "read_s1_rtc", read)
+    monkeypatch.setattr(archive, "items_by_id", lambda client, coll, ids: [i for i in items if i["id"] in ids])
+    record = seasonal_reference(d, InMemoryCatalogue.from_dicts(items))
+    assert record["status"].startswith("insufficient") and record["n_scenes"] == 0
+    assert len(record["skipped_acquisitions"]) == 2
+    assert json.loads((d / "seasonal.json").read_text(encoding="utf-8"))["status"] == record["status"]
+
+
+def test_vh_is_optional_when_vv_has_enough_acquisitions(tmp_path, monkeypatch) -> None:
+    import floodfusion.data.archive as archive
+    import floodfusion.data.sources as sources
+    from floodfusion.data.stac import InMemoryCatalogue
+
+    d = _stack(tmp_path)
+    items = _rtc_items(("2022-12-20", "2023-01-01", "2023-01-13"))
+
+    def read(items, grid, pol):
+        if pol == "VH":
+            raise KeyError("VH")   # single-polarisation (1SSV) acquisitions
+        return np.full((grid.height, grid.width), -9.0), {}
+
+    monkeypatch.setattr(sources, "read_s1_rtc", read)
+    monkeypatch.setattr(archive, "items_by_id", lambda client, coll, ids: [i for i in items if i["id"] in ids])
+    record = seasonal_reference(d, InMemoryCatalogue.from_dicts(items))
+    assert record["status"] == "ok" and record["n_scenes"] == MIN_SCENES
+    vv, vh = read_seasonal(d)
+    assert np.allclose(vv, -9.0) and (vh is None or np.isnan(vh).all())
+
+
+def test_the_cli_counts_each_stack_and_fails_only_when_one_failed(tmp_path, monkeypatch) -> None:
+    import floodfusion.data.archive as archive
+    import floodfusion.data.seasonal as seasonal
+
+    root = tmp_path / "root" / "events"
+    root.mkdir(parents=True)
+    for name in ("a", "b"):   # _stack writes <dir>/events/E1; the CLI walks <root>/events/*
+        _stack(tmp_path / name).rename(root / name)
+
+    def fake(d, client, overwrite=False):
+        if d.name == "b":
+            raise RuntimeError("archive unreachable")
+        return {"status": "ok"}
+
+    monkeypatch.setattr(archive.IngestSources, "open", classmethod(lambda cls: type("S", (), {"client": None})()))
+    monkeypatch.setattr(seasonal, "seasonal_reference", fake)
+    assert seasonal.main(["--root", str(tmp_path / "root"), "--workers", "1"]) == 1
+    monkeypatch.setattr(seasonal, "seasonal_reference", lambda d, client, overwrite=False: {"status": "ok"})
+    assert seasonal.main(["--root", str(tmp_path / "root"), "--workers", "1"]) == 0
