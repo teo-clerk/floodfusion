@@ -57,6 +57,7 @@ TORCH_FREE_MODULES = (
     "floodfusion.data.pool",
     "floodfusion.cv_addons",
     "floodfusion.tuning",
+    "floodfusion.blind_analysis",
 )
 
 

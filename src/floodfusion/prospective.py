@@ -62,6 +62,8 @@ SETTLE_DAYS = 30
 MIN_CLUSTERS = 15
 MIN_ACTIVATIONS = 20
 END_DATE = date(2027, 12, 31)
+#: The confirmatory stratum: products drawn on radar satellites (``reports/protocol_v1_2.md`` §2.2).
+PRIMARY_STRATUM = "sar"
 #: What the freeze pins in git (plus every checkpoint by sha256).
 FROZEN_PATHS = ("src", "configs", "pyproject.toml", "uv.lock", "Makefile")
 
@@ -179,11 +181,14 @@ def verify_sealed(ledger: Ledger, sealed_dir: Path) -> list[str]:
     return bad
 
 
-def stopping_rule_met(ledger: Ledger, today: date, clusters: Mapping[str, str]) -> bool:
-    """At least :data:`MIN_CLUSTERS` clusters and :data:`MIN_ACTIVATIONS` activations scored, or :data:`END_DATE`."""
-    scored = {r["activation"] for r in ledger.state().values() if r.get("status") == "scored"}
-    return today > END_DATE or (len(scored) >= MIN_ACTIVATIONS
-                                and len({clusters.get(a, a) for a in scored}) >= MIN_CLUSTERS)
+def stopping_rule_met(ledger: Ledger, today: date, clusters: Mapping[str, str], *,
+                      stratum: str = PRIMARY_STRATUM) -> bool:
+    """At least :data:`MIN_ACTIVATIONS` activations in :data:`MIN_CLUSTERS` clusters of the primary stratum scored,
+    or :data:`END_DATE` reached."""
+    scored = {r["activation"] for r in ledger.state().values()
+              if r.get("status") == "scored" and r.get("stratum") == stratum}
+    return today >= END_DATE or (len(scored) >= MIN_ACTIVATIONS
+                                 and len({clusters.get(a, a) for a in scored}) >= MIN_CLUSTERS)
 
 
 # ---------------------------------------------------------------------------
@@ -351,7 +356,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if not link.exists():
             link.symlink_to(pair_dir.resolve())
         try:
-            return score(spec, staging, args.device)
+            return score(spec, staging, args.device, records=paths.cache)   # event time and extent: clusters
         finally:
             link.unlink()
 

@@ -73,20 +73,24 @@ def test_sealed_scores_are_hashed_into_the_ledger_and_tampering_is_caught(tmp_pa
 
 
 def test_stopping_rule_needs_clusters_and_activations_or_the_end_date(tmp_path: Path) -> None:
+    def scored(ledger, n, stratum="sar", first=900):
+        for i in range(n):
+            ledger.append({"key": f"EMSR{first + i}_AOI01", "activation": f"EMSR{first + i}", "status": "scored",
+                           "stratum": stratum})
+
+    assert (pr.MIN_ACTIVATIONS, pr.MIN_CLUSTERS, pr.END_DATE) == (20, 15, date(2027, 12, 31))   # as pre-registered
     ledger = pr.Ledger(tmp_path / "ledger.jsonl")
-    n_units = pr.MIN_ACTIVATIONS
-    for n in range(n_units):
-        ledger.append({"key": f"EMSR{900 + n}_AOI01", "activation": f"EMSR{900 + n}", "status": "scored"})
-    few_clusters = {f"EMSR{900 + n}": f"C{n % (pr.MIN_CLUSTERS - 1)}" for n in range(n_units)}
+    scored(ledger, pr.MIN_ACTIVATIONS)
+    few_clusters = {f"EMSR{900 + n}": f"C{n % (pr.MIN_CLUSTERS - 1)}" for n in range(pr.MIN_ACTIVATIONS)}
     assert not pr.stopping_rule_met(ledger, date(2027, 6, 1), few_clusters)
     assert pr.stopping_rule_met(ledger, date(2027, 6, 1), {})            # every activation its own cluster
-    assert (pr.MIN_ACTIVATIONS, pr.MIN_CLUSTERS, pr.END_DATE) == (20, 15, date(2027, 12, 31))   # as pre-registered
+
     short = pr.Ledger(tmp_path / "short.jsonl")
-    for n in range(pr.MIN_ACTIVATIONS - 1):
-        short.append({"key": f"EMSR{900 + n}_AOI01", "activation": f"EMSR{900 + n}", "status": "scored"})
-    assert not pr.stopping_rule_met(short, date(2027, 6, 1), {})        # enough clusters, one activation short
-    assert pr.stopping_rule_met(short, date(2028, 1, 1), {})            # the end date ends it regardless
-    assert pr.stopping_rule_met(pr.Ledger(tmp_path / "empty.jsonl"), date(2028, 1, 1), {})
+    scored(short, pr.MIN_ACTIVATIONS - 1)
+    scored(short, 5, stratum="optical", first=950)                       # other strata never count
+    assert not pr.stopping_rule_met(short, date(2027, 6, 1), {})
+    assert not pr.stopping_rule_met(short, date(2027, 12, 30), {})
+    assert pr.stopping_rule_met(short, date(2027, 12, 31), {})           # on the end date, whatever the count
 
 
 def test_freeze_refuses_changed_checkpoints_specs_rules_and_code(tmp_path: Path, monkeypatch) -> None:
