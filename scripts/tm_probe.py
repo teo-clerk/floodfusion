@@ -83,8 +83,6 @@ def time_model(config: Path, data_root: Path) -> dict[str, float]:
     torch.cuda.synchronize()
     seconds = (time.perf_counter() - start) / TIMED
     peak = torch.cuda.max_memory_allocated() / 2**30
-    del model, opt
-    torch.cuda.empty_cache()
     return {"s_per_batch": seconds, "peak_gb": peak, "trainable_params": trainable}
 
 
@@ -96,9 +94,17 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     configs = {"row09": ROOT / "configs/row09_fusion_crossattn.yaml",
                **{v: ROOT / f"configs/comparisons/{v}.yaml" for v in VARIANTS}}
-    timings = {name: time_model(path, args.data_root) for name, path in configs.items()}
+    import gc
+
+    import torch
+
+    timings = {}
+    for name, path in configs.items():
+        timings[name] = time_model(path, args.data_root)
+        gc.collect()
+        torch.cuda.empty_cache()   # each variant's peak is measured alone
     base_run_h = ROW9_KS_RUN_S * args.pool_chips / KS_TRAIN_CHIPS / 3600
-    for name, t in timings.items():
+    for t in timings.values():
         t["projected_run_h"] = base_run_h * t["s_per_batch"] / timings["row09"]["s_per_batch"]
     chosen = next((v for v in VARIANTS if timings[v]["projected_run_h"] <= CAP_H
                    and timings[v]["peak_gb"] <= VRAM_CAP_GB), None)
