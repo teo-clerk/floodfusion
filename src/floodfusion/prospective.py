@@ -216,12 +216,20 @@ def verify_sealed(ledger: Ledger, sealed_dir: Path) -> list[str]:
 
 def stopping_rule_met(ledger: Ledger, today: date, clusters: Mapping[str, str], *,
                       stratum: str = PRIMARY_STRATUM) -> bool:
-    """At least :data:`MIN_ACTIVATIONS` activations in :data:`MIN_CLUSTERS` clusters of the primary stratum scored,
-    or :data:`END_DATE` reached."""
-    scored = {r["activation"] for r in ledger.state().values()
-              if r.get("status") == "scored" and r.get("stratum") == stratum}
+    """At least :data:`MIN_ACTIVATIONS` analysable activations in :data:`MIN_CLUSTERS` clusters, or :data:`END_DATE`.
+
+    Analysable, as the analysis counts units: scored, in the primary stratum, with reference flood on the scored
+    pixels. ``clusters`` must be built from those activations only (:func:`analysable_activations`).
+    """
+    scored = analysable_activations(ledger, stratum=stratum)
     return today >= END_DATE or (len(scored) >= MIN_ACTIVATIONS
                                  and len({clusters.get(a, a) for a in scored}) >= MIN_CLUSTERS)
+
+
+def analysable_activations(ledger: Ledger, *, stratum: str = PRIMARY_STRATUM) -> set[str]:
+    """Activations with a scored pair in ``stratum`` whose Copernicus map holds flood on the scored pixels."""
+    return {r["activation"] for r in ledger.state().values()
+            if r.get("status") == "scored" and r.get("stratum") == stratum and r.get("reference_flood")}
 
 
 # ---------------------------------------------------------------------------
@@ -347,9 +355,14 @@ def sweep(paths: Paths, spec: Mapping[str, Any], *, now: datetime, fetch: Callab
             if state.get(key, {}).get("status") == "scored":
                 continue
             prepare(dict(pair, key=key), record)
-            sealed_sha = seal(score_pair(paths.root / key), paths.sealed, key)
+            scores = score_pair(paths.root / key)
+            # Whether the Copernicus map holds flood on the scored pixels: a property of the reference, not of any
+            # model, so it is safe to commit. It decides which activations the analysis (and so the stopping rule)
+            # can use.
+            reference_flood = any(e.get("flood_px", 0) > 0 for e in scores.get("pairs", {}).values())
             ledger.append(_row(key, record, "scored", now, record_sha256=_record_sha256(record),
-                               sealed_sha256=sealed_sha, stratum=pair["stratum"]))
+                               sealed_sha256=seal(scores, paths.sealed, key), stratum=pair["stratum"],
+                               reference_flood=reference_flood))
             counts["scored"] = counts.get("scored", 0) + 1
     return counts
 

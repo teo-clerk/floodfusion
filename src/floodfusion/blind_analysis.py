@@ -85,6 +85,12 @@ def merge_sealed(ledger: Any, sealed_dir: Path) -> dict[str, Any]:
         merged["models"] = merged["models"] or part["models"]
     if problems:
         raise ValueError("sealed scores do not match the ledger:\n  " + "\n  ".join(problems))
+    # Clusters link analysable activations only: one outside the primary stratum, or a map without flood, must not
+    # bridge two units (the stopping rule counts the same activations).
+    from floodfusion.prospective import analysable_activations
+
+    keep = analysable_activations(ledger)
+    merged["activations"] = {a: v for a, v in merged["activations"].items() if a in keep}
     return merged
 
 
@@ -120,7 +126,8 @@ def unit_tests(scores: Mapping[str, Any], spec: Mapping[str, Any], tests: Sequen
         row["p"] = p
         row["sign"] = 1 if all(d > 0 for d in deltas) else -1 if all(d < 0 for d in deltas) else 0
         rows.append(row)
-    holm = holm_adjust({r["id"]: r["p"] for r in rows if r["k"] >= MIN_UNITS_FOR_VERDICT})
+    # The family is every pre-registered test: one with too few units enters with p = 1, never leaves it.
+    holm = holm_adjust({r["id"]: (r["p"] if r["k"] >= MIN_UNITS_FOR_VERDICT else 1.0) for r in rows})
     for r in rows:
         r["holm_p"] = holm.get(r["id"], math.nan)
         r["significant"] = None if r["k"] < MIN_UNITS_FOR_VERDICT else bool(r["holm_p"] < 0.05)
@@ -174,12 +181,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     rv.add_argument("--ledger", type=Path, default=Paths().ledger)
     rv.add_argument("--sealed", type=Path, default=Paths().sealed)
     rv.add_argument("--out", type=Path, default=Path("reports/v12_blind_verdicts.md"))
+    rv.add_argument("--freeze", type=Path, default=Path("reports/v12_freeze.json"))
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    from floodfusion.cems_scores import load_spec
+    from datetime import UTC, datetime
 
+    from floodfusion.cems_scores import activation_clusters, load_spec
+    from floodfusion.prospective import check_freeze, stopping_rule_met
+
+    problems = check_freeze(json.loads(args.freeze.read_text(encoding="utf-8")))
+    if problems:                                     # the analysis code is part of the frozen system
+        raise SystemExit("refusing to reveal: run from the freeze worktree\n  " + "\n  ".join(problems))
     tests = load_blind_tests(args.spec)
-    scores = merge_sealed(Ledger(args.ledger), args.sealed)
+    ledger = Ledger(args.ledger)
+    scores = merge_sealed(ledger, args.sealed)
+    today = datetime.now(UTC).date()
+    if not stopping_rule_met(ledger, today, activation_clusters(scores["activations"])):
+        raise SystemExit(f"refusing to reveal on {today}: the stopping rule is not met (reports/protocol_v1_2.md §5)")
     result = verdicts(scores, load_spec(args.spec), tests)
     args.out.write_text(_markdown(result, tests, scores["models"]), encoding="utf-8")
     args.out.with_suffix(".json").write_text(json.dumps(result, indent=1, allow_nan=True) + "\n", encoding="utf-8")

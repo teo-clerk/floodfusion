@@ -147,6 +147,7 @@ def score(spec: Mapping[str, Any], case_root: Path, device: Any, *, records: Pat
         entry: dict[str, Any] = {"pair": {k: pair[k] for k in ("activation", "aoi", "product", "stratum", "sensors",
                                                                "offset_h", "pass_time", "product_time")},
                                  "scored_px": 0, "clear_px": 0, "flood_px": 0, "gfm_missing_px": 0,
+                                 "sidecars": {"stacks": 0, "dem": 0, "seasonal": 0, "gfm": 0},
                                  "models": {}, "hist": {}}
         for stack in sorted((pair_file.parent / "events").glob("*/stack.tif")):
             if not stack.with_name("event.json").is_file():
@@ -154,6 +155,11 @@ def score(spec: Mapping[str, Any], case_root: Path, device: Any, *, records: Pat
             valid, scored, label, clear = tile_masks(stack, pair)
             if not scored.any():
                 continue
+            # What each model could read here: a missing sidecar is read as unavailable, never as an error.
+            for name, present in (("stacks", True), ("dem", (stack.parent / "dem.tif").is_file()),
+                                  ("seasonal", (stack.parent / "seasonal.tif").is_file()),
+                                  ("gfm", (stack.parent / "gfm.tif").is_file())):
+                entry["sidecars"][name] += int(present)
             entry["scored_px"] += int(scored.sum())
             entry["clear_px"] += int((clear & scored).sum())
             entry["flood_px"] += int((label & scored).sum())

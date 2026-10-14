@@ -116,7 +116,16 @@ Written after cross-validation and before the freeze tag `v1.2.0-freeze`, by the
 - **The fair TerraMind: row 24**, TerraMind-base with LoRA (rank 8), siamese pre/post with its DEM input. The timing
   rule chose it (`reports/v12_tm_probe.json`); learning rate 1e-4 by the equal tuning budget
   (`reports/v12_tuning.json`).
-- **Training:** both are trained on all 81 groups of the pooled set with seeds 42, 43 and 44 (`runs/v12/final`).
+- **Training:** both use the all-groups split of the pooled set (`crossval.all_groups_split`, as in v1.1), with
+  seeds 42, 43 and 44 (`runs/v12/final`).
+  - **Train:** four of the five folds, 63 groups, 5,605 chips.
+  - **Validate:** the fifth fold's other 17 groups (617 chips) set early stopping, the calibration and the
+    deployment prior.
+  - **Unscored:** its smallest group (2 chips) fills the test slot the pipeline requires; that score is never
+    reported.
+- **What P5 compares:** system against system. v1.2's model reads terrain (HAND, slope, incidence) and the seasonal
+  reference; TerraMind reads its native modalities (pre/post Sentinel-1, Sentinel-2 when usable, DEM). The CV
+  comparison of row 9 (no seasonal context) with TerraMind is reported beside P5 as a descriptive companion.
 - **v1.1's best and GFM:** as in §3.
 - **Pinning:** checkpoints, calibrations and τ* by sha256 in `reports/v12_freeze.json`. The spec and its tests are in
   `configs/datasets/prospective_v12.yaml`. The analysis code is `floodfusion.blind_analysis`.

@@ -78,7 +78,7 @@ def test_p5_needs_the_threshold_free_win_too() -> None:
     assert p5["verdict"] == "not supported"
 
 
-def test_the_reveal_reads_only_scores_the_ledger_vouches_for(tmp_path: Path) -> None:
+def test_the_reveal_reads_only_scores_the_ledger_vouches_for(tmp_path: Path, monkeypatch) -> None:
     full = _scores()
     ledger, sealed = pr.Ledger(tmp_path / "ledger.jsonl"), tmp_path / "sealed"
     for key, entry in full["pairs"].items():
@@ -87,7 +87,7 @@ def test_the_reveal_reads_only_scores_the_ledger_vouches_for(tmp_path: Path) -> 
                 "models": full["models"]}
         sha = pr.seal(json.loads(json.dumps(part)), sealed, key)
         ledger.append({"key": key, "activation": code, "event_date": "2027-01-10", "status": "scored",
-                       "stratum": "sar", "sealed_sha256": sha})
+                       "stratum": "sar", "sealed_sha256": sha, "reference_flood": True})
     merged = ba.merge_sealed(ledger, sealed)
     assert set(merged["pairs"]) == set(full["pairs"]) and set(merged["activations"]) == set(full["activations"])
 
@@ -95,9 +95,18 @@ def test_the_reveal_reads_only_scores_the_ledger_vouches_for(tmp_path: Path) -> 
     spec_path.write_text("primary_stratum: sar\nexclude: []\ntests: []\nmodels:\n"
                          + "".join(f"  - {{key: {k}, name: {k}, runs: []}}\n" for k in ("ours", "tm", "v11", "gfm"))
                          + "blind_tests:\n" + "".join(f"  - {json.dumps(t)}\n" for t in TESTS))
-    out = tmp_path / "verdicts.md"
-    assert ba.main(["reveal", "--spec", str(spec_path), "--ledger", str(ledger.path), "--sealed", str(sealed),
-                    "--out", str(out)]) == 0
+    out, freeze = tmp_path / "verdicts.md", tmp_path / "freeze.json"
+    freeze.write_text("{}")
+    argv = ["reveal", "--spec", str(spec_path), "--ledger", str(ledger.path), "--sealed", str(sealed),
+            "--out", str(out), "--freeze", str(freeze)]
+    monkeypatch.setattr(pr, "check_freeze", lambda manifest: ["code paths differ from v1.2.0-freeze"])
+    with pytest.raises(SystemExit, match="freeze worktree"):
+        ba.main(argv)
+    monkeypatch.setattr(pr, "check_freeze", lambda manifest: [])
+    with pytest.raises(SystemExit, match="stopping rule is not met"):
+        ba.main(argv)                                                    # 12 activations, before the end date
+    monkeypatch.setattr(pr, "stopping_rule_met", lambda ledger, today, clusters: True)
+    assert ba.main(argv) == 0
     assert json.loads(out.with_suffix(".json").read_text())["P7"]["verdict"] == "supported"
     assert "| P5 | ours − tm | activation | 12 |" in out.read_text()
 
@@ -115,3 +124,10 @@ def test_a_spec_must_name_known_models_and_some_tests(tmp_path: Path) -> None:
     spec.write_text("models:\n  - {key: ours, name: o, runs: []}\n")
     with pytest.raises(ValueError, match="no blind_tests"):
         ba.load_blind_tests(spec)
+
+
+def test_a_test_with_too_few_units_stays_in_the_holm_family() -> None:
+    three = ba.verdicts(_scores(gfm_units=7), SPEC, TESTS)              # P6: 7 GFM units, no verdict
+    p5 = three["P5"]["activation"]
+    assert three["P6"]["verdict"] == "no verdict"
+    assert p5["holm_p"] >= min(1.0, 2 * p5["p"]) - 1e-12                 # still adjusted over three tests, not two

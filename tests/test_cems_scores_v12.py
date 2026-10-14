@@ -104,6 +104,7 @@ def test_score_loop_keeps_v1_1_counts_histograms_and_gfm_gaps(tmp_path, monkeypa
     assert entry["gfm_missing_px"] == 2 * int((scored & ~covered).sum())
     assert entry["models"]["gfm"]["gfm"][0][0] == 2 * int((label & covered).sum())   # GFM hits = its flood on covered
     assert entry["models"]["gfm"]["gfm"][0][2] == 0                     # gaps are not misses
+    assert entry["sidecars"]["stacks"] == 2 and entry["sidecars"]["seasonal"] == 0   # what the models could read
     path = tmp_path / "s.json.gz"
     v12.write_scores(out, path)
     assert v12.load_scores(path)["pairs"]["EMSR700_AOI01"]["scored_px"] == entry["scored_px"]

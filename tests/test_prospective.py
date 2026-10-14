@@ -73,10 +73,10 @@ def test_sealed_scores_are_hashed_into_the_ledger_and_tampering_is_caught(tmp_pa
 
 
 def test_stopping_rule_needs_clusters_and_activations_or_the_end_date(tmp_path: Path) -> None:
-    def scored(ledger, n, stratum="sar", first=900):
+    def scored(ledger, n, stratum="sar", first=900, flood=True):
         for i in range(n):
             ledger.append({"key": f"EMSR{first + i}_AOI01", "activation": f"EMSR{first + i}", "status": "scored",
-                           "stratum": stratum})
+                           "stratum": stratum, "reference_flood": flood})
 
     assert (pr.MIN_ACTIVATIONS, pr.MIN_CLUSTERS, pr.END_DATE) == (20, 15, date(2027, 12, 31))   # as pre-registered
     ledger = pr.Ledger(tmp_path / "ledger.jsonl")
@@ -88,6 +88,7 @@ def test_stopping_rule_needs_clusters_and_activations_or_the_end_date(tmp_path: 
     short = pr.Ledger(tmp_path / "short.jsonl")
     scored(short, pr.MIN_ACTIVATIONS - 1)
     scored(short, 5, stratum="optical", first=950)                       # other strata never count
+    scored(short, 5, first=960, flood=False)                             # nor maps without flood (no unit)
     assert not pr.stopping_rule_met(short, date(2027, 6, 1), {})
     assert not pr.stopping_rule_met(short, date(2027, 12, 30), {})
     assert pr.stopping_rule_met(short, date(2027, 12, 31), {})           # on the end date, whatever the count
@@ -131,7 +132,7 @@ def test_a_sweep_scores_settled_floods_once_and_waits_for_the_rest(tmp_path: Pat
 
     def score_pair(pair_dir):
         scored.append(pair_dir.name)
-        return {"pairs": {pair_dir.name: {"models": {}}}}
+        return {"pairs": {pair_dir.name: {"models": {}, "flood_px": 12}}}
 
     kwargs = dict(now=NOW, fetch=fetch, client=None, prepare=lambda pair, record: prepared.append(pair["key"]),
                   score_pair=score_pair)
@@ -139,6 +140,8 @@ def test_a_sweep_scores_settled_floods_once_and_waits_for_the_rest(tmp_path: Pat
     assert counts == {"scored": 1, "settling": 1, "not eligible": 1}
     state = pr.Ledger(paths.ledger).state()
     assert state["EMSR899_AOI01"]["status"] == "scored" and len(state["EMSR899_AOI01"]["sealed_sha256"]) == 64
+    assert state["EMSR899_AOI01"]["reference_flood"] is True
+    assert pr.analysable_activations(pr.Ledger(paths.ledger)) == {"EMSR899"}
     assert state["EMSR900"]["status"] == "settling" and state["EMSR902"]["status"] == "not eligible"
     assert "EMSR901" not in state                                       # not a flood
     pr.sweep(paths, {}, **kwargs)
