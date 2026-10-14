@@ -119,10 +119,13 @@ def test_files_mosaic_first_valid_and_each_stack_records_its_year_and_files(tmp_
         return layer
 
     monkeypatch.setattr(ae, "_read_band", fake_band)
+    checked = []
+    monkeypatch.setattr(ae, "_preflight", lambda url: checked.append(url) or url)     # offline: no HEAD request
     second = _PATH.replace("x.tiff", "y.tiff")
     d = _stack(tmp_path, "S1")
     emb, record = ae.stack_embeddings(d, _index([(_PATH, 2023), (second, 2023), (_PATH, 2022)]))
     assert record == {"status": "ok", "year": 2023, "files": [_PATH, second]}
+    assert len(checked) == 2 and all(u.startswith("https://data.source.coop/") for u in checked)   # once per file
     assert emb.shape == (64, 8, 8) and np.isfinite(emb).all()
     assert emb[0, 0, 7] == pytest.approx((64 / 127.5) ** 2) and emb[0, 0, 0] == pytest.approx(-(64 / 127.5) ** 2)
     assert ae.stack_embeddings(d, _index([(_PATH, 2021)]))[1]["status"] == "no AlphaEarth file of 2023"

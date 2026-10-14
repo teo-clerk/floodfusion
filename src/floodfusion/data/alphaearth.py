@@ -67,6 +67,20 @@ def https_url(s3_path: str) -> str:
                            path_prefixes=("/tge-labs/aef/v1/annual/",))
 
 
+def https_url_checked(url: str) -> str:
+    """``url`` if it is an HTTPS URL under the mirror's embedding folder (the allow-list of :func:`https_url`)."""
+    from floodfusion.data.http import check_https_url
+
+    return check_https_url(url, hosts=(_HOST,), path_prefixes=("/tge-labs/aef/v1/annual/",))
+
+
+def _preflight(url: str) -> str:
+    """GDAL follows redirects by itself: refuse a URL that redirects before it opens it."""
+    from floodfusion.data.http import refuse_redirect
+
+    return refuse_redirect(url, check=https_url_checked)
+
+
 def aef_year(post: datetime) -> int | None:
     """The embedding year of an event whose post-event acquisition is ``post`` (None before 2017's coverage)."""
     year = (post - timedelta(days=60)).year - 1
@@ -113,7 +127,7 @@ def read_embeddings(paths: Sequence[str], grid: AnalysisGrid) -> np.ndarray:
 
     out = np.full((64, grid.height, grid.width), NODATA, dtype=np.int8)
     for path in paths:
-        url = https_url(path)
+        url = _preflight(https_url(path))
         with ThreadPoolExecutor(max_workers=_THREADS) as pool:
             bands = list(pool.map(lambda b, u=url: _read_band(u, b, grid), range(1, 65)))
         layer = np.stack(bands).astype(np.int8)

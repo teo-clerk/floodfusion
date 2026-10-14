@@ -123,3 +123,26 @@ def test_a_path_prefix_cannot_be_climbed_out_of(path) -> None:
                         path_prefixes=("/tge-labs/aef/v1/annual/",))
     ok = "https://data.source.coop/tge-labs/aef/v1/annual/2024/32N/x.tiff"
     assert check_https_url(ok, hosts=("data.source.coop",), path_prefixes=("/tge-labs/aef/v1/annual/",)) == ok
+
+
+def test_a_gdal_read_is_refused_if_its_url_redirects(monkeypatch) -> None:
+    import requests
+
+    from floodfusion.data.http import HTTPStatusError, refuse_redirect
+
+    class Response:
+        def __init__(self, status, location=None):
+            self.status_code, self.headers = status, ({"Location": location} if location else {})
+
+    check = lambda u: check_https_url(u, hosts=("data.eodc.eu",))            # noqa: E731
+    url = "https://data.eodc.eu/gfm/x.tif"
+    monkeypatch.setattr(requests, "head", lambda u, **kw: Response(200))
+    assert refuse_redirect(url, check=check) == url
+    monkeypatch.setattr(requests, "head", lambda u, **kw: Response(302, "http://169.254.169.254/x.tif"))
+    with pytest.raises(ValueError, match="refusing a redirect"):
+        refuse_redirect(url, check=check)
+    monkeypatch.setattr(requests, "head", lambda u, **kw: Response(404))
+    with pytest.raises(HTTPStatusError):
+        refuse_redirect(url, check=check)
+    with pytest.raises(ValueError, match="outside the allowed hosts"):
+        refuse_redirect("https://evil.example/x.tif", check=check)          # checked before any request

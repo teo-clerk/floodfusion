@@ -84,6 +84,28 @@ def check_https_url(url: str, *, hosts: Sequence[str] = (), suffixes: Sequence[s
     return text
 
 
+def refuse_redirect(url: str, *, check: Callable[[str], str], timeout_s: float = 30.0) -> str:
+    """``url`` after a ``HEAD`` that must answer without redirecting, before GDAL's ``/vsicurl`` (which follows
+    redirects by itself and cannot be told not to) opens it.
+
+    This narrows the gap rather than closing it: a server could answer the ``HEAD`` directly and redirect the ranged
+    ``GET``s that follow (SECURITY.md).
+    """
+    import requests
+
+    url = check(url)
+    try:
+        response = requests.head(url, timeout=(10, timeout_s), allow_redirects=False)
+    except (requests.ConnectionError, requests.Timeout) as exc:
+        raise TransientHTTPError(f"HEAD {redact(url)[:100]}: {type(exc).__name__}") from None
+    if 300 <= response.status_code < 400:
+        raise ValueError(f"refusing a redirect before a GDAL read: {redact(url)[:100]} -> "
+                         f"{redact(response.headers.get('Location', '?'))[:100]}")
+    if response.status_code >= 400:
+        raise HTTPStatusError(f"HEAD {redact(url)[:100]}: HTTP {response.status_code}", response.status_code)
+    return url
+
+
 def check_local_path(href: str) -> str:
     """Return the plain filesystem path GDAL may open for ``href``; refuse anything else."""
     text = str(href).strip()

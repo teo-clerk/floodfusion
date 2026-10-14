@@ -128,9 +128,10 @@ def missing_assets(item: Mapping[str, Any]) -> list[str]:
 
 
 def _remote(href: str) -> str:
-    # GDAL's /vsicurl follows HTTP redirects and cannot be told not to; data.eodc.eu serves 200 directly today
-    # (checked 2026-10-13), and the href's own host is allow-listed before it gets here.
-    return "/vsicurl/" + href
+    # GDAL's /vsicurl follows HTTP redirects and cannot be told not to: refuse an href that redirects at all.
+    from floodfusion.data.http import check_https_url, refuse_redirect
+
+    return "/vsicurl/" + refuse_redirect(href, check=lambda u: check_https_url(u, hosts=DATA_HOSTS))
 
 
 def read_layers(items: Sequence[Mapping[str, Any]], grid: AnalysisGrid, *,
