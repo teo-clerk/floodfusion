@@ -27,6 +27,36 @@
 - **Code and reproduction.** `src/floodfusion`; every reported number regenerates from a git SHA
   (`make demo`, `make s1f11`, `make forli`; v1.1: `scripts/v11_queue.sh all`). Licence: MIT.
 
+## v1.2's model (frozen for the blind test)
+
+- **What it adds: a seasonal radar reference (row 21).** Beside the post- and pre-event images, the model reads the
+  median Sentinel-1 backscatter of the same orbit around the same date a year earlier (VV, VH), and the change from
+  it.
+  - **The question it lets the model ask:** "is this water unusual for this place and season?", not only "is this
+    pixel water?".
+  - **How it enters:** the three channels and an availability indicator join the SAR + terrain encoder input.
+  - **Where there is no reference** (fewer than three passes a year earlier), the channels are a learned constant and
+    the indicator is 0.
+  - **Training:** context dropout (p = 0.3) trains that case.
+- **Training data: one pool of flood labels.**
+  - **Sources:** Kuro Siwo (rebuilt with the DEM fix), plus the GEOID-Flood events before EMSR656 that Kuro Siwo
+    lacks. In all, 7,006 chips from 138 floods, in 81 groups of floods within 100 km.
+  - **The frozen model:** trained with seeds 42–44 on the all-groups split (63 groups train, 17 validate early
+    stopping and calibration), at learning rate 3e-4.
+- **How it was chosen.** By rules fixed before the runs (`reports/v1_2_deviations.md`).
+  - **CV:** in grouped five-fold CV it beat the same model without context on whole test scenes: 0.380 vs 0.361 macro
+    IoU at τ*, better in 49 of 79 groups. Exploratory and single-seed.
+  - **No add-on:** neither per-scene self-calibration nor a HAND cut helped, so neither is used.
+- **Its comparison in CV** (chip level, macro over 81 groups; `reports/v12_pool_cv.md`):
+
+  | Model | IoU at τ* | IoU at oracle τ | AP |
+  | --- | --- | --- | --- |
+  | v1.2, row 21 | 0.394 | 0.388 | 0.651 |
+  | TerraMind-base + LoRA, trained the same way | 0.313 | 0.366 | 0.617 |
+- **Its confirmatory test is still to come.** Copernicus flood activations from EMSR899 on are scored by the frozen
+  models and sealed until 20 activations in 15 clusters are scored, or 31 December 2027
+  (`reports/protocol_v1_2.md`). The checkpoints are pinned by sha256 in `reports/v12_freeze.json`.
+
 ## Intended use
 
 - A **first-guess flood extent** for a rapid-mapping analyst after a flood, from the first Sentinel-1
