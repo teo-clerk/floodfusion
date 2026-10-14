@@ -157,8 +157,9 @@
       scoreboardChart(chart, table, state.metric);
       note.textContent = `Macro over ${table.units.length} ${state.unit}s with reference flood${state.gfm
         ? ", restricted to those Copernicus GFM covers on at least 95 % of the scored pixels, so every model faces the same floods"
-        : ""}. Bars: mean; whiskers: 95 % bootstrap interval over ${state.unit}s. Exploratory: this benchmark was ` +
-        "already seen in v1.1; v1.2's confirmatory test is the blind one below.";
+        : ""}. Bars: mean; whiskers: 95 % bootstrap interval over ${state.unit}s. ${sb.source === "rebuilt"
+        ? "Every model on the stacks rebuilt with the DEM fix (v1.1 erratum 2); v1.2's models frozen before scoring. "
+        : ""}Exploratory: this benchmark was already seen in v1.1; v1.2's confirmatory test is the blind one below.`;
     };
     radioGroup(byId("metric"), METRICS, (m) => { state.metric = m; draw(); });
     radioGroup(byId("unit"), [["activation", "Per activation"], ["cluster", "Per cluster"]], (u) => { state.unit = u; draw(); });

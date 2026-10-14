@@ -325,11 +325,17 @@ def _finite(x: Any) -> float | None:
     return None if x is None or (isinstance(x, float) and np.isnan(x)) else float(x)
 
 
+#: The scoreboard's sources, best first: every model on the CEMS stacks rebuilt with the DEM fix (the frozen v1.2
+#: models included), else the preview of the v1.1 models on the original stacks.
+ARENA_SOURCES = (("v12_cems_rebuilt.json", "rebuilt"), ("v12_cems_preview.json", "preview"))
+
+
 def _arena_scoreboard(reports: Path) -> dict[str, Any]:
-    """The v1.2 preview tables, or ``pending`` while ``reports/v12_cems_preview.json`` does not exist."""
-    path = reports / "v12_cems_preview.json"
-    if not path.is_file():
+    """The best available scoring of the CEMS benchmark (:data:`ARENA_SOURCES`), or ``pending``."""
+    found = next(((reports / name, source) for name, source in ARENA_SOURCES if (reports / name).is_file()), None)
+    if found is None:
         return {"status": "pending"}
+    path, source = found
     report = json.loads(_read(path))
     tables = []
     for unit, gfm in ARENA_TABLES:
@@ -344,7 +350,8 @@ def _arena_scoreboard(reports: Path) -> dict[str, Any]:
             models[key] = {"name": row["name"], "k": row["k"], **{m: _finite(row[m]) for m in ARENA_METRICS},
                            "ci": {m: [_finite(v) for v in row["ci"][m]] for m in ARENA_METRICS}}
         tables.append({"unit": unit, "gfm_common": gfm, "units": table["units"], "models": models})
-    return {"status": "ok", "tables": tables, "n_pairs": report["n_pairs"], "gfm_pairs": report["gfm_pairs"]}
+    return {"status": "ok", "source": source, "tables": tables, "n_pairs": report["n_pairs"],
+            "gfm_pairs": report["gfm_pairs"]}
 
 
 def _arena_maps(assets: Path) -> dict[str, Any]:

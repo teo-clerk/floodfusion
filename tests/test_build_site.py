@@ -295,3 +295,16 @@ def test_the_arena_page_and_its_script_agree(tmp_path):
     for anchor in re.findall(r'href="#([^"]+)"', html):
         assert anchor in ids, f"arena.html links to #{anchor}, which does not exist"
     assert (out / "arena-data.js").read_text(encoding="utf-8").startswith("window.FLOODFUSION_ARENA = {")
+
+
+def test_the_scoreboard_prefers_every_model_on_the_rebuilt_stacks(tmp_path):
+    s = _script()
+    row = {"name": "M", "k": 2, **{m: 0.4 for m in s.ARENA_METRICS}, "ci": {m: [0.3, 0.5] for m in s.ARENA_METRICS}}
+    report = {"tables": [{"unit": u, "gfm_common": g, "units": ["EMSR1", "EMSR2"], "models": {"m": row}}
+                         for u, g in s.ARENA_TABLES], "n_pairs": 3, "gfm_pairs": 2}
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    (reports / "v12_cems_preview.json").write_text(json.dumps(report))
+    assert s._arena_scoreboard(reports)["source"] == "preview"
+    (reports / "v12_cems_rebuilt.json").write_text(json.dumps(report))
+    assert s._arena_scoreboard(reports)["source"] == "rebuilt"
