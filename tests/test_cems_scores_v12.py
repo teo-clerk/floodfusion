@@ -174,3 +174,23 @@ def test_a_model_without_histograms_gets_the_exact_iou_and_no_histogram_metrics(
     scores = {"pairs": {"a": entry}, "activations": {}, "priors": {}, "models": {"baseline": {"name": "B"}}}
     row = v12.summary(scores, {"exclude": (), "primary_stratum": "sar"})["models"]["baseline"]
     assert 0 < row["iou_tau"] <= 1 and np.isnan(row["ap"]) and np.isnan(row["iou_selfcal"])
+
+
+def test_scores_of_the_same_pairs_merge_and_a_mismatch_is_refused(tmp_path) -> None:
+    def part(model, scored_px=100):
+        return {"pairs": {"EMSR1_AOI01": {"pair": {"activation": "EMSR1"}, "scored_px": scored_px, "flood_px": 10,
+                                          "clear_px": 0, "models": {model: {"seed42": [[1, 2, 3, 4]]}},
+                                          "hist": {model: {"seed42": {"pos": [1]}}}}},
+                "activations": {"EMSR1": {}}, "priors": {model: {}}, "models": {model: {"name": model}}}
+
+    merged = v12.merge_scores([part("ours"), part("tm")])
+    assert set(merged["models"]) == {"ours", "tm"} and set(merged["pairs"]["EMSR1_AOI01"]["models"]) == {"ours", "tm"}
+    with pytest.raises(ValueError, match="scored twice"):
+        v12.merge_scores([part("ours"), part("ours")])
+    with pytest.raises(ValueError, match="different stacks"):
+        v12.merge_scores([part("ours"), part("tm", scored_px=99)])
+    a, b, out = tmp_path / "a.json.gz", tmp_path / "b.json.gz", tmp_path / "m.json.gz"
+    v12.write_scores(part("ours"), a)
+    v12.write_scores(part("tm"), b)
+    assert v12.main(["merge", "--scores", str(a), str(b), "--out", str(out)]) == 0
+    assert set(v12.load_scores(out)["models"]) == {"ours", "tm"}

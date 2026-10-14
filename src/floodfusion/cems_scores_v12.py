@@ -196,6 +196,31 @@ def load_scores(path: Path) -> dict[str, Any]:
     return json.loads(gzip.decompress(Path(path).read_bytes()))
 
 
+def merge_scores(parts: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """One scores document from several scored on the **same** pairs and stacks (different models).
+
+    The pair-level facts (scored, flood and clear pixels) must agree; a model key may come from one part only.
+    """
+    merged: dict[str, Any] = {"pairs": {}, "activations": {}, "priors": {}, "models": {}}
+    for part in parts:
+        clash = set(merged["models"]) & set(part["models"])
+        if clash:
+            raise ValueError(f"model keys scored twice: {sorted(clash)}")
+        if merged["pairs"] and set(part["pairs"]) != set(merged["pairs"]):
+            raise ValueError("the parts were scored on different pairs")
+        for key, entry in part["pairs"].items():
+            mine = merged["pairs"].setdefault(key, {**entry, "models": {}, "hist": {}})
+            facts = ("scored_px", "flood_px", "clear_px")
+            if any(mine[f] != entry[f] for f in facts):
+                raise ValueError(f"{key}: the parts were scored on different stacks")
+            mine["models"].update(entry["models"])
+            mine["hist"].update(entry.get("hist", {}))
+        merged["activations"].update(part["activations"])
+        merged["priors"].update(part["priors"])
+        merged["models"].update(part["models"])
+    return merged
+
+
 def check_against_v11(scores: Mapping[str, Any], v11: Mapping[str, Any]) -> list[str]:
     """Pairs, models or seeds whose counts differ from v1.1's committed scores (empty: the regression holds)."""
     bad = []
@@ -367,17 +392,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     rp.add_argument("--out", type=Path, default=Path("reports/v12_cems_benchmark.md"))
     rp.add_argument("--v11-scores", type=Path, default=Path("reports/cems_benchmark_scores.json"),
                     help="v1.1's committed scores: the v1.1 models' counts must equal them")
+    rp.add_argument("--no-v11-check", action="store_true",
+                    help="scores of other stacks (the rebuilt benchmark), where v1.1's counts are meant to differ")
+    mg = sub.add_parser("merge", help="one scores file from several scored on the same pairs (different models)")
+    mg.add_argument("--scores", type=Path, nargs="+", required=True)
+    mg.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     from floodfusion.cems_scores import load_spec
     from floodfusion.runs import write_json
 
+    if args.cmd == "merge":
+        write_scores(merge_scores([load_scores(p) for p in args.scores]), args.out)
+        return 0
     spec = load_spec(args.spec)
     if args.cmd == "score":
         write_scores(score(spec, args.case_root, args.device, records=args.records), args.out)
         return 0
     scores = load_scores(args.scores)
-    bad = check_against_v11(scores, json.loads(args.v11_scores.read_text(encoding="utf-8")))
+    bad = [] if args.no_v11_check else check_against_v11(scores, json.loads(args.v11_scores.read_text(encoding="utf-8")))
     if bad:
         raise SystemExit(f"{len(bad)} counts differ from v1.1's committed scores, e.g. {bad[:3]}")
     tables = [summary(scores, spec, unit=u, gfm_common=g) for g in (False, True) for u in ("activation", "cluster")]
