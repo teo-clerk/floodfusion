@@ -187,3 +187,23 @@ def test_the_freeze_pins_every_seeds_checkpoint_and_the_cli_writes_and_reads_it(
     ledger.append({"key": "EMSR950_AOI01", "activation": "EMSR950", "event_date": "2026-11-02", "status": "settling"})
     assert pr.main(["status", "--ledger", str(ledger.path)]) == 0
     assert capsys.readouterr().out.strip() == "EMSR950_AOI01\t2026-11-02\tsettling"
+
+
+def test_a_replay_asks_for_one_known_flood_and_refuses_the_blind_set(tmp_path: Path, monkeypatch) -> None:
+    import floodfusion.cems_benchmark as cb
+
+    asked = []
+
+    def fetch(code):
+        asked.append(code)
+        if code != "EMSR664":
+            raise LookupError(code)
+        return _record("EMSR664", 900)
+
+    monkeypatch.setattr(cb, "eligible_pairs", lambda record, client, others=(): [])
+    paths = pr.Paths(root=tmp_path / "p", ledger=tmp_path / "ledger.jsonl")
+    counts = pr.sweep(paths, {}, now=NOW, fetch=fetch, client=None, prepare=None, score_pair=None,
+                      first=664, stop_after=1)
+    assert asked == ["EMSR664", "EMSR665"] and counts == {"not eligible": 1}   # stops at the first miss
+    with pytest.raises(SystemExit, match="outside the blind set"):
+        pr.main(["replay", "--code", "EMSR950", "--root", str(tmp_path / "scratch")])

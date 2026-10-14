@@ -269,13 +269,17 @@ def _record_sha256(record: Mapping[str, Any]) -> str:
 
 
 def sweep(paths: Paths, spec: Mapping[str, Any], *, now: datetime, fetch: Callable[[str], dict[str, Any]],
-          client: Any, prepare: Callable[..., Any], score_pair: Callable[[Path], dict[str, Any]]) -> dict[str, int]:
-    """One pass of the blind test (see the module docstring); returns counts by status. Idempotent."""
+          client: Any, prepare: Callable[..., Any], score_pair: Callable[[Path], dict[str, Any]],
+          first: int = FIRST_CODE, stop_after: int = STOP_AFTER_NON_PUBLIC) -> dict[str, int]:
+    """One pass of the blind test (see the module docstring); returns counts by status. Idempotent.
+
+    ``first`` and ``stop_after`` exist for :func:`main`'s ``replay`` (one known flood, outside the blind set).
+    """
     from floodfusion.cems_benchmark import eligible_pairs, pair_key, select_pairs
 
     ledger = Ledger(paths.ledger)
     state = ledger.state()
-    records = census(paths.cache, fetch=fetch, now=now)
+    records = census(paths.cache, fetch=fetch, now=now, first=first, stop_after=stop_after)
     floods = [r for r in records if str(r.get("category", "")).lower() == "flood"]
     counts: dict[str, int] = {}
     for record in floods:
@@ -312,6 +316,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     sw.add_argument("--device", default=None)
     st = sub.add_parser("status", help="counts and statuses; never scores")
     st.add_argument("--ledger", type=Path, default=Paths().ledger)
+    rp = sub.add_parser("replay", help="one known flood (outside the blind set) through the whole runner, into a "
+                                       "scratch root: a rehearsal before the freeze; no freeze check")
+    rp.add_argument("--code", default="EMSR664")
+    rp.add_argument("--root", type=Path, required=True, help="scratch folder (never the blind test's)")
+    rp.add_argument("--spec", type=Path, default=Path("configs/datasets/prospective_v12.yaml"))
+    rp.add_argument("--device", default=None)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     if args.cmd == "freeze":
@@ -324,10 +334,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         for key, row in sorted(state.items()):
             print(f"{key}\t{row['event_date']}\t{row['status']}")
         return 0
-    manifest = json.loads(args.freeze.read_text(encoding="utf-8"))
-    problems = check_freeze(manifest)
-    if problems:
-        raise SystemExit("refusing to sweep:\n  " + "\n  ".join(problems))
+    if args.cmd == "replay":
+        code = args.code.upper()
+        if not code.startswith("EMSR") or int(code[4:]) >= FIRST_CODE:
+            raise SystemExit(f"replay is for floods outside the blind set (codes below EMSR{FIRST_CODE}), not {code}")
+        paths, spec_path = Paths(root=args.root / "prospective", ledger=args.root / "ledger.jsonl"), args.spec
+    else:
+        manifest = json.loads(args.freeze.read_text(encoding="utf-8"))
+        problems = check_freeze(manifest)
+        if problems:
+            raise SystemExit("refusing to sweep:\n  " + "\n  ".join(problems))
+        paths, spec_path = Paths(), Path(manifest["spec"])
     from floodfusion.cems_benchmark import prepare_pair
     from floodfusion.cems_scores import load_spec
     from floodfusion.cems_scores_v12 import score
@@ -336,10 +353,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     from floodfusion.data.archive import IngestSources
     from floodfusion.data.cems import fetch_activation
 
-    spec = load_spec(Path(manifest["spec"]))
+    spec = load_spec(spec_path)
     sources = IngestSources.open()
     cfg = load_config(Path("configs/base.yaml"))
-    paths = Paths()
 
     def prepare(pair: dict[str, Any], record: Mapping[str, Any]) -> None:
         prepare_pair(pair, record, paths.root, cfg, sources)
@@ -360,6 +376,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         finally:
             link.unlink()
 
+    if args.cmd == "replay":
+        def only(c: str) -> dict[str, Any]:
+            if c != code:
+                raise LookupError(c)                                  # the census stops right after the target
+            return fetch_activation(c)
+
+        counts = sweep(paths, spec, now=datetime.now(UTC), fetch=only, client=sources.client, prepare=prepare,
+                       score_pair=score_pair, first=int(code[4:]), stop_after=1)
+        problems = verify_sealed(Ledger(paths.ledger), paths.sealed)
+        LOGGER.info("replay of %s: %s; sealed files %s", code, counts, problems or "verified")
+        return 1 if problems or not counts.get("scored") else 0
     counts = sweep(paths, spec, now=datetime.now(UTC), fetch=fetch_activation, client=sources.client,
                    prepare=prepare, score_pair=score_pair)
     LOGGER.info("sweep: %s", counts)
