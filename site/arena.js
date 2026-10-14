@@ -203,8 +203,11 @@
       pair = maps.pairs[Number(pairSel.value)];
       const keys = Object.keys(pair.layers);
       const opts = () => keys.map((k) => option(k, pair.layers[k].name));
-      const keepL = keys.includes(leftSel.value) ? leftSel.value : "radar";
-      const keepR = keys.includes(rightSel.value) ? rightSel.value : keys.find((k) => !["radar", "cems"].includes(k)) || "cems";
+      // First view: our best model against the operational service (or the corrected TerraMind where GFM has no map).
+      const firstOf = (prefs) => prefs.find((k) => keys.includes(k));
+      const keepL = keys.includes(leftSel.value) ? leftSel.value : firstOf(["ks_r9_flood", "radar"]) || keys[0];
+      const keepR = keys.includes(rightSel.value) ? rightSel.value
+        : firstOf(["gfm", "s1f11_tm_fixed"]) || keys.find((k) => !["radar", "cems", keepL].includes(k)) || "cems";
       leftSel.replaceChildren(...opts());
       rightSel.replaceChildren(...opts());
       leftSel.value = keepL;
