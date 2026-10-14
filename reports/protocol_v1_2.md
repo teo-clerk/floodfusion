@@ -99,3 +99,34 @@ The checkpoints, calibrations and τ* are pinned by sha256 in `reports/v12_freez
   - GFM by `processing:version`;
   - per-activation tables;
   - the CEMS 2023–26 benchmark scored once after the freeze (seen, exploratory).
+
+## Amendment 1 — the models, fixed at the freeze (2026-10-14)
+
+Written after cross-validation and before the freeze tag `v1.2.0-freeze`, by the rules of §3 and
+`reports/v1_2_deviations.md`. No flood of the blind set had been scored.
+
+- **v1.2's model: row 21**, the reference fusion model with the seasonal radar context
+  (`configs/variants/row21_fusion_context_seasonal.yaml`).
+  - **Selection:** the CV rule chose it with a whole-stack pooled macro IoU at τ* of 0.380 over 79 groups, against
+    0.361 for row 9 (`reports/v12_selection.json`).
+  - **Learning rate:** 3e-4, inherited from row 9's tuning.
+  - **No add-on:** self-calibration lowered the CV IoU (−0.042); the HAND cut moved it by +0.001 and helped fewer
+    than half the groups (`reports/v12_addons_row21_fusion_context_seasonal.json`).
+  - **Operator in P5–P7:** IoU at τ*.
+- **The fair TerraMind: row 24**, TerraMind-base with LoRA (rank 8), siamese pre/post with its DEM input. The timing
+  rule chose it (`reports/v12_tm_probe.json`); learning rate 1e-4 by the equal tuning budget
+  (`reports/v12_tuning.json`).
+- **Training:** both are trained on all 81 groups of the pooled set with seeds 42, 43 and 44 (`runs/v12/final`).
+- **v1.1's best and GFM:** as in §3.
+- **Pinning:** checkpoints, calibrations and τ* by sha256 in `reports/v12_freeze.json`. The spec and its tests are in
+  `configs/datasets/prospective_v12.yaml`. The analysis code is `floodfusion.blind_analysis`.
+
+**What the CV already suggests (exploratory, single seed, chip level, `reports/v12_pool_cv.md`):**
+
+| | IoU at τ* | Oracle τ | AP |
+|---|---|---|---|
+| Row 21 | 0.394 | 0.388 | 0.651 |
+| TerraMind-base + LoRA | 0.313 | 0.366 | 0.617 |
+
+Most of the τ* gap is threshold transfer, which is why P5 also requires AP. These numbers are not a test of H5; the
+blind floods are.
