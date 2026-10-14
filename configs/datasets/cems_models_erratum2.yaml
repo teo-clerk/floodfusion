@@ -2,6 +2,7 @@
 # (data/cems_benchmark_v12), to measure what the zero-terrain defect did to the models that read terrain. Descriptive;
 # P4c is repeated on the rebuilt stacks because the fusion model reads terrain and TerraMind does not.
 # Read by floodfusion.cems_scores_v12 (score, --case-root data/cems_benchmark_v12) and floodfusion.cems_scores (report).
+# Kuro Siwo's fusion model is not listed: the frozen spec (prospective_v12.yaml) scores it on the same stacks as "v11".
 
 primary_stratum: sar
 exclude: [EMSR664]
@@ -28,10 +29,6 @@ models:
      runs: [runs/v11/kurosiwo/all/all/row04_unet_sar_only/seed42,
             runs/v11/kurosiwo/all/all/row04_unet_sar_only/seed43,
             runs/v11/kurosiwo/all/all/row04_unet_sar_only/seed44]}
-  - {key: ks_r9_flood, name: "Fusion (Kuro Siwo, flood labels)", role: descriptive,
-     runs: [runs/v11/kurosiwo/all/all/row09_fusion_crossattn/seed42,
-            runs/v11/kurosiwo/all/all/row09_fusion_crossattn/seed43,
-            runs/v11/kurosiwo/all/all/row09_fusion_crossattn/seed44]}
   - {key: r2, name: "Physics baseline (row 2)", kind: baseline, role: descriptive,
      runs: [runs/v11/sen1floods11/official/official/row02_baseline_adaptive/baseline]}
 tests:
