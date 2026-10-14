@@ -162,3 +162,14 @@ def test_bootstrap_interval_brackets_the_mean_and_needs_two_units() -> None:
     lo, hi = v12._bootstrap_ci([0.2, 0.4, 0.6, 0.8])
     assert lo < 0.5 < hi and v12._bootstrap_ci([0.2, 0.4, 0.6, 0.8]) == [lo, hi]   # seeded
     assert all(np.isnan(v12._bootstrap_ci([0.5])))
+
+
+def test_a_model_without_histograms_gets_the_exact_iou_and_no_histogram_metrics() -> None:
+    prob, label, scored, _valid = _tile(5)
+    entry: dict = {"pair": {"activation": "EMSR1", "stratum": "sar"}, "scored_px": int(scored.sum()),
+                   "flood_px": int((label & scored).sum()), "gfm_missing_px": 0}
+    v12.add_tile(entry, "baseline", "baseline", v12.tile_counts((prob > 0.5).astype(float), 0.5, False, label, scored),
+                 {})                                                       # what score() stores for a 0/1 map
+    scores = {"pairs": {"a": entry}, "activations": {}, "priors": {}, "models": {"baseline": {"name": "B"}}}
+    row = v12.summary(scores, {"exclude": (), "primary_stratum": "sar"})["models"]["baseline"]
+    assert 0 < row["iou_tau"] <= 1 and np.isnan(row["ap"]) and np.isnan(row["iou_selfcal"])

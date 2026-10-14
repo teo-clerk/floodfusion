@@ -214,6 +214,8 @@ def _seed_hists(entries: Sequence[Mapping[str, Any]], key: str) -> dict[str, dic
     out: dict[str, dict[str, np.ndarray]] = {}
     for entry in entries:
         for seed, hist in entry.get("hist", {}).get(key, {}).items():
+            if not hist:                     # an uncalibrated model (a baseline's 0/1 map) keeps no histogram
+                continue
             acc = out.setdefault(seed, {})
             for name, counts in hist.items():
                 acc[name] = acc.get(name, 0) + np.asarray(counts, dtype=np.int64)
