@@ -176,3 +176,23 @@ def test_a_significant_gap_against_b_at_both_units_reads_as_refuted() -> None:
     assert _supported({"activation": [row(0.03, True)], "cluster": [row(0.04, True)]})[-1].endswith("| yes |")
     assert _supported({"activation": [row(-0.02, True, 0.05)],
                        "cluster": [row(-0.02, True, 0.05)]})[-1].endswith("| yes |")      # non-inferiority holds
+
+
+def test_a_missing_sar_only_calibration_stops_the_scorer_instead_of_changing_scores(tmp_path) -> None:
+    import json
+
+    import pytest
+
+    from floodfusion.case_study import sar_only_calibration
+
+    run = tmp_path / "all" / "row21_fusion_context_seasonal" / "seed42"
+    run.mkdir(parents=True)
+    with pytest.raises(FileNotFoundError, match="SAR-only calibration"):
+        sar_only_calibration(run)
+    sibling = tmp_path / "all" / "row21_fusion_context_seasonal__eval_sar_only" / "seed42"
+    sibling.mkdir(parents=True)
+    (sibling / "eval_test.json").write_text(json.dumps({"calibration": {"temperature": 1.2, "offset": 0.3}}))
+    assert sar_only_calibration(run) == {"temperature": 1.2, "offset": 0.3}
+    sar_unet = tmp_path / "all" / "row04_unet_sar_only" / "seed42"
+    sar_unet.mkdir(parents=True)
+    assert sar_only_calibration(sar_unet) is None                      # no optical input: nothing to recalibrate

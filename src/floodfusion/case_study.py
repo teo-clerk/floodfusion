@@ -253,9 +253,12 @@ def sar_only_calibration(run_dir: Path) -> dict[str, float] | None:
     both (row 9 and row 11); a window without usable optical must be read with the second.
     """
     sibling = SAR_ONLY_SIBLINGS.get(run_dir.parent.name)
-    path = run_dir.parent.parent / sibling / run_dir.name / "eval_test.json" if sibling else None
-    if path is None or not path.is_file():
-        return None
+    if sibling is None:
+        return None                                  # a model without an optical input: one predictor
+    path = run_dir.parent.parent / sibling / run_dir.name / "eval_test.json"
+    if not path.is_file():
+        # Silently reading its no-optical windows with the with-optical calibration would change scores unseen.
+        raise FileNotFoundError(f"{run_dir} needs its SAR-only calibration {path}: evaluate the sibling first")
     return json.loads(path.read_text(encoding="utf-8"))["calibration"]
 
 
