@@ -5,7 +5,10 @@ ship with an exclusion mask saying where they must not be trusted, and use Senti
 clear. Version 1.1 tests them on **38 flood activations mapped independently by Copernicus EMS**, with four
 questions fixed in advance, and on two benchmarks with every flood held out: Sen1Floods11 (10 floods) and Kuro Siwo
 (36 floods). Its main finding: **on independent maps the choice of training labels mattered, and the optical
-input did not detectably.**
+input did not detectably.** **Version 1.2** adds a seasonal radar reference ("is this water unusual for this place
+and season?"). It takes on a TerraMind trained on the same flood labels, and Copernicus's operational flood maps, in
+a blind test on floods that happen after the models were frozen. It also publishes an erratum that withdraws v1.1's
+TerraMind result.
 
 [![ci](https://github.com/teo-clerk/floodfusion/actions/workflows/ci.yml/badge.svg)](https://github.com/teo-clerk/floodfusion/actions/workflows/ci.yml)
 ![python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)

@@ -5,7 +5,7 @@ type: software
 authors:
   - family-names: Clerk
     given-names: Teo
-version: 1.1.0
+version: 1.2.0
 license: MIT
 repository-code: "https://github.com/teo-clerk/floodfusion"
 keywords:

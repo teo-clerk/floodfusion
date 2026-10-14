@@ -2,11 +2,28 @@
 
 All notable changes; the format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased] — v1.2
+## [1.2.0] — 2026-10
 
 A fair fight with TerraMind, Copernicus's operational flood maps as a yardstick, and a blind test on floods that occur
 after the models are frozen (`reports/protocol_v1_2.md`, committed before any v1.2 model or blind score). Every
 decision since is in `reports/v1_2_deviations.md`.
+
+### Results (exploratory; the confirmatory test is the blind one)
+- **Selection.** The pooled CV selected the seasonal-context model (row 21) over the same model without context:
+  0.380 vs 0.361 whole-scene macro IoU at τ*, better in 49 of 79 groups. Neither inference add-on helped.
+- **The fair TerraMind.** TerraMind-base + LoRA was trained on the same 7,006 chips with the same learning-rate
+  budget. In CV (chip level, 81 groups) it scores 0.313 at τ* against row 21's 0.394. Most of the gap is threshold
+  transfer: 0.366 vs 0.388 at the oracle threshold, 0.617 vs 0.651 AP.
+- **Copernicus GFM** scores 0.321 on the 34 seen CEMS floods it covers, against 0.395 for v1.1's best model
+  (descriptive).
+
+### The blind test
+- **Frozen** at tag `v1.2.0-freeze`: row 21 and TerraMind-base + LoRA (3 seeds each), v1.1's best, and GFM. 36 files
+  are pinned in `reports/v12_freeze.json`.
+- **Rehearsed** end to end on EMSR664 before the freeze.
+- **First sweep (2026-10-14):** census to EMSR934, three flood activations. EMSR926 has no published delineation
+  package and EMSR927 only grading maps, so both are not eligible; EMSR933 settles on 2026-10-31.
+- **Sealing:** scores stay sealed (hash-chained ledger) until 20 activations in 15 clusters are scored, or 2027-12-31.
 
 ### v1.1 errata (`reports/v1_1_erratum.md`)
 - **TerraMind trained without modality dropout.**
