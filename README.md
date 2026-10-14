@@ -24,6 +24,45 @@ Copernicus EMS's COSMO-SkyMed delineation of 21 May (right).*
 
 ## Results at a glance
 
+### v1.2: a fair fight with TerraMind, Copernicus's own flood maps as a yardstick, and a blind test
+
+**The idea.** Instead of asking *is this pixel water?*, v1.2's model asks *is this water unusual for this place and
+season?* It reads a seasonal radar reference (the same orbit, a year earlier) beside the flood image. The
+[protocol](reports/protocol_v1_2.md) was committed before any v1.2 model was trained; every rule since is in the
+[deviations log](reports/v1_2_deviations.md). **[The Arena](https://teo-clerk.github.io/floodfusion/arena.html)**
+puts every model on the same floods.
+
+**What v1.2 has found so far (exploratory).**
+- **v1.1's TerraMind result was a bug** ([erratum](reports/v1_1_erratum.md)). Trained as its protocol describes,
+  TerraMind beats the task-specific model it lost to (0.299 vs 0.258 on 38 CEMS floods).
+- **A fair TerraMind still trails, mostly on its threshold.**
+  - **The comparison:** TerraMind-base with LoRA, a pre-event image and its DEM input, against our seasonal-context
+    model. Both were trained on the same flood labels: Kuro Siwo plus GEOID-Flood, 7,006 chips from 138 floods. Both
+    were tuned with the same three-learning-rate budget.
+  - **The result:** in grouped five-fold CV over 81 location groups, TerraMind scores 0.313 at its own threshold
+    against ours at 0.394.
+  - **The cause:** at the best single threshold the gap shrinks to 0.366 vs 0.388. Threshold-free, ours leads 0.651
+    vs 0.617 AP. The blind test therefore requires both to favour ours. [CV table](reports/v12_pool_cv.md).
+- **The seasonal context helps a little.** The CV selection rule chose it (row 21) over the same model without context
+  (row 9): 0.380 vs 0.361 on whole test scenes, better in 49 of 79 groups. The edge is modest and single-seed.
+  [Selection](reports/v12_selection.json).
+- **Per-scene self-calibration does not help** (−0.04 in CV), nor does a HAND cut (+0.001), so neither is used.
+- **Copernicus GFM, the operational service**, scores 0.321 on the 34 CEMS floods it covers. Our best v1.1 model
+  scores 0.395 on the same floods, and the physics baseline 0.379. GFM's likelihood ranks pixels about as well as our
+  models (AP 0.517 vs 0.513): its loss is its fixed cut. These floods were seen before, so this is descriptive
+  ([preview](reports/v12_cems_preview.md)).
+
+**The test that decides it: floods that had not happened when the models were frozen.**
+- **The floods:** every eligible Copernicus EMS flood activation from EMSR899 on.
+- **The models:** frozen at tag `v1.2.0-freeze`.
+- **The three questions:** does v1.2's model beat
+  - the fair TerraMind, at its own threshold **and** threshold-free (P5);
+  - Copernicus GFM (P6);
+  - v1.1's best (P7)?
+- **Sealing:** scores stay sealed (sha256 in a committed ledger) until 20 activations in 15 clusters are scored, or
+  31 December 2027.
+- **The analysis:** written in code before the first blind flood ([`blind_analysis.py`](src/floodfusion/blind_analysis.py)).
+
 ### v1.1: four questions fixed in advance, tested on 38 Copernicus EMS flood activations
 
 The [protocol](reports/protocol_v1_1.md) was committed before any v1.1 model was trained. Every change since is in
