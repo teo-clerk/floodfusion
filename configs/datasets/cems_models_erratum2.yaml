@@ -1,0 +1,39 @@
+# v1.1 erratum 2 (reports/v1_1_erratum.md): the same models scored on the CEMS benchmark rebuilt with the DEM fix
+# (data/cems_benchmark_v12), to measure what the zero-terrain defect did to the models that read terrain. Descriptive;
+# P4c is repeated on the rebuilt stacks because the fusion model reads terrain and TerraMind does not.
+# Read by floodfusion.cems_scores_v12 (score, --case-root data/cems_benchmark_v12) and floodfusion.cems_scores (report).
+
+primary_stratum: sar
+exclude: [EMSR664]
+optical_usable: 0.5
+sar_only_below: 0.1
+configs_dir: configs
+overlays: [configs/overlays/sen1floods11.yaml]
+overlapping_pairs: [EMSR773_AOI06, EMSR856_AOI07, EMSR864_AOI05, EMSR868_AOI01, EMSR868_AOI02]
+
+models:
+  - {key: s1f11_r9, name: "Fusion (S1F11)",
+     runs: [runs/v11/sen1floods11/official/official/row09_fusion_crossattn/seed42,
+            runs/v11/sen1floods11/official/official/row09_fusion_crossattn/seed43,
+            runs/v11/sen1floods11/official/official/row09_fusion_crossattn/seed44]}
+  - {key: s1f11_tm_fixed, name: "TerraMind-small (S1F11), corrected",
+     runs: [runs/v12/erratum/sen1floods11/official/official/cmp_terramind_small/seed42,
+            runs/v12/erratum/sen1floods11/official/official/cmp_terramind_small/seed43,
+            runs/v12/erratum/sen1floods11/official/official/cmp_terramind_small/seed44]}
+  - {key: s1f11_r4, name: "SAR U-Net (S1F11)", role: descriptive,
+     runs: [runs/v11/sen1floods11/official/official/row04_unet_sar_only/seed42,
+            runs/v11/sen1floods11/official/official/row04_unet_sar_only/seed43,
+            runs/v11/sen1floods11/official/official/row04_unet_sar_only/seed44]}
+  - {key: ks_r4, name: "SAR U-Net (Kuro Siwo, flood)", role: descriptive,
+     runs: [runs/v11/kurosiwo/all/all/row04_unet_sar_only/seed42,
+            runs/v11/kurosiwo/all/all/row04_unet_sar_only/seed43,
+            runs/v11/kurosiwo/all/all/row04_unet_sar_only/seed44]}
+  - {key: ks_r9_flood, name: "Fusion (Kuro Siwo, flood labels)", role: descriptive,
+     runs: [runs/v11/kurosiwo/all/all/row09_fusion_crossattn/seed42,
+            runs/v11/kurosiwo/all/all/row09_fusion_crossattn/seed43,
+            runs/v11/kurosiwo/all/all/row09_fusion_crossattn/seed44]}
+  - {key: r2, name: "Physics baseline (row 2)", kind: baseline, role: descriptive,
+     runs: [runs/v11/sen1floods11/official/official/row02_baseline_adaptive/baseline]}
+tests:
+  - {id: P4c, question: "Fusion vs the corrected TerraMind, on stacks rebuilt with the DEM fix (erratum 2)",
+     a: s1f11_tm_fixed, b: s1f11_r9, subset: all}
