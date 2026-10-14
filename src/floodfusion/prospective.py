@@ -64,6 +64,8 @@ MIN_ACTIVATIONS = 20
 END_DATE = date(2027, 12, 31)
 #: The confirmatory stratum: products drawn on radar satellites (``reports/protocol_v1_2.md`` §2.2).
 PRIMARY_STRATUM = "sar"
+#: The chain value before the ledger's first line.
+GENESIS = "0" * 64
 #: What the freeze pins in git (plus every checkpoint by sha256).
 FROZEN_PATHS = ("src", "configs", "pyproject.toml", "uv.lock", "Makefile")
 
@@ -133,14 +135,43 @@ def census(cache: Path, *, fetch: Callable[[str], dict[str, Any]], now: datetime
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class Ledger:
-    """An append-only JSON-lines record of what the blind test saw and did; the last line per pair is its state."""
+    """An append-only JSON-lines record of what the blind test saw and did; the last line per pair is its state.
+
+    **Tamper evidence.** Each row carries ``prev``, the sha256 of the line before it, so an edited, deleted or
+    reordered line breaks the chain (:meth:`problems`). A pair once scored must stay scored with the same sealed
+    hash: it can never be re-scored or quietly dropped. The committed history and the chain head (:meth:`head`)
+    anchor the whole file.
+    """
 
     path: Path
 
-    def rows(self) -> list[dict[str, Any]]:
+    def _lines(self) -> list[str]:
         if not self.path.is_file():
             return []
-        return [json.loads(line) for line in self.path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        return [line for line in self.path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+    def rows(self) -> list[dict[str, Any]]:
+        return [json.loads(line) for line in self._lines()]
+
+    def head(self) -> str:
+        """The sha256 of the last line (the chain head; the empty ledger's is :data:`GENESIS`)."""
+        lines = self._lines()
+        return hashlib.sha256(lines[-1].encode("utf-8")).hexdigest() if lines else GENESIS
+
+    def problems(self) -> list[str]:
+        """Broken chain links, and scored pairs that changed state or sealed hash afterwards."""
+        out, prev, scored = [], GENESIS, {}
+        for i, line in enumerate(self._lines(), start=1):
+            row = json.loads(line)
+            if row.get("prev") != prev:
+                out.append(f"ledger line {i}: the hash chain is broken")
+            prev = hashlib.sha256(line.encode("utf-8")).hexdigest()
+            key = row["key"]
+            if key in scored and (row.get("status") != "scored" or row.get("sealed_sha256") != scored[key]):
+                out.append(f"ledger line {i}: {key} was scored and then changed")
+            if row.get("status") == "scored":
+                scored.setdefault(key, row.get("sealed_sha256"))
+        return out
 
     def state(self) -> dict[str, dict[str, Any]]:
         out: dict[str, dict[str, Any]] = {}
@@ -151,12 +182,13 @@ class Ledger:
     def append(self, row: Mapping[str, Any]) -> bool:
         """Append ``row`` unless it repeats the pair's current state; return whether it was written."""
         current = self.state().get(row["key"])
-        if current is not None and {k: v for k, v in current.items() if k != "at"} == \
-                {k: v for k, v in row.items() if k != "at"}:
+        if current is not None and {k: v for k, v in current.items() if k not in ("at", "prev")} == \
+                {k: v for k, v in row.items() if k not in ("at", "prev")}:
             return False
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        line = json.dumps({**dict(row), "prev": self.head()}, sort_keys=True)
         with self.path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(dict(row), sort_keys=True) + "\n")
+            f.write(line + "\n")
         return True
 
 
@@ -170,7 +202,8 @@ def seal(scores: Mapping[str, Any], sealed_dir: Path, key: str) -> str:
 
 
 def verify_sealed(ledger: Ledger, sealed_dir: Path) -> list[str]:
-    """Pairs whose sealed file is missing or no longer matches the sha256 the ledger committed."""
+    """Pairs whose sealed file is missing or no longer matches the sha256 the ledger committed, then the ledger's own
+    problems (:meth:`Ledger.problems`)."""
     bad = []
     for key, row in ledger.state().items():
         if row.get("status") != "scored":
@@ -178,7 +211,7 @@ def verify_sealed(ledger: Ledger, sealed_dir: Path) -> list[str]:
         path = sealed_dir / f"{key}.json"
         if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != row["sealed_sha256"]:
             bad.append(key)
-    return bad
+    return bad + ledger.problems()
 
 
 def stopping_rule_met(ledger: Ledger, today: date, clusters: Mapping[str, str], *,
@@ -211,26 +244,41 @@ def _rule() -> dict[str, Any]:
 
 
 def freeze_manifest(spec_path: Path, tag: str) -> dict[str, Any]:
-    """What the freeze pins: the tag, the census rule, and every checkpoint (best.pt, eval_test.json) by sha256."""
+    """What the freeze pins: the tag, the census rule, and by sha256 every file a blind score is computed from.
+
+    Per seed of every model: the weights (``best.pt``), the calibration and τ* (``eval_test.json``), the run record
+    (``run.json``, which holds the configuration and normalisation statistics), and the SAR-only calibration of its
+    sibling evaluation, which windows without usable optical are read with. A missing file stops the freeze.
+    """
+    from floodfusion.case_study import SAR_ONLY_SIBLINGS
     from floodfusion.cems_scores import load_spec
 
     spec = load_spec(spec_path)
     files = {}
     for m in spec["models"]:
-        for run in m.runs:
-            for name in ("best.pt", "eval_test.json", "run.json"):
-                path = Path(run) / name
-                if path.is_file():
-                    files[str(path)] = _sha256(path)
+        for run in map(Path, m.runs):
+            needed = [run / name for name in ("best.pt", "eval_test.json", "run.json")]
+            sibling = SAR_ONLY_SIBLINGS.get(run.parent.name)
+            if sibling:
+                needed.append(run.parent.parent / sibling / run.name / "eval_test.json")
+            missing = [str(p) for p in needed if not p.is_file()]
+            if missing:
+                raise FileNotFoundError(f"cannot freeze {m.key}: missing {missing}")
+            files.update({str(p): _sha256(p) for p in needed})
     return {"tag": tag, "rule": _rule(), "spec": str(spec_path), "spec_sha256": _sha256(spec_path), "files": files}
 
 
-def check_freeze(manifest: Mapping[str, Any], *, git: Callable[[Sequence[str]], int] | None = None) -> list[str]:
+def check_freeze(manifest: Mapping[str, Any], *, git: Callable[[Sequence[str]], int] | None = None,
+                 untracked: Callable[[], str] | None = None) -> list[str]:
     """Problems that forbid a sweep (empty: the frozen system is the one about to run)."""
     def run_git(args: Sequence[str]) -> int:
         return subprocess.run(["git", *args], check=False, capture_output=True).returncode
 
-    git = git or run_git
+    def git_status() -> str:   # untracked files too: `git diff` ignores a new file under src or configs
+        return subprocess.run(["git", "status", "--porcelain", "--untracked-files=all", "--", *FROZEN_PATHS],
+                              check=False, capture_output=True, text=True).stdout
+
+    git, untracked = git or run_git, untracked or git_status
     problems = [f"{path}: sha256 differs from the freeze" for path, sha in manifest["files"].items()
                 if not Path(path).is_file() or _sha256(Path(path)) != sha]
     if _sha256(Path(manifest["spec"])) != manifest["spec_sha256"]:
@@ -239,6 +287,8 @@ def check_freeze(manifest: Mapping[str, Any], *, git: Callable[[Sequence[str]], 
         problems.append("the census rule changed since the freeze")
     if git(["diff", "--quiet", manifest["tag"], "--", *FROZEN_PATHS]) != 0:
         problems.append(f"code paths differ from {manifest['tag']}")
+    if untracked().strip():
+        problems.append("uncommitted or untracked files under the code paths")
     return problems
 
 

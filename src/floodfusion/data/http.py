@@ -72,8 +72,15 @@ def check_https_url(url: str, *, hosts: Sequence[str] = (), suffixes: Sequence[s
         raise ValueError(f"refusing URL with a non-default port: {redact(text)[:100]!r}")
     if not (host in {h.lower() for h in hosts} or any(host.endswith(s.lower()) for s in suffixes)):
         raise ValueError(f"refusing URL outside the allowed hosts: https://{host}")
-    if path_prefixes and not parsed.path.startswith(tuple(path_prefixes)):
-        raise ValueError(f"refusing URL outside the allowed paths: https://{host}{parsed.path[:60]}")
+    if path_prefixes:
+        # A prefix only confines the path if the path cannot climb out of it: refuse dot segments, encoded dots or
+        # slashes, and empty segments, all of which a client may normalise after this check.
+        segments = parsed.path.split("/")[1:]
+        if (any(seg in ("", ".", "..") for seg in segments[:-1]) or segments[-1:] in (["."], [".."])
+                or re.search(r"%2e|%2f|%5c", parsed.path, re.IGNORECASE)):
+            raise ValueError(f"refusing URL with a non-canonical path: https://{host}{parsed.path[:60]}")
+        if not parsed.path.startswith(tuple(path_prefixes)):
+            raise ValueError(f"refusing URL outside the allowed paths: https://{host}{parsed.path[:60]}")
     return text
 
 

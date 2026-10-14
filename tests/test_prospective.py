@@ -99,11 +99,13 @@ def test_freeze_refuses_changed_checkpoints_specs_rules_and_code(tmp_path: Path,
     spec.write_text("models: []\ntests: []\n")
     manifest = {"tag": "v1.2.0-freeze", "rule": pr._rule(), "spec": str(spec), "spec_sha256": pr._sha256(spec),
                 "files": {str(ckpt): pr._sha256(ckpt)}}
-    assert pr.check_freeze(manifest, git=lambda args: 0) == []
+    assert pr.check_freeze(manifest, git=lambda args: 0, untracked=lambda: "") == []
+    assert pr.check_freeze(manifest, git=lambda args: 0, untracked=lambda: "?? src/new.py\n") == [
+        "uncommitted or untracked files under the code paths"]
     ckpt.write_bytes(b"other weights")
     spec.write_text("models: []\ntests: [x]\n")
     monkeypatch.setattr(pr, "SETTLE_DAYS", 10)
-    problems = pr.check_freeze(manifest, git=lambda args: 1)
+    problems = pr.check_freeze(manifest, git=lambda args: 1, untracked=lambda: "")
     assert len(problems) == 4 and any("census rule" in p for p in problems) and any("code paths" in p for p in problems)
 
 
@@ -162,16 +164,23 @@ def test_a_refused_code_counts_as_not_public_but_a_server_error_stops_the_census
 
 def test_the_freeze_pins_every_seeds_checkpoint_and_the_cli_writes_and_reads_it(tmp_path: Path, monkeypatch,
                                                                                 capsys) -> None:
-    runs = [tmp_path / "runs" / f"seed{s}" for s in (42, 43)]
+    runs = [tmp_path / "runs" / "row21_fusion_context_seasonal" / f"seed{s}" for s in (42, 43)]
     for run in runs:
         run.mkdir(parents=True)
         (run / "best.pt").write_bytes(run.name.encode())
         (run / "eval_test.json").write_text("{}")
+        (run / "run.json").write_text("{}")
+        sibling = run.parent.parent / "row21_fusion_context_seasonal__eval_sar_only" / run.name
+        sibling.mkdir(parents=True)
+        (sibling / "eval_test.json").write_text('{"calibration": {}}')
     spec = tmp_path / "spec.yaml"
     spec.write_text("models:\n  - key: ours\n    name: v1.2\n    runs: [" + ", ".join(str(r) for r in runs) + "]\n"
                     "tests: []\n")
     manifest = pr.freeze_manifest(spec, "v1.2.0-freeze")
-    assert set(manifest["files"]) == {str(r / n) for r in runs for n in ("best.pt", "eval_test.json")}
+    sar_only = {str(r.parent.parent / "row21_fusion_context_seasonal__eval_sar_only" / r.name / "eval_test.json")
+                for r in runs}
+    assert set(manifest["files"]) == {str(r / n) for r in runs for n in ("best.pt", "eval_test.json", "run.json")} \
+        | sar_only                                                       # the SAR-only calibration is pinned too
     assert manifest["files"][str(runs[0] / "best.pt")] != manifest["files"][str(runs[1] / "best.pt")]
     assert manifest["spec_sha256"] == pr._sha256(spec) and manifest["rule"]["first_code"] == pr.FIRST_CODE
 
@@ -207,3 +216,25 @@ def test_a_replay_asks_for_one_known_flood_and_refuses_the_blind_set(tmp_path: P
     assert asked == ["EMSR664", "EMSR665"] and counts == {"not eligible": 1}   # stops at the first miss
     with pytest.raises(SystemExit, match="outside the blind set"):
         pr.main(["replay", "--code", "EMSR950", "--root", str(tmp_path / "scratch")])
+
+
+def test_the_freeze_refuses_a_missing_file_and_the_ledger_catches_edits(tmp_path: Path) -> None:
+    run = tmp_path / "runs" / "row09_fusion_crossattn" / "seed42"
+    run.mkdir(parents=True)
+    (run / "best.pt").write_bytes(b"w")
+    spec = tmp_path / "spec.yaml"
+    spec.write_text(f"models:\n  - key: ours\n    name: v1.2\n    runs: [{run}]\ntests: []\n")
+    with pytest.raises(FileNotFoundError, match=r"eval_test\.json"):
+        pr.freeze_manifest(spec, "v1.2.0-freeze")
+
+    ledger = pr.Ledger(tmp_path / "ledger.jsonl")
+    for i in range(3):
+        ledger.append({"key": f"EMSR90{i}_AOI01", "activation": f"EMSR90{i}", "status": "scored",
+                       "sealed_sha256": f"{i}" * 64, "stratum": "sar"})
+    assert ledger.problems() == [] and ledger.head() != pr.GENESIS
+    lines = ledger.path.read_text().splitlines()
+    ledger.path.write_text("\n".join([lines[0], lines[2]]) + "\n")                      # a line deleted
+    assert ledger.problems() == ["ledger line 2: the hash chain is broken"]
+    ledger.path.write_text("\n".join(lines) + "\n")
+    ledger.append({"key": "EMSR900_AOI01", "activation": "EMSR900", "status": "not eligible"})   # demoted
+    assert ledger.problems() == ["ledger line 4: EMSR900_AOI01 was scored and then changed"]

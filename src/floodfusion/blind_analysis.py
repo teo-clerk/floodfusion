@@ -63,20 +63,28 @@ def load_blind_tests(spec_path: Path) -> list[dict[str, Any]]:
 
 def merge_sealed(ledger: Any, sealed_dir: Path) -> dict[str, Any]:
     """Every scored pair's sealed scores, verified against the ledger, merged into one scores document."""
-    from floodfusion.prospective import verify_sealed
+    import hashlib
 
-    problems = verify_sealed(ledger, sealed_dir)
-    if problems:
-        raise ValueError("sealed scores do not match the ledger:\n  " + "\n  ".join(problems))
+    problems = ledger.problems()
     merged: dict[str, Any] = {"pairs": {}, "activations": {}, "priors": {}, "models": {}}
     for key, row in sorted(ledger.state().items()):
         if row.get("status") != "scored":
             continue
-        part = json.loads((sealed_dir / f"{key}.json").read_text(encoding="utf-8"))
+        path = sealed_dir / f"{key}.json"
+        blob = path.read_bytes() if path.is_file() else b""          # read once: what is hashed is what is parsed
+        if hashlib.sha256(blob).hexdigest() != row["sealed_sha256"]:
+            problems.append(f"{key}: sealed file missing or changed")
+            continue
+        part = json.loads(blob)
+        if set(part["pairs"]) != {key} or set(part["activations"]) - {row["activation"]}:
+            problems.append(f"{key}: the sealed file holds other pairs or activations")
+            continue
         merged["pairs"].update(part["pairs"])
         merged["activations"].update(part["activations"])
         merged["priors"] = merged["priors"] or part["priors"]
         merged["models"] = merged["models"] or part["models"]
+    if problems:
+        raise ValueError("sealed scores do not match the ledger:\n  " + "\n  ".join(problems))
     return merged
 
 

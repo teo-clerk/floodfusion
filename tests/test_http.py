@@ -107,3 +107,19 @@ class TestCappedGet:
         with pytest.raises(OSError, match="404") as info:
             capped_get(self.URL, check=self._check, cap=10, retries=5, sleep=lambda s: None)
         assert not isinstance(info.value, TransientHTTPError) and len(calls) == 1
+
+
+@pytest.mark.parametrize("path", [
+    "/tge-labs/aef/v1/annual/../../../other/x.tiff",
+    "/tge-labs/aef/v1/annual/%2e%2e/%2E%2E/other/x.tiff",
+    "/tge-labs/aef/v1/annual/./x.tiff",
+    "/tge-labs/aef/v1/annual//x.tiff",
+    "/tge-labs/aef/v1/annual/a%2fb.tiff",
+    "/tge-labs/aef/v1/annual/2024/..",
+])
+def test_a_path_prefix_cannot_be_climbed_out_of(path) -> None:
+    with pytest.raises(ValueError, match="non-canonical path"):
+        check_https_url(f"https://data.source.coop{path}", hosts=("data.source.coop",),
+                        path_prefixes=("/tge-labs/aef/v1/annual/",))
+    ok = "https://data.source.coop/tge-labs/aef/v1/annual/2024/32N/x.tiff"
+    assert check_https_url(ok, hosts=("data.source.coop",), path_prefixes=("/tge-labs/aef/v1/annual/",)) == ok
