@@ -1,0 +1,504 @@
+{
+ "n_groups": 79,
+ "dry_groups_not_scored": [
+  "POOL_geoid_flood_EMSR414",
+  "POOL_geoid_flood_EMSR486"
+ ],
+ "macro_iou": {
+  "plain": 0.36104331334819334,
+  "selfcal": 0.3274879888344695,
+  "hand": 0.3621264914248463,
+  "selfcal+hand": 0.32548005883043546
+ },
+ "per_group": {
+  "POOL_geoid_flood_EMSR151": {
+   "plain": 0.440950844407022,
+   "selfcal": 0.45018597709046543,
+   "hand": 0.4428528052168435,
+   "selfcal+hand": 0.45012581063939133
+  },
+  "POOL_geoid_flood_EMSR165": {
+   "plain": 0.3713265737997534,
+   "selfcal": 0.36278571305104373,
+   "hand": 0.37231085253201146,
+   "selfcal+hand": 0.38215931127332914
+  },
+  "POOL_geoid_flood_EMSR166": {
+   "plain": 0.4617529067790848,
+   "selfcal": 0.40306862948372385,
+   "hand": 0.4625391636016891,
+   "selfcal+hand": 0.40306862948372385
+  },
+  "POOL_geoid_flood_EMSR167": {
+   "plain": 0.42302748771315674,
+   "selfcal": 0.431661056302915,
+   "hand": 0.4233938674995137,
+   "selfcal+hand": 0.43307308169726727
+  },
+  "POOL_geoid_flood_EMSR176": {
+   "plain": 0.2254898511978049,
+   "selfcal": 0.2269884766722878,
+   "hand": 0.2254898511978049,
+   "selfcal+hand": 0.2269884766722878
+  },
+  "POOL_geoid_flood_EMSR184": {
+   "plain": 0.5723959637885998,
+   "selfcal": 0.5353115131549725,
+   "hand": 0.5728781951907012,
+   "selfcal+hand": 0.53762932862228
+  },
+  "POOL_geoid_flood_EMSR187": {
+   "plain": 0.3359614570928807,
+   "selfcal": 0.37654813625095396,
+   "hand": 0.3388493833378619,
+   "selfcal+hand": 0.38556497894528347
+  },
+  "POOL_geoid_flood_EMSR188": {
+   "plain": 0.36950524064977397,
+   "selfcal": 0.35806389920339016,
+   "hand": 0.37683729395384413,
+   "selfcal+hand": 0.3641449464617291
+  },
+  "POOL_geoid_flood_EMSR192": {
+   "plain": 0.3177496781234812,
+   "selfcal": 0.3066745674790904,
+   "hand": 0.31720983028715055,
+   "selfcal+hand": 0.3058469817955742
+  },
+  "POOL_geoid_flood_EMSR199": {
+   "plain": 0.4530109359496084,
+   "selfcal": 0.39057351125250894,
+   "hand": 0.45699112338384174,
+   "selfcal+hand": 0.3992246807240729
+  },
+  "POOL_geoid_flood_EMSR203": {
+   "plain": 0.0,
+   "selfcal": 0.0,
+   "hand": 0.0,
+   "selfcal+hand": 0.0
+  },
+  "POOL_geoid_flood_EMSR215": {
+   "plain": 0.4249871768288025,
+   "selfcal": 0.4672902800263836,
+   "hand": 0.425047479752887,
+   "selfcal+hand": 0.4672902800263836
+  },
+  "POOL_geoid_flood_EMSR235": {
+   "plain": 0.20305823138290385,
+   "selfcal": 0.17173380163172722,
+   "hand": 0.20352918604126224,
+   "selfcal+hand": 0.16855695054625222
+  },
+  "POOL_geoid_flood_EMSR238": {
+   "plain": 0.15967574081174343,
+   "selfcal": 0.15634471321553153,
+   "hand": 0.16021279635959948,
+   "selfcal+hand": 0.14067260772949072
+  },
+  "POOL_geoid_flood_EMSR257": {
+   "plain": 0.0,
+   "selfcal": 0.0,
+   "hand": 0.0,
+   "selfcal+hand": 0.0
+  },
+  "POOL_geoid_flood_EMSR258": {
+   "plain": 0.3571981266544492,
+   "selfcal": 0.3469288417940197,
+   "hand": 0.35719873277460934,
+   "selfcal+hand": 0.3471463216393204
+  },
+  "POOL_geoid_flood_EMSR260": {
+   "plain": 0.3370315425380002,
+   "selfcal": 0.2720602460779699,
+   "hand": 0.3357982525814138,
+   "selfcal+hand": 0.2786445411733246
+  },
+  "POOL_geoid_flood_EMSR268": {
+   "plain": 0.1997208613879705,
+   "selfcal": 0.20754537226694614,
+   "hand": 0.19992913455576225,
+   "selfcal+hand": 0.2076517507097472
+  },
+  "POOL_geoid_flood_EMSR271": {
+   "plain": 0.3846300220559616,
+   "selfcal": 0.3856481121395176,
+   "hand": 0.3849946539342282,
+   "selfcal+hand": 0.3864261347813979
+  },
+  "POOL_geoid_flood_EMSR280": {
+   "plain": 0.4047824602967454,
+   "selfcal": 0.1763690775246292,
+   "hand": 0.4031813148092218,
+   "selfcal+hand": 0.1699255344703339
+  },
+  "POOL_geoid_flood_EMSR283": {
+   "plain": 0.15393863363127908,
+   "selfcal": 0.0841211731101903,
+   "hand": 0.1597258112776433,
+   "selfcal+hand": 0.023550105047149068
+  },
+  "POOL_geoid_flood_EMSR284": {
+   "plain": 0.4724555433713556,
+   "selfcal": 0.34121905975991434,
+   "hand": 0.4724555433713556,
+   "selfcal+hand": 0.34121905975991434
+  },
+  "POOL_geoid_flood_EMSR286": {
+   "plain": 0.29778976060677886,
+   "selfcal": 0.00514714109880273,
+   "hand": 0.2994649173191451,
+   "selfcal+hand": 0.0048727463548109
+  },
+  "POOL_geoid_flood_EMSR287": {
+   "plain": 0.0,
+   "selfcal": 0.0,
+   "hand": 0.0,
+   "selfcal+hand": 0.0
+  },
+  "POOL_geoid_flood_EMSR292": {
+   "plain": 0.4553135513900483,
+   "selfcal": 0.36030424566520824,
+   "hand": 0.4553135513900483,
+   "selfcal+hand": 0.36030424566520824
+  },
+  "POOL_geoid_flood_EMSR319": {
+   "plain": 0.6659211061407077,
+   "selfcal": 0.5557714729887291,
+   "hand": 0.6659211061407077,
+   "selfcal+hand": 0.5557714729887291
+  },
+  "POOL_geoid_flood_EMSR323": {
+   "plain": 0.0,
+   "selfcal": 0.0,
+   "hand": 0.0,
+   "selfcal+hand": 0.0
+  },
+  "POOL_geoid_flood_EMSR326": {
+   "plain": 0.2998742928975487,
+   "selfcal": 0.38657295201163355,
+   "hand": 0.3001950544264771,
+   "selfcal+hand": 0.38657295201163355
+  },
+  "POOL_geoid_flood_EMSR329": {
+   "plain": 0.1377122979332924,
+   "selfcal": 0.059679037111334,
+   "hand": 0.1377122979332924,
+   "selfcal+hand": 0.059679037111334
+  },
+  "POOL_geoid_flood_EMSR330": {
+   "plain": 0.3046929782238091,
+   "selfcal": 0.282871003856201,
+   "hand": 0.3050196904272002,
+   "selfcal+hand": 0.28156197965186647
+  },
+  "POOL_geoid_flood_EMSR337": {
+   "plain": 0.31053497146173936,
+   "selfcal": 0.004187091503267974,
+   "hand": 0.31053497146173936,
+   "selfcal+hand": 0.004187091503267974
+  },
+  "POOL_geoid_flood_EMSR342": {
+   "plain": 0.1101327409843782,
+   "selfcal": 0.14969391580766708,
+   "hand": 0.1101327409843782,
+   "selfcal+hand": 0.14969391580766708
+  },
+  "POOL_geoid_flood_EMSR352": {
+   "plain": 0.3982047579382053,
+   "selfcal": 0.6521556650561081,
+   "hand": 0.398271364284083,
+   "selfcal+hand": 0.6529744506972619
+  },
+  "POOL_geoid_flood_EMSR358": {
+   "plain": 0.4282743231369277,
+   "selfcal": 0.2902563235744186,
+   "hand": 0.42862988273011055,
+   "selfcal+hand": 0.2938749786641808
+  },
+  "POOL_geoid_flood_EMSR388": {
+   "plain": 0.34363407956956116,
+   "selfcal": 0.3290567092775819,
+   "hand": 0.34452213898278905,
+   "selfcal+hand": 0.32987532589624885
+  },
+  "POOL_geoid_flood_EMSR399": {
+   "plain": 0.33867854491462507,
+   "selfcal": 0.1487011167593964,
+   "hand": 0.33867854491462507,
+   "selfcal+hand": 0.1487011167593964
+  },
+  "POOL_geoid_flood_EMSR407": {
+   "plain": 0.6012179979897121,
+   "selfcal": 0.626920516575689,
+   "hand": 0.6012179979897121,
+   "selfcal+hand": 0.626920516575689
+  },
+  "POOL_geoid_flood_EMSR410": {
+   "plain": 0.3218884736993389,
+   "selfcal": 0.4004522948825575,
+   "hand": 0.3219162330755742,
+   "selfcal+hand": 0.4004522948825575
+  },
+  "POOL_geoid_flood_EMSR419": {
+   "plain": 0.20999667003425915,
+   "selfcal": 0.15879556440796946,
+   "hand": 0.21029280023964347,
+   "selfcal+hand": 0.15879556440796946
+  },
+  "POOL_geoid_flood_EMSR424": {
+   "plain": 0.4423445885573011,
+   "selfcal": 0.35873371628104067,
+   "hand": 0.4426658007692917,
+   "selfcal+hand": 0.36360959074478266
+  },
+  "POOL_geoid_flood_EMSR431": {
+   "plain": 0.14434068719642829,
+   "selfcal": 0.2007885956930543,
+   "hand": 0.19047825239775704,
+   "selfcal+hand": 0.15303969826759573
+  },
+  "POOL_geoid_flood_EMSR438": {
+   "plain": 0.10796148217620853,
+   "selfcal": 0.0009613843935266784,
+   "hand": 0.10796148217620853,
+   "selfcal+hand": 0.0009613843935266784
+  },
+  "POOL_geoid_flood_EMSR442": {
+   "plain": 0.19407473765037112,
+   "selfcal": 0.10900468229035015,
+   "hand": 0.19287284009135175,
+   "selfcal+hand": 0.07299372930317763
+  },
+  "POOL_geoid_flood_EMSR450": {
+   "plain": 0.24313261913557443,
+   "selfcal": 0.28944708488354587,
+   "hand": 0.24313261913557443,
+   "selfcal+hand": 0.28944708488354587
+  },
+  "POOL_geoid_flood_EMSR456": {
+   "plain": 0.6583926362264065,
+   "selfcal": 0.6435143147830082,
+   "hand": 0.6583926362264065,
+   "selfcal+hand": 0.6435143147830082
+  },
+  "POOL_geoid_flood_EMSR471": {
+   "plain": 0.3916794510153247,
+   "selfcal": 0.4131756094372917,
+   "hand": 0.3919501677048395,
+   "selfcal+hand": 0.41009615384615383
+  },
+  "POOL_geoid_flood_EMSR479": {
+   "plain": 0.4545801718506608,
+   "selfcal": 0.4949510809299039,
+   "hand": 0.4545801718506608,
+   "selfcal+hand": 0.4893566628178938
+  },
+  "POOL_geoid_flood_EMSR480": {
+   "plain": 0.2514590711827206,
+   "selfcal": 0.2432090738332611,
+   "hand": 0.2514590711827206,
+   "selfcal+hand": 0.25425195828104036
+  },
+  "POOL_geoid_flood_EMSR483": {
+   "plain": 0.013376210187814307,
+   "selfcal": 0.015115899444988574,
+   "hand": 0.014616276027064409,
+   "selfcal+hand": 0.015927620489180914
+  },
+  "POOL_geoid_flood_EMSR507": {
+   "plain": 0.22063866266609516,
+   "selfcal": 0.16542483721542062,
+   "hand": 0.21972153006635764,
+   "selfcal+hand": 0.13565082293537895
+  },
+  "POOL_geoid_flood_EMSR514": {
+   "plain": 0.604411671964815,
+   "selfcal": 0.5455684530266869,
+   "hand": 0.604411671964815,
+   "selfcal+hand": 0.5455684530266869
+  },
+  "POOL_geoid_flood_EMSR551": {
+   "plain": 0.0,
+   "selfcal": 0.0,
+   "hand": 0.0,
+   "selfcal+hand": 0.0
+  },
+  "POOL_geoid_flood_EMSR557": {
+   "plain": 0.4216611310953536,
+   "selfcal": 0.4743308706124327,
+   "hand": 0.42249930792654794,
+   "selfcal+hand": 0.42107260677896824
+  },
+  "POOL_geoid_flood_EMSR569": {
+   "plain": 0.0,
+   "selfcal": 0.0,
+   "hand": 0.0,
+   "selfcal+hand": 0.0
+  },
+  "POOL_geoid_flood_EMSR572": {
+   "plain": 0.23678043125824255,
+   "selfcal": 0.21870258136924803,
+   "hand": 0.23678043125824255,
+   "selfcal+hand": 0.21397669935152985
+  },
+  "POOL_geoid_flood_EMSR577": {
+   "plain": 0.020930232558139535,
+   "selfcal": 0.0,
+   "hand": 0.020930232558139535,
+   "selfcal+hand": 0.0
+  },
+  "POOL_geoid_flood_EMSR629": {
+   "plain": 0.5114699385738201,
+   "selfcal": 0.458961832895305,
+   "hand": 0.5115920472296241,
+   "selfcal+hand": 0.45897284336957594
+  },
+  "POOL_geoid_flood_EMSR631": {
+   "plain": 0.2189646191624682,
+   "selfcal": 0.4312435505777459,
+   "hand": 0.2189646191624682,
+   "selfcal+hand": 0.4312435505777459
+  },
+  "POOL_geoid_flood_EMSR634": {
+   "plain": 0.20740074486549032,
+   "selfcal": 0.12716149740291566,
+   "hand": 0.2093279990511425,
+   "selfcal+hand": 0.12817662581787947
+  },
+  "POOL_geoid_flood_EMSR639": {
+   "plain": 0.38756604600724487,
+   "selfcal": 0.3226889920011942,
+   "hand": 0.38756604600724487,
+   "selfcal+hand": 0.3226889920011942
+  },
+  "POOL_geoid_flood_EMSR640": {
+   "plain": 0.4237924760842772,
+   "selfcal": 0.3379692527708259,
+   "hand": 0.4245773923269146,
+   "selfcal+hand": 0.3379692527708259
+  },
+  "POOL_geoid_flood_EMSR646": {
+   "plain": 0.0,
+   "selfcal": 0.0,
+   "hand": 0.0,
+   "selfcal+hand": 0.0
+  },
+  "POOL_geoid_flood_EMSR650": {
+   "plain": 0.5726594774397769,
+   "selfcal": 0.5830442840724366,
+   "hand": 0.5726594774397769,
+   "selfcal+hand": 0.5830442840724366
+  },
+  "POOL_kurosiwo_EMSR1111004_USA": {
+   "plain": 0.4078268688662956,
+   "selfcal": 0.27106443897838745,
+   "hand": 0.4116548680122206,
+   "selfcal+hand": 0.27281945400882385
+  },
+  "POOL_kurosiwo_EMSR1111005_Madagascar": {
+   "plain": 0.7678222574017313,
+   "selfcal": 0.7183095579986088,
+   "hand": 0.7681281995338168,
+   "selfcal+hand": 0.7233715164985468
+  },
+  "POOL_kurosiwo_EMSR1111007_Nepal": {
+   "plain": 0.3615864406183655,
+   "selfcal": 0.264378606893747,
+   "hand": 0.36130512564669476,
+   "selfcal+hand": 0.26420568414164936
+  },
+  "POOL_kurosiwo_EMSR1111011_Philippines": {
+   "plain": 0.6006947090931078,
+   "selfcal": 0.49673253371975634,
+   "hand": 0.6009677183162759,
+   "selfcal+hand": 0.4993183885559058
+  },
+  "POOL_kurosiwo_EMSR147_Cumbria": {
+   "plain": 0.5714469626155146,
+   "selfcal": 0.5572666498563952,
+   "hand": 0.5724047394641174,
+   "selfcal+hand": 0.5567464931594963
+  },
+  "POOL_kurosiwo_EMSR174_Skopje": {
+   "plain": 0.6989988762897129,
+   "selfcal": 0.744248838967491,
+   "hand": 0.6993203536205223,
+   "selfcal+hand": 0.7467056293764128
+  },
+  "POOL_kurosiwo_EMSR205_SriLanka": {
+   "plain": 0.5007987979992012,
+   "selfcal": 0.39807537706531,
+   "hand": 0.5025479044201847,
+   "selfcal+hand": 0.39409045371700324
+  },
+  "POOL_kurosiwo_EMSR267_Lithuania": {
+   "plain": 0.4708324494681657,
+   "selfcal": 0.35961014270334657,
+   "hand": 0.4708324494681657,
+   "selfcal+hand": 0.359678318209753
+  },
+  "POOL_kurosiwo_EMSR277_Greece": {
+   "plain": 0.7449054331819855,
+   "selfcal": 0.7334133899420823,
+   "hand": 0.7449054331819855,
+   "selfcal+hand": 0.7372369705269471
+  },
+  "POOL_kurosiwo_EMSR321_Honduras": {
+   "plain": 0.5889728506526118,
+   "selfcal": 0.4593063986341079,
+   "hand": 0.5889728506526118,
+   "selfcal+hand": 0.45942168583678017
+  },
+  "POOL_kurosiwo_EMSR417_Portugal": {
+   "plain": 0.7191068343342105,
+   "selfcal": 0.6164252965025956,
+   "hand": 0.7199479538414778,
+   "selfcal+hand": 0.6221913642689424
+  },
+  "POOL_kurosiwo_EMSR427_Sweden": {
+   "plain": 0.2732825896131693,
+   "selfcal": 0.1842940998055273,
+   "hand": 0.2732825896131693,
+   "selfcal+hand": 0.1842940998055273
+  },
+  "POOL_kurosiwo_EMSR470_Togo": {
+   "plain": 0.8103114936611878,
+   "selfcal": 0.8066845169469915,
+   "hand": 0.8103114936611878,
+   "selfcal+hand": 0.8066845169469915
+  },
+  "POOL_kurosiwo_EMSR498_France": {
+   "plain": 0.4121383870586846,
+   "selfcal": 0.6083892332512525,
+   "hand": 0.4133683886401857,
+   "selfcal+hand": 0.6209093289117724
+  },
+  "POOL_kurosiwo_EMSR561_Malawi": {
+   "plain": 0.7172911275743504,
+   "selfcal": 0.6843276834300557,
+   "hand": 0.7174335410949676,
+   "selfcal+hand": 0.6872421044278686
+  },
+  "POOL_kurosiwo_EMSR562_Australia": {
+   "plain": 0.8562727638431347,
+   "selfcal": 0.6733395512485119,
+   "hand": 0.8562205768833513,
+   "selfcal+hand": 0.6732991095237734
+  }
+ },
+ "selfcal": {
+  "gain": -0.03355532451372384,
+  "groups_helped": 22,
+  "adopted": false
+ },
+ "hand": {
+  "gain": 0.0010831780766529797,
+  "groups_helped": 40,
+  "adopted": false
+ },
+ "selfcal+hand": {
+  "gain": -0.03556325451775788,
+  "groups_helped": 23,
+  "adopted": false
+ }
+}

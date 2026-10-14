@@ -1,0 +1,9 @@
+{
+ "candidates": {
+  "row09_fusion_crossattn": 0.36104331334819334,
+  "row21_fusion_context_seasonal": 0.3799248398346251
+ },
+ "chosen": "row21_fusion_context_seasonal",
+ "rule": "best plain macro IoU; within 0.005 of row09_fusion_crossattn, row09_fusion_crossattn",
+ "add_ons": []
+}
