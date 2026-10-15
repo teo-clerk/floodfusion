@@ -11,6 +11,7 @@ row per line.
 | 2026-10-13 | While researching v1.2, activation metadata (code, date, category, name) of CEMS codes EMSR899–945 was queried to estimate how fast a blind test set accrues. No product, Sentinel-1 pass, map or score of any of them was accessed. Floods among them: EMSR926 (Latvia/Lithuania), EMSR927 (Nepal), EMSR933 (Crete); storms EMSR928 and EMSR930. |
 | 2026-10-13 | GFM availability was measured on the CEMS 2023–26 benchmark (STAC metadata only, no GFM pixel read): 82 of 90 pairs have a GFM product for the exact post-event frame; 8 have none (6 Sentinel-1C frames before GFM added Sentinel-1C in Oct 2025: EMSR796 AOI05/06, EMSR797 AOI01–03, EMSR843 AOI01; 2 Sentinel-1A frames: EMSR711 AOI01, EMSR712 AOI06). Versions: GFM v3.1.0 on 56 pairs, v4.0.0 on 4, v4.1.0 on 22. |
 | 2026-10-13 | v1.1 erratum found before any v1.2 model was trained: TerraMind trained without modality dropout, and its BatchNorm saw sub-batches (`reports/v1_1_erratum.md`). |
+| 2026-10-15 | While fact-checking the v1.2 paper (`paper/paper_v12.tex`), a reviewing agent read the cached activation record of the blind activation EMSR933 (`data/prospective/records`): its product list and the products' statuses. No map, Sentinel-1 pass, sidecar or score of any blind activation was read, and no rule, model or code changed. |
 
 ## Rules fixed before any v1.2 result
 

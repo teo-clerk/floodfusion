@@ -157,7 +157,8 @@ validation) scores **0.371**.
   SAR-only path, which most CEMS pixels need, was barely trained. Trained as described, it leads at both thresholds
   (0.299 at τ*, 0.328 at the oracle threshold).
 - **Absolute agreement is modest.**
-  - CEMS products are drawn on 1–3 m images up to a day from the Sentinel-1 pass, and generalised by an analyst.
+  - CEMS products are drawn on commercial images up to a day from the Sentinel-1 pass (34 of the 75 radar-drawn
+    pairs on very-high-resolution VHR2-class images, 41 on coarser HR+-class images), and generalised by an analyst.
   - The seven activations mapped on optical very-high-resolution images agree with every tested model at only
     0.10–0.13 IoU (indicative, K = 7).
 - **No variant replaces the reference model.**
@@ -264,8 +265,8 @@ four CEMS delineations (COSMO-SkyMed, RADARSAT-2, PAZ) observed, against the del
   - plain BCE 0.726;
   - every stress-curve point within 0.017 IoU of v1.0.
 
-Every report names the git SHA it was produced at, and regenerates from it. The table builders refuse runs
-made from different code, mixed datasets or mixed test sets.
+Every run records the git SHA it was made at, and each report regenerates from its runs. The table builders refuse
+runs made from different code, mixed datasets or mixed test sets.
 
 ## Why this is hard
 
@@ -420,8 +421,8 @@ See [`CITATION.cff`](CITATION.cff). Please also cite Sen1Floods11 (Bonafilia et 
 
 ## Acknowledgements
 
-Contains modified Copernicus Sentinel data, processed by Microsoft Planetary Computer. Contains modified
-Copernicus Emergency Management Service information (2023–2026): rapid-mapping delineations and Global
+Contains modified Copernicus Sentinel data (2015–2026), accessed through Microsoft Planetary Computer; Sentinel-1
+RTC processed by Catalyst (CC BY 4.0). Contains modified Copernicus Emergency Management Service information (2023–2026): rapid-mapping delineations and Global
 Flood Monitoring (GFM) flood maps, © European Union. Copernicus DEM: © DLR e.V.
 2010–2014 and © Airbus Defence and Space GmbH 2014–2018, provided under COPERNICUS by the European Union
 and ESA. JRC Global Surface Water: EC JRC / Google. ESA WorldCover 2021. TerraMind: IBM and ESA.

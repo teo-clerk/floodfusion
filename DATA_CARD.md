@@ -143,7 +143,7 @@ Copernicus GFM flood maps and model predictions, published under each source's t
   (`data/orbit_model.py`, validated to 0.74° worst-case incidence error) and is flagged in its metadata.
 - **Label semantics.** Sen1Floods11 labels *water*, drawn mostly on Sentinel-2: water under canopy
   is under-represented, and cloud-covered pixels are unlabelled. Flood = labelled water minus JRC
-  permanent water. CEMS delineations are generalised maps from very-high-resolution imagery at a
+  permanent water. CEMS delineations are generalised maps from commercial imagery (very high resolution or coarser) at a
   stated time and with their own minimum mapping unit: agreement with them measures two products
   at two instants, not ground truth.
 - **Grids without a usable window** (the label or the swath covering too little of a chip) are
@@ -162,7 +162,8 @@ Copernicus GFM flood maps and model predictions, published under each source's t
   - **Census:** 233 of the 243 activation codes are public; 10 return HTTP 403 and cannot be assessed.
   - **What qualified:** 44 activations and 117 AOIs. The caps leave 90 pairs.
   - **What the tests use:** the 38 activations drawn on radar, excluding EMSR664.
-  - **What the products are:** generalised maps from 1–3 m imagery, up to 24 h from the Sentinel-1 pass. Low IoU
+  - **What the products are:** generalised maps from commercial images, up to 24 h from the Sentinel-1 pass: 34 of the
+    75 radar-drawn pairs come from very-high-resolution (VHR2-class) images, 41 from coarser HR+-class images. Low IoU
     against them partly measures the difference between two products.
   - **Overlap with training data:** five pairs overlap Kuro Siwo training AOIs by place. A sensitivity analysis
     drops them.
