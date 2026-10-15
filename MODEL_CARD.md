@@ -53,6 +53,10 @@
   | --- | --- | --- | --- |
   | v1.2, row 21 | 0.394 | 0.388 | 0.651 |
   | TerraMind-base + LoRA, trained the same way | 0.313 | 0.366 | 0.617 |
+- **On the 38 seen CEMS 2023–26 floods** (frozen models, scored once after the freeze, rebuilt stacks; descriptive):
+  0.417 macro IoU at τ*, against 0.405 for the fair TerraMind, 0.407 for v1.1's best and 0.321 for Copernicus GFM
+  (on the 34 floods it covers, where v1.2 scores 0.419). Only the gap to GFM is significant
+  (`reports/v12_cems_seen_tests.md`).
 - **Its confirmatory test is still to come.** Copernicus flood activations from EMSR899 on are scored by the frozen
   models and sealed until 20 activations in 15 clusters are scored, or 31 December 2027
   (`reports/protocol_v1_2.md`). The checkpoints are pinned by sha256 in `reports/v12_freeze.json`.

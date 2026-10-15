@@ -14,8 +14,12 @@ decision since is in `reports/v1_2_deviations.md`.
 - **The fair TerraMind.** TerraMind-base + LoRA was trained on the same 7,006 chips with the same learning-rate
   budget. In CV (chip level, 81 groups) it scores 0.313 at τ* against row 21's 0.394. Most of the gap is threshold
   transfer: 0.366 vs 0.388 at the oracle threshold, 0.617 vs 0.651 AP.
-- **Copernicus GFM** scores 0.321 on the 34 seen CEMS floods it covers, against 0.395 for v1.1's best model
-  (descriptive).
+- **The frozen models on the 38 seen CEMS floods** (scored once after the freeze, rebuilt stacks; descriptive):
+  v1.2 0.417, fair TerraMind 0.405, v1.1's best 0.407. On the 34 floods GFM covers, GFM scores 0.321 against
+  v1.2's 0.419.
+  - **With the blind test's own analysis:** ours beats GFM (+0.098, significant at both units), and nearly ties
+    TerraMind (+0.012 IoU, +0.015 AP) and v1.1's best (+0.010), neither significant
+    (`reports/v12_cems_seen_tests.md`).
 
 ### The blind test
 - **Frozen** at tag `v1.2.0-freeze`: row 21 and TerraMind-base + LoRA (3 seeds each), v1.1's best, and GFM. 36 files
