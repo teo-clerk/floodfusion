@@ -469,8 +469,10 @@ def _blind(reports: Path, records: Path = ROOT / "data" / "prospective" / "recor
 
         found = {a: json.loads(_read(records / f"{a}.json")) for a in scored if (records / f"{a}.json").is_file()}
         k_clusters = len(set(activation_clusters(found).values())) if len(found) == len(scored) else None
+    activations = {r["activation"] for r in state.values()}
     return {"status": "accruing",
-            "status_text": f"Accruing: {len(scored)} activations of the primary stratum scored, sealed.",
+            "status_text": f"Running: {len(activations)} flood activation{'s' if len(activations) != 1 else ''} "
+                           f"seen since EMSR899; {len(scored)} of the 20 needed scored, sealed.",
             "k_activations": len(scored), "k_clusters": k_clusters, "floods": floods}
 
 
