@@ -116,7 +116,10 @@
       .map(([key, row]) => ({ key, ...row, value: row[metric], ci: (row.ci || {})[metric] || [NaN, NaN] }))
       .filter((r) => r.value != null && !Number.isNaN(r.value))
       .sort((a, b) => b.value - a.value);
-    const W = Math.max(320, container.clientWidth || 760), rowH = 30, top = 26, left = Math.min(260, W * 0.42);
+    const W = Math.max(300, container.clientWidth || 760);
+    // Narrow screens: each label sits above its bar, so long model names never run off the left edge.
+    const narrow = W < 560, rowH = narrow ? 44 : 30, top = 26, left = narrow ? 4 : Math.min(260, W * 0.42);
+    const barY = narrow ? 18 : 6, barH = narrow ? 14 : rowH - 14, mid = barY + barH / 2;
     const H = top + rows.length * rowH + 30, right = 56;
     const max = Math.max(0.1, ...rows.map((r) => (Number.isFinite(r.ci[1]) ? r.ci[1] : r.value)));
     const x = (v) => left + (v / max) * (W - left - right);
@@ -128,16 +131,17 @@
     }
     rows.forEach((r, i) => {
       const y = top + i * rowH, c = colourOf(r.key);
-      const bar = s("rect", { x: left, y: y + 6, width: Math.max(1, x(r.value) - left), height: rowH - 14, rx: 3,
+      const bar = s("rect", { x: left, y: y + barY, width: Math.max(1, x(r.value) - left), height: barH, rx: 3,
         tabindex: 0, style: { fill: c, opacity: 0.85 } });
       const ci = Number.isFinite(r.ci[0]) ? `95 % interval ${fixed(r.ci[0])} – ${fixed(r.ci[1])}` : "no interval (fewer than 2 units)";
       withTip(bar, `${r.name}: ${fixed(r.value)} (${ci}; ${r.k} ${table.unit}s)`);
-      svg.append(s("text", { x: left - 8, y: y + rowH / 2 + 4, "text-anchor": "end" }, r.name), bar);
+      svg.append(narrow ? s("text", { x: left, y: y + 13, "text-anchor": "start" }, r.name)
+                        : s("text", { x: left - 8, y: y + rowH / 2 + 4, "text-anchor": "end" }, r.name), bar);
       if (Number.isFinite(r.ci[0])) {
-        svg.append(s("line", { x1: x(r.ci[0]), x2: x(r.ci[1]), y1: y + rowH / 2, y2: y + rowH / 2,
+        svg.append(s("line", { x1: x(r.ci[0]), x2: x(r.ci[1]), y1: y + mid, y2: y + mid,
                                style: { stroke: "var(--text)", "stroke-width": 1.5 } }));
       }
-      svg.append(s("text", { x: x(Math.max(r.value, Number.isFinite(r.ci[1]) ? r.ci[1] : r.value)) + 6, y: y + rowH / 2 + 4,
+      svg.append(s("text", { x: x(Math.max(r.value, Number.isFinite(r.ci[1]) ? r.ci[1] : r.value)) + 6, y: y + mid + 4,
                              class: "num" }, fixed(r.value)));
     });
     container.replaceChildren(svg);
