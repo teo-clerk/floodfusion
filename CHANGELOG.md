@@ -2,6 +2,13 @@
 
 All notable changes; the format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Changed
+- `CITATION.cff` and `LICENSE` give the author's full name, Teo Clerici Jurado.
+- CI, Pages and the live-catalogue check run `actions/checkout` 7.0.1 and `astral-sh/setup-uv` 10.3.0 (Node.js 24),
+  pinned by commit SHA (Dependabot #1, #2).
+
 ## [1.2.0] — 2026-10
 
 A fair fight with TerraMind, Copernicus's operational flood maps as a yardstick, and a blind test on floods no model

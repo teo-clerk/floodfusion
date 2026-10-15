@@ -3,7 +3,7 @@ message: "If you use this software, please cite it as below."
 title: "floodfusion: SAR-first Sentinel-1 / Sentinel-2 fusion for near-real-time flood mapping"
 type: software
 authors:
-  - family-names: Clerk
+  - family-names: "Clerici Jurado"
     given-names: Teo
 version: 1.2.0
 license: MIT
