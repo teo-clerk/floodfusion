@@ -150,6 +150,9 @@ Found by a fact-check of the documents against the reports. The rules above stan
    - **What makes them blind:** no model was trained or tuned on them, none was looked at during development (only
      the metadata disclosed in §2.2), and every one is scored only after the freeze.
    - **Contamination:** the training data ends at EMSR656 (2023), and TerraMind's pre-training ends in 2023.
+   - **Frozen wording:** the same phrase survives in frozen code, which cannot change without breaking the freeze
+     check: `prospective.py`'s docstring, and the header the reveal writes (`blind_analysis.py`: "scored by models
+     frozen before it"). This correction applies to both, and to the verdict report they produce.
 2. **Group counts.** §2.1 and §3 quote "71 groups", an estimate from a metadata probe. The built pool has 81 groups,
    and 79 of them have flooded pixels in their test stacks: the unit set of the selection and add-on rules.
 3. **P5's AP condition predates the CV.** It was committed here (§4) on 2026-10-13, before any v1.2 run. Amendment 1's
