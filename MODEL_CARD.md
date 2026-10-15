@@ -27,6 +27,41 @@
 - **Code and reproduction.** `src/floodfusion`; every reported number regenerates from a git SHA
   (`make demo`, `make s1f11`, `make forli`; v1.1: `scripts/v11_queue.sh all`). Licence: MIT.
 
+## v1.2's model (frozen for the blind test)
+
+- **What it adds: a seasonal radar reference (row 21).** Beside the post- and pre-event images, the model reads the
+  median Sentinel-1 backscatter of the same orbit around the same date a year earlier (VV, VH), and the change from
+  it.
+  - **The question it lets the model ask:** "is this water unusual for this place and season?", not only "is this
+    pixel water?".
+  - **How it enters:** the three channels and an availability indicator join the SAR + terrain encoder input.
+  - **Where there is no reference** (fewer than three passes a year earlier), the channels are a learned constant and
+    the indicator is 0.
+  - **Training:** context dropout (p = 0.3) trains that case.
+- **Training data: one pool of flood labels.**
+  - **Sources:** Kuro Siwo (rebuilt with the DEM fix), plus the GEOID-Flood events before EMSR656 that Kuro Siwo
+    lacks. In all, 7,006 chips from 138 floods, in 81 groups of floods within 100 km.
+  - **The frozen model:** trained with seeds 42–44 on the all-groups split (63 groups train, 17 validate early
+    stopping and calibration), at learning rate 3e-4.
+- **How it was chosen.** By rules fixed before the runs (`reports/v1_2_deviations.md`).
+  - **CV:** in grouped five-fold CV it beat the same model without context on whole test scenes: 0.380 vs 0.361 macro
+    IoU at τ*, better in 49 of 79 groups. Exploratory and single-seed.
+  - **No add-on:** neither per-scene self-calibration (−0.042) nor a HAND cut (+0.001, helping 30 of 79 groups) met
+    the adoption rule.
+- **Its comparison in CV** (chip level, macro over the 79 of 81 groups with a defined IoU; `reports/v12_pool_cv.md`):
+
+  | Model | IoU at τ* | at a cross-fitted τ | at each group's best τ | AP (fold-level) |
+  | --- | --- | --- | --- | --- |
+  | v1.2, row 21 | 0.394 | 0.392 | 0.430 | 0.651 |
+  | TerraMind-base + LoRA, trained the same way | 0.313 | 0.369 | 0.406 | 0.617 |
+- **On the 38 seen CEMS 2023–26 floods** (frozen models, scored once after the freeze, rebuilt stacks; descriptive):
+  0.417 macro IoU at τ*, against 0.405 for the fair TerraMind, 0.407 for v1.1's best and 0.321 for Copernicus GFM
+  (on the 34 floods it covers, where v1.2 scores 0.419). Only the gap to GFM is significant
+  (`reports/v12_cems_seen_tests.md`).
+- **Its confirmatory test is still to come.** Copernicus flood activations from EMSR899 on are scored by the frozen
+  models and sealed until 20 activations in 15 clusters are scored, or 31 December 2027
+  (`reports/protocol_v1_2.md`). The checkpoints are pinned by sha256 in `reports/v12_freeze.json`.
+
 ## Intended use
 
 - A **first-guess flood extent** for a rapid-mapping analyst after a flood, from the first Sentinel-1
@@ -77,15 +112,17 @@ All numbers come from the release runs; each report records its git SHA.
   | --- | --- | --- |
   | Fusion | 0.258 | 0.397 |
   | SAR-only U-Net | 0.281 | 0.394 |
-  | TerraMind-small | 0.226 | — |
+  | TerraMind-small, as run in v1.1 | 0.226 | — |
+  | TerraMind-small, trained as described (erratum) | 0.299 | — |
 
   The physics baseline scores 0.371.
 
   **The pre-registered tests:**
   - Flood-label recipe beats water-label recipe on the same Kuro Siwo chips: +0.06, supported. Part of this is
     agreement of definitions, since CEMS maps are flood maps.
-  - Fusion beats TerraMind at each model's own threshold: +0.03, supported. At the best single threshold, chosen
-    in-sample, the order reverses (0.260 vs 0.270).
+  - Fusion beats TerraMind at each model's own threshold: +0.03, supported as run. **Withdrawn by the erratum**
+    (`reports/v1_1_erratum.md`): TerraMind had been trained without modality dropout. Trained as described, it beats
+    fusion by 0.042 per activation (fusion better in 10/38) and 0.043 per cluster, significant at both.
   - Fusion beats the SAR U-Net where optical is usable: +0.04, not significant on 8 activations, and too few clusters
     for a verdict. Result: no verdict.
   - Fusion is non-inferior without optical: −0.02, which holds per activation, not per cluster. Not supported.
@@ -97,7 +134,8 @@ All numbers come from the release runs; each report records its git SHA.
   - The same model without optical: 0.383.
   - SAR-only U-Net: 0.365.
   - Physics baseline + MNDWI: 0.444.
-  - TerraMind-1.0-small, frozen: 0.576.
+  - TerraMind-1.0-small, frozen: 0.576 (v1.0, one seed). Over v1.1's three seeds: 0.572 as run, 0.597 trained as
+    described (erratum).
   - Fusion beats SAR-only on 10 of 10 events (Holm p = 0.018). Without optical, it equals SAR-only.
   - At the oracle threshold, fusion scores 0.668: some of the gap to τ\* is threshold transfer between events.
 - **Per event**, fusion ranges from 0.443 (Pakistan) to 0.852 (Mekong); see
@@ -164,7 +202,7 @@ marked "dry" under canopy, in a city, in radar shadow, or outside the acquisitio
 
 ## Data and attribution
 
-See [`DATA_CARD.md`](DATA_CARD.md). Contains modified Copernicus Sentinel data. CEMS products:
-© European Union, Copernicus Emergency Management Service. Kuro Siwo annotations (training and cross-validation of
-the v1.1 Kuro Siwo models): Bountos et al., NeurIPS 2024, CC BY 4.0. Sen1Floods11 labels: Bonafilia et al., 2020, no
-licence declared, never redistributed.
+See [`DATA_CARD.md`](DATA_CARD.md). Contains modified Copernicus Sentinel data. Contains modified Copernicus Emergency
+Management Service information (2023–2026): rapid-mapping delineations and Global Flood Monitoring (GFM) flood maps,
+© European Union. Kuro Siwo annotations (training and cross-validation of the v1.1 Kuro Siwo models): Bountos et al.,
+NeurIPS 2024, CC BY 4.0. Sen1Floods11 labels: Bonafilia et al., 2020, no licence declared, never redistributed.

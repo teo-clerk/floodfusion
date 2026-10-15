@@ -219,17 +219,31 @@ def _terramind(cfg: ModelConfig, *, pretrained: bool = True) -> nn.Module:
 
 
 #: Architectures whose constructor fetches pre-trained weights (the rest train from scratch).
-_PRETRAINED = {"terramind_tiny", "terramind_small"}
+_PRETRAINED = {"terramind_tiny", "terramind_small", "terramind_base_fair", "terramind_base_fair_frozen",
+               "terramind_small_fair"}
+
+
+def _context(cfg: ModelConfig) -> nn.Module:
+    from floodfusion.data.sidecars import sidecars_for
+    from floodfusion.models.segmenter import ContextFloodSegmenter
+
+    return ContextFloodSegmenter(cfg, sidecars_for(cfg.architecture))
 
 
 _REGISTRY: dict[str, Callable[..., nn.Module]] = {
     "terramind_tiny": _terramind,
     "terramind_small": _terramind,
+    "terramind_base_fair": _terramind,
+    "terramind_base_fair_frozen": _terramind,
+    "terramind_small_fair": _terramind,
     "unet_sar": UNetSegmenter,
     "unet_optical": UNetSegmenter,
     "fusion_early": EarlyFusionSegmenter,
     "fusion_late": LateFusionSegmenter,
     "fusion_crossattn": FloodSegmenter,
+    "fusion_crossattn_ctx": _context,
+    "fusion_crossattn_ctx_seasonal": _context,
+    "fusion_crossattn_ctx_aef": _context,
 }
 
 

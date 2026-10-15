@@ -47,6 +47,17 @@ TORCH_FREE_MODULES = (
     "floodfusion.cems_benchmark",
     "floodfusion.cems_scores",
     "floodfusion.crossfit",
+    # v1.2
+    "floodfusion.data.gfm",
+    "floodfusion.histograms",
+    "floodfusion.data.geoid",
+    "floodfusion.data.sidecars",
+    "floodfusion.data.alphaearth",
+    "floodfusion.prospective",
+    "floodfusion.data.pool",
+    "floodfusion.cv_addons",
+    "floodfusion.tuning",
+    "floodfusion.blind_analysis",
 )
 
 

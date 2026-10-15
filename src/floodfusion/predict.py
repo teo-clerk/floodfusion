@@ -83,7 +83,10 @@ def predict_stack(model: Any, cfg: Any, stack_path: Path, *, temperature: float,
     has_optical = bool(meta.get("has_optical", True)) and not force_sar_only
     records = _window_records(stack_path, height, width, has_optical, meta)
     data_cfg = replace(cfg.data, chip_source="raster")  # a product is never made of simulated pixels
-    loader = build_dataloader(FloodChipDataset(records, cfg.norm, data_cfg, cfg.grid, context_px=EVAL_CONTEXT_PX),
+    from floodfusion.data.sidecars import sidecars_for
+
+    loader = build_dataloader(FloodChipDataset(records, cfg.norm, data_cfg, cfg.grid, context_px=EVAL_CONTEXT_PX,
+                                               sidecars=sidecars_for(cfg.model.architecture)),
                               data_cfg, batch_size=batch_size, shuffle=False, drop_last=False)
     prob = np.full((height, width), np.nan, dtype=np.float32)
     optical_used = np.zeros((height, width), dtype=bool)

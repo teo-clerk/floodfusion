@@ -238,7 +238,12 @@ class _Model:
 
 #: The SAR-only evaluation of a model with an optical input, beside its run: row 9's is row 11.
 SAR_ONLY_SIBLINGS = {"row09_fusion_crossattn": "row11_fusion_eval_sar_only",
-                     "cmp_terramind_small": "cmp_terramind_small__eval_sar_only"}
+                     "cmp_terramind_small": "cmp_terramind_small__eval_sar_only",
+                     **{f"cmp_{a}": f"cmp_{a}__eval_sar_only" for a in ("terramind_base_fair",
+                                                                         "terramind_base_fair_frozen",
+                                                                         "terramind_small_fair")},
+                     **{n: f"{n}__eval_sar_only" for n in ("row20_fusion_context", "row21_fusion_context_seasonal",
+                                                           "row22_fusion_context_aef")}}
 
 
 def sar_only_calibration(run_dir: Path) -> dict[str, float] | None:
@@ -248,9 +253,12 @@ def sar_only_calibration(run_dir: Path) -> dict[str, float] | None:
     both (row 9 and row 11); a window without usable optical must be read with the second.
     """
     sibling = SAR_ONLY_SIBLINGS.get(run_dir.parent.name)
-    path = run_dir.parent.parent / sibling / run_dir.name / "eval_test.json" if sibling else None
-    if path is None or not path.is_file():
-        return None
+    if sibling is None:
+        return None                                  # a model without an optical input: one predictor
+    path = run_dir.parent.parent / sibling / run_dir.name / "eval_test.json"
+    if not path.is_file():
+        # Silently reading its no-optical windows with the with-optical calibration would change scores unseen.
+        raise FileNotFoundError(f"{run_dir} needs its SAR-only calibration {path}: evaluate the sibling first")
     return json.loads(path.read_text(encoding="utf-8"))["calibration"]
 
 

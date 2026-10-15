@@ -23,7 +23,7 @@ from typing import Any
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
-SITE_FILES = ("index.html", "style.css", "app.js")
+SITE_FILES = ("index.html", "style.css", "app.js", "arena.html", "arena.js")
 FIGURES = ("gate_map.png",)
 HERO_PANELS = ("forli_vv.png", "forli_fusion.png", "forli_cems.png")
 EVENT_PREFIX = "S1F11_"
@@ -314,6 +314,178 @@ def site_data(root: Path = ROOT) -> dict[str, Any]:
             "replication": replication(reports)}
 
 
+# --- Arena (v1.2) -----------------------------------------------------------------------------------
+#: The v1.2 preview tables: (unit, restricted to units GFM covers) -> one table each.
+ARENA_TABLES = (("activation", False), ("cluster", False), ("activation", True), ("cluster", True))
+ARENA_METRICS = ("iou_tau", "iou_tau_binned", "iou_selfcal", "iou_oracle", "ap")
+#: Readable names for the frozen spec's models (the spec itself is pinned by sha256 and keeps its own names).
+ARENA_NAMES = {"ours": "v1.2 · fusion + seasonal context (frozen)",
+               "tm_fair": "TerraMind-base + LoRA, fair (frozen)",
+               "v11": "v1.1 best · fusion, Kuro Siwo flood labels"}
+ARENA_MANIFEST = "arena-manifest.json"
+
+
+def _finite(x: Any) -> float | None:
+    return None if x is None or (isinstance(x, float) and np.isnan(x)) else float(x)
+
+
+#: The scoreboard's sources, best first: every model on the CEMS stacks rebuilt with the DEM fix (the frozen v1.2
+#: models included), else the preview of the v1.1 models on the original stacks.
+ARENA_SOURCES = (("v12_cems_rebuilt.json", "rebuilt"), ("v12_cems_preview.json", "preview"))
+
+
+def _arena_scoreboard(reports: Path) -> dict[str, Any]:
+    """The best available scoring of the CEMS benchmark (:data:`ARENA_SOURCES`), or ``pending``."""
+    found = next(((reports / name, source) for name, source in ARENA_SOURCES if (reports / name).is_file()), None)
+    if found is None:
+        return {"status": "pending"}
+    path, source = found
+    report = json.loads(_read(path))
+    tables = []
+    for unit, gfm in ARENA_TABLES:
+        table = next((t for t in report["tables"] if t["unit"] == unit and t["gfm_common"] is gfm), None)
+        if table is None:
+            raise KeyError(f"{path.name}: no table for unit={unit!r}, gfm_common={gfm}")
+        models = {}
+        for key, row in table["models"].items():
+            missing = [m for m in ARENA_METRICS if m not in row]
+            if missing:
+                raise KeyError(f"{path.name}: {key} lacks {missing}")
+            models[key] = {"name": ARENA_NAMES.get(key, row["name"]), "k": row["k"],
+                           **{m: _finite(row[m]) for m in ARENA_METRICS},
+                           "ci": {m: [_finite(v) for v in row["ci"][m]] for m in ARENA_METRICS}}
+        tables.append({"unit": unit, "gfm_common": gfm, "units": table["units"], "models": models})
+    return {"status": "ok", "source": source, "tables": tables, "n_pairs": report["n_pairs"],
+            "gfm_pairs": report["gfm_pairs"]}
+
+
+def _arena_maps(assets: Path) -> dict[str, Any]:
+    """The quicklook manifest with each layer's file, or ``pending``; a listed file that is missing fails loudly."""
+    path = assets / ARENA_MANIFEST
+    if not path.is_file():
+        return {"status": "pending", "pairs": []}
+    manifest = json.loads(_read(path))
+    pairs = []
+    for pair in manifest["pairs"]:
+        layers = {}
+        for key, layer in pair["layers"].items():
+            name = f"arena-{pair['key']}-{key}.webp"
+            if not (assets / name).is_file():
+                raise FileNotFoundError(f"{path.name} lists {name}, which is not in {assets}")
+            layers[key] = {"name": layer["name"], "iou": _finite(layer["iou"]), "src": f"assets/{name}"}
+        pairs.append({**{k: pair[k] for k in ("key", "activation", "aoi", "product", "sensors", "product_time",
+                                              "pass_time", "flood_km2")}, "layers": layers})
+    return {"status": "ok", "pairs": pairs}
+
+
+def _p4c(reports: Path) -> str | None:
+    """Erratum 1's corrected P4 in one sentence, or None while its report does not exist."""
+    path = reports / "v1_1_erratum_p4.json"
+    if not path.is_file():
+        return None
+    tests = json.loads(_read(path))["tests"]
+    parts = []
+    for unit in ("activation", "cluster"):
+        t = next(x for x in tests[unit] if x["id"] == "P4c")
+        parts.append(f"per {unit} {t['delta']:+.3f} [{t['ci'][0]:+.3f}, {t['ci'][1]:+.3f}], fusion better on "
+                     f"{t['wins']}/{t['k']}, p = {t['p']:.3f}")
+    reversed_ = all(next(x for x in tests[u] if x["id"] == "P4c")["delta"] < 0 for u in ("activation", "cluster"))
+    lead = "H4 reverses: trained as described, TerraMind beats fusion. " if reversed_ else ""
+    return (lead + "Corrected P4 (fusion − TerraMind): " + "; ".join(parts)
+            + " (v1.1 as run: +0.031 and +0.039).")
+
+
+#: v1.1's models scored on both the original and the rebuilt CEMS stacks: their key in each report.
+DEM_PAIRS = {"s1f11_r9": "s1f11_r9", "ks_r9_flood": "v11", "s1f11_r4": "s1f11_r4", "ks_r4": "ks_r4", "r2": "r2",
+             "s1f11_tm_fixed": "s1f11_tm_fixed"}
+#: The models in DEM_PAIRS that read no terrain (the SAR U-Nets have use_terrain off; TerraMind has no terrain input).
+NO_TERRAIN = frozenset({"s1f11_r4", "ks_r4", "s1f11_tm_fixed"})
+
+
+def _dem_effect(reports: Path) -> str | None:
+    """Erratum 2's measured effect in one sentence, or None until the rebuilt stacks are scored."""
+    paths = [reports / n for n in ("v12_cems_preview.json", "v12_cems_rebuilt.json", "v1_1_erratum2_p4.json")]
+    if not all(p.is_file() for p in paths):
+        return None
+
+    def per_activation(path: Path) -> dict[str, Any]:
+        tables = json.loads(_read(path))["tables"]
+        return next(t for t in tables if t["unit"] == "activation" and not t["gfm_common"])["models"]
+
+    old, new = per_activation(paths[0]), per_activation(paths[1])
+    change = {o: new[n]["iou_tau"] - old[o]["iou_tau"] for o, n in DEM_PAIRS.items() if o in old and n in new}
+    terrain = [v for k, v in change.items() if k not in NO_TERRAIN]
+    other = [abs(v) for k, v in change.items() if k in NO_TERRAIN]
+    if not terrain or not other:
+        raise KeyError(f"{paths[1].name}: the erratum-2 models are missing")
+    t = next(x for x in json.loads(_read(paths[2]))["tests"]["activation"] if x["id"] == "P4c")
+    holds = "the reversal of H4 holds" if t["delta"] < 0 else "the reversal of H4 does not hold"
+    return (f"Measured on the rebuilt CEMS stacks: the models that read terrain (fusion, the physics baseline) move by "
+            f"{min(terrain):+.3f} to {max(terrain):+.3f} IoU; the others by at most {max(other):.4f}, through the scored "
+            f"region alone. Corrected P4 there: "
+            f"per activation {t['delta']:+.3f} [{t['ci'][0]:+.3f}, {t['ci'][1]:+.3f}], fusion better on "
+            f"{t['wins']}/{t['k']}: {holds}.")
+
+
+def _errata(reports: Path) -> list[dict[str, Any]]:
+    link = "https://github.com/teo-clerk/floodfusion/blob/main/reports/v1_1_erratum.md"
+    p4c, dem = _p4c(reports), _dem_effect(reports)
+    return [
+        {"id": "dropout", "title": "TerraMind trained without modality dropout",
+         "summary": "Its config set modality dropout to 0.5, but the training loop applied it only to the fusion "
+                    "models, so TerraMind's radar-only mode, used on most Copernicus floods, was barely trained. "
+                    "Its decoder's BatchNorm also saw sub-batches of one to three chips.",
+         "resolved": p4c is not None, "status": "Corrected re-run reported" if p4c else "Fixed · re-run in progress",
+         "result": p4c, "link": link},
+        {"id": "dem", "title": "Zero terrain past a DEM tile edge",
+         "summary": "Copernicus GLO-30 declares no nodata, so past a 1° tile boundary the terrain was read as flat "
+                    "ground at 0 m: slope and height above drainage were 0 on about 15 % of the CEMS benchmark's "
+                    "area and 6–9 % of the training sets'. TerraMind reads no terrain.",
+         "resolved": dem is not None,
+         "status": "Measured on the rebuilt stacks" if dem else "Fixed · data rebuilt for v1.2", "result": dem,
+         "link": link},
+    ]
+
+
+def _blind(reports: Path, records: Path = ROOT / "data" / "prospective" / "records") -> dict[str, Any]:
+    """The blind test's progress, counted as the stopping rule counts it; statuses only (scores stay sealed).
+
+    The ledger is append-only: a pair's last line is its state. Activations count in the primary stratum only. Their
+    clusters need each activation's event time and extent, read from the runner's local records; without them the
+    cluster count is unknown (None), never guessed.
+    """
+    ledger = reports / "prospective" / "ledger.jsonl"
+    if not ledger.is_file():
+        return {"status": "not started", "status_text": "Not started: the models are frozen and the runner switched "
+                "on at the end of v1.2.", "k_activations": 0, "k_clusters": 0, "floods": []}
+    state: dict[str, dict[str, Any]] = {}
+    for line in _read(ledger).splitlines():
+        if line.strip():
+            row = json.loads(line)
+            state[row["key"]] = row
+    floods = [{"code": k, "date": r.get("event_date"), "status": r["status"]} for k, r in sorted(state.items())]
+    scored = sorted({r["activation"] for r in state.values() if r["status"] == "scored" and r.get("stratum") == "sar"})
+    k_clusters: int | None = 0
+    if scored:
+        from floodfusion.cems_scores import activation_clusters
+
+        found = {a: json.loads(_read(records / f"{a}.json")) for a in scored if (records / f"{a}.json").is_file()}
+        k_clusters = len(set(activation_clusters(found).values())) if len(found) == len(scored) else None
+    activations = {r["activation"] for r in state.values()}
+    return {"status": "accruing",
+            "status_text": f"Running: {len(activations)} flood activation{'s' if len(activations) != 1 else ''} "
+                           f"seen since EMSR899; {len(scored)} of the 20 needed scored, sealed.",
+            "k_activations": len(scored), "k_clusters": k_clusters, "floods": floods}
+
+
+def arena_data(root: Path = ROOT) -> dict[str, Any]:
+    """Everything the Arena shows, read from the committed reports and quicklooks."""
+    reports = root / "reports"
+    version = tomllib.loads(_read(root / "pyproject.toml"))["project"]["version"]
+    return {"version": version, "scoreboard": _arena_scoreboard(reports), "maps": _arena_maps(root / "assets"),
+            "errata": _errata(reports), "blind": _blind(reports)}
+
+
 # --- Figures ----------------------------------------------------------------------------------------
 
 def _runs(mask: np.ndarray) -> list[tuple[int, int]]:
@@ -362,6 +534,12 @@ def build(out: Path, root: Path = ROOT) -> Path:
     hero_panels(root / "assets" / "forli_hero.png", assets)
     payload = json.dumps(data, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
     (out / "data.js").write_text(f"window.FLOODFUSION = {payload};\n", encoding="utf-8")
+    arena = arena_data(root)
+    for pair in arena["maps"]["pairs"]:
+        for layer in pair["layers"].values():
+            shutil.copy2(root / layer["src"], assets / Path(layer["src"]).name)
+    payload = json.dumps(arena, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+    (out / "arena-data.js").write_text(f"window.FLOODFUSION_ARENA = {payload};\n", encoding="utf-8")
     return out / "index.html"
 
 

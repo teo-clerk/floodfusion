@@ -1,0 +1,705 @@
+{
+ "seed": "arena-v12",
+ "colours": {
+  "hit": "#0072B2",
+  "false_alarm": "#E69F00",
+  "miss": "#CC79A7",
+  "outline": "#FFD23F"
+ },
+ "pairs": [
+  {
+   "key": "EMSR657_AOI01",
+   "activation": "EMSR657",
+   "aoi": 1,
+   "product": "EMSR657_AOI01_DEL_MONIT06",
+   "sensors": [
+    "COSMO-SkyMed"
+   ],
+   "product_time": "2023-04-08T16:22:00+00:00",
+   "pass_time": "2023-04-08T15:55:58.068044+00:00",
+   "tile": "EMSR657_AOI01_t02_02",
+   "flood_km2": 24.81,
+   "layers": {
+    "radar": {
+     "name": "Sentinel-1 VV",
+     "iou": null
+    },
+    "cems": {
+     "name": "Copernicus EMS map",
+     "iou": null
+    },
+    "s1f11_r4": {
+     "name": "SAR U-Net (S1F11)",
+     "iou": 0.6250418337047929
+    },
+    "s1f11_r9": {
+     "name": "Fusion (S1F11)",
+     "iou": 0.48961925250383426
+    },
+    "s1f11_tm": {
+     "name": "TerraMind-small (S1F11)",
+     "iou": 0.6645490465175479
+    },
+    "ks_r4": {
+     "name": "SAR U-Net (Kuro Siwo, flood)",
+     "iou": 0.7646903698740952
+    },
+    "ks_r9_flood": {
+     "name": "Fusion (Kuro Siwo, flood labels)",
+     "iou": 0.7614990256949415
+    },
+    "ks_r9_water": {
+     "name": "Fusion (Kuro Siwo, water labels)",
+     "iou": 0.7310011647275414
+    },
+    "r2": {
+     "name": "Physics baseline (row 2)",
+     "iou": 0.7360759032634032
+    },
+    "r2s": {
+     "name": "Physics baseline, seasonal reference (row 2s)",
+     "iou": 0.7444764351980847
+    },
+    "s1f11_tm_fixed": {
+     "name": "TerraMind-small (S1F11), corrected",
+     "iou": 0.6260931118132287
+    },
+    "gfm": {
+     "name": "Copernicus GFM (ensemble)",
+     "iou": 0.690190329063803
+    }
+   }
+  },
+  {
+   "key": "EMSR668_AOI03",
+   "activation": "EMSR668",
+   "aoi": 3,
+   "product": "EMSR668_AOI03_DEL_PRODUCT",
+   "sensors": [
+    "RADARSAT-2"
+   ],
+   "product_time": "2023-05-25T05:27:00+00:00",
+   "pass_time": "2023-05-25T05:40:07.829581+00:00",
+   "tile": "EMSR668_AOI03_t00_00",
+   "flood_km2": 0.79,
+   "layers": {
+    "radar": {
+     "name": "Sentinel-1 VV",
+     "iou": null
+    },
+    "cems": {
+     "name": "Copernicus EMS map",
+     "iou": null
+    },
+    "s1f11_r4": {
+     "name": "SAR U-Net (S1F11)",
+     "iou": 0.04656992084432718
+    },
+    "s1f11_r9": {
+     "name": "Fusion (S1F11)",
+     "iou": 0.07730905036238617
+    },
+    "s1f11_tm": {
+     "name": "TerraMind-small (S1F11)",
+     "iou": 0.07573246296249075
+    },
+    "ks_r4": {
+     "name": "SAR U-Net (Kuro Siwo, flood)",
+     "iou": 0.04366655928988153
+    },
+    "ks_r9_flood": {
+     "name": "Fusion (Kuro Siwo, flood labels)",
+     "iou": 0.04926247044251773
+    },
+    "ks_r9_water": {
+     "name": "Fusion (Kuro Siwo, water labels)",
+     "iou": 0.06918027268136677
+    },
+    "r2": {
+     "name": "Physics baseline (row 2)",
+     "iou": 0.07216651473716196
+    },
+    "r2s": {
+     "name": "Physics baseline, seasonal reference (row 2s)",
+     "iou": 0.0909294179026608
+    },
+    "s1f11_tm_fixed": {
+     "name": "TerraMind-small (S1F11), corrected",
+     "iou": 0.06534481308018061
+    },
+    "gfm": {
+     "name": "Copernicus GFM (ensemble)",
+     "iou": 0.0
+    }
+   }
+  },
+  {
+   "key": "EMSR706_AOI03",
+   "activation": "EMSR706",
+   "aoi": 3,
+   "product": "EMSR706_AOI03_DEL_MONIT01",
+   "sensors": [
+    "RADARSAT-2"
+   ],
+   "product_time": "2023-11-11T17:34:00+00:00",
+   "pass_time": "2023-11-12T06:07:37.875877+00:00",
+   "tile": "EMSR706_AOI03_t00_01",
+   "flood_km2": 2.78,
+   "layers": {
+    "radar": {
+     "name": "Sentinel-1 VV",
+     "iou": null
+    },
+    "cems": {
+     "name": "Copernicus EMS map",
+     "iou": null
+    },
+    "s1f11_r4": {
+     "name": "SAR U-Net (S1F11)",
+     "iou": 0.5240366649814258
+    },
+    "s1f11_r9": {
+     "name": "Fusion (S1F11)",
+     "iou": 0.4530952066302932
+    },
+    "s1f11_tm": {
+     "name": "TerraMind-small (S1F11)",
+     "iou": 0.4824527122088479
+    },
+    "ks_r4": {
+     "name": "SAR U-Net (Kuro Siwo, flood)",
+     "iou": 0.5967666959351273
+    },
+    "ks_r9_flood": {
+     "name": "Fusion (Kuro Siwo, flood labels)",
+     "iou": 0.6304762959067888
+    },
+    "ks_r9_water": {
+     "name": "Fusion (Kuro Siwo, water labels)",
+     "iou": 0.5627428081130681
+    },
+    "r2": {
+     "name": "Physics baseline (row 2)",
+     "iou": 0.6347224664439365
+    },
+    "r2s": {
+     "name": "Physics baseline, seasonal reference (row 2s)",
+     "iou": 0.5255883540335795
+    },
+    "s1f11_tm_fixed": {
+     "name": "TerraMind-small (S1F11), corrected",
+     "iou": 0.44850160542276135
+    },
+    "gfm": {
+     "name": "Copernicus GFM (ensemble)",
+     "iou": 0.5115116157933118
+    }
+   }
+  },
+  {
+   "key": "EMSR763_AOI01",
+   "activation": "EMSR763",
+   "aoi": 1,
+   "product": "EMSR763_AOI01_DEL_MONIT03",
+   "sensors": [
+    "PAZ"
+   ],
+   "product_time": "2024-09-28T17:01:00+00:00",
+   "pass_time": "2024-09-28T16:52:47.904498+00:00",
+   "tile": "EMSR763_AOI01_t01_02",
+   "flood_km2": 10.28,
+   "layers": {
+    "radar": {
+     "name": "Sentinel-1 VV",
+     "iou": null
+    },
+    "cems": {
+     "name": "Copernicus EMS map",
+     "iou": null
+    },
+    "s1f11_r4": {
+     "name": "SAR U-Net (S1F11)",
+     "iou": 0.5545932731256624
+    },
+    "s1f11_r9": {
+     "name": "Fusion (S1F11)",
+     "iou": 0.42034460702006876
+    },
+    "s1f11_tm": {
+     "name": "TerraMind-small (S1F11)",
+     "iou": 0.42378888343497034
+    },
+    "ks_r4": {
+     "name": "SAR U-Net (Kuro Siwo, flood)",
+     "iou": 0.61732921412442
+    },
+    "ks_r9_flood": {
+     "name": "Fusion (Kuro Siwo, flood labels)",
+     "iou": 0.5690063201269594
+    },
+    "ks_r9_water": {
+     "name": "Fusion (Kuro Siwo, water labels)",
+     "iou": 0.46625992288500795
+    },
+    "r2": {
+     "name": "Physics baseline (row 2)",
+     "iou": 0.7128211489489007
+    },
+    "r2s": {
+     "name": "Physics baseline, seasonal reference (row 2s)",
+     "iou": 0.6483202378968687
+    },
+    "s1f11_tm_fixed": {
+     "name": "TerraMind-small (S1F11), corrected",
+     "iou": 0.4021006722464956
+    },
+    "gfm": {
+     "name": "Copernicus GFM (ensemble)",
+     "iou": 0.5292688030129887
+    }
+   }
+  },
+  {
+   "key": "EMSR766_AOI02",
+   "activation": "EMSR766",
+   "aoi": 2,
+   "product": "EMSR766_AOI02_DEL_MONIT02",
+   "sensors": [
+    "COSMO-SkyMed",
+    "COSMO-SkyMed"
+   ],
+   "product_time": "2024-09-29T16:49:00+00:00",
+   "pass_time": "2024-09-29T04:46:58.335675+00:00",
+   "tile": "EMSR766_AOI02_t00_01",
+   "flood_km2": 1.01,
+   "layers": {
+    "radar": {
+     "name": "Sentinel-1 VV",
+     "iou": null
+    },
+    "cems": {
+     "name": "Copernicus EMS map",
+     "iou": null
+    },
+    "s1f11_r4": {
+     "name": "SAR U-Net (S1F11)",
+     "iou": 0.5178334130654335
+    },
+    "s1f11_r9": {
+     "name": "Fusion (S1F11)",
+     "iou": 0.4607306828172316
+    },
+    "s1f11_tm": {
+     "name": "TerraMind-small (S1F11)",
+     "iou": 0.35868555072302144
+    },
+    "ks_r4": {
+     "name": "SAR U-Net (Kuro Siwo, flood)",
+     "iou": 0.7374284145289087
+    },
+    "ks_r9_flood": {
+     "name": "Fusion (Kuro Siwo, flood labels)",
+     "iou": 0.741254070301411
+    },
+    "ks_r9_water": {
+     "name": "Fusion (Kuro Siwo, water labels)",
+     "iou": 0.4598031572792828
+    },
+    "r2": {
+     "name": "Physics baseline (row 2)",
+     "iou": 0.7528820317240184
+    },
+    "r2s": {
+     "name": "Physics baseline, seasonal reference (row 2s)",
+     "iou": 0.6863613144900391
+    },
+    "s1f11_tm_fixed": {
+     "name": "TerraMind-small (S1F11), corrected",
+     "iou": 0.3529369601834928
+    },
+    "gfm": {
+     "name": "Copernicus GFM (ensemble)",
+     "iou": 0.6643350033084412
+    }
+   }
+  },
+  {
+   "key": "EMSR768_AOI02",
+   "activation": "EMSR768",
+   "aoi": 2,
+   "product": "EMSR768_AOI02_DEL_MONIT02",
+   "sensors": [
+    "COSMO-SkyMed Second Generation"
+   ],
+   "product_time": "2024-10-08T16:55:00+00:00",
+   "pass_time": "2024-10-09T05:03:18.002148+00:00",
+   "tile": "EMSR768_AOI02_t01_01",
+   "flood_km2": 0.34,
+   "layers": {
+    "radar": {
+     "name": "Sentinel-1 VV",
+     "iou": null
+    },
+    "cems": {
+     "name": "Copernicus EMS map",
+     "iou": null
+    },
+    "s1f11_r4": {
+     "name": "SAR U-Net (S1F11)",
+     "iou": 0.11390555700495696
+    },
+    "s1f11_r9": {
+     "name": "Fusion (S1F11)",
+     "iou": 0.13105544299134278
+    },
+    "s1f11_tm": {
+     "name": "TerraMind-small (S1F11)",
+     "iou": 0.10996454223111192
+    },
+    "ks_r4": {
+     "name": "SAR U-Net (Kuro Siwo, flood)",
+     "iou": 0.36627488606380426
+    },
+    "ks_r9_flood": {
+     "name": "Fusion (Kuro Siwo, flood labels)",
+     "iou": 0.32845894263217096
+    },
+    "ks_r9_water": {
+     "name": "Fusion (Kuro Siwo, water labels)",
+     "iou": 0.10846047156726768
+    },
+    "r2": {
+     "name": "Physics baseline (row 2)",
+     "iou": 0.27177177177177175
+    },
+    "r2s": {
+     "name": "Physics baseline, seasonal reference (row 2s)",
+     "iou": 0.22628590514362057
+    },
+    "s1f11_tm_fixed": {
+     "name": "TerraMind-small (S1F11), corrected",
+     "iou": 0.10101922332602245
+    },
+    "gfm": {
+     "name": "Copernicus GFM (ensemble)",
+     "iou": 0.0
+    }
+   }
+  },
+  {
+   "key": "EMSR788_AOI04",
+   "activation": "EMSR788",
+   "aoi": 4,
+   "product": "EMSR788_AOI04_DEL_PRODUCT",
+   "sensors": [
+    "PAZ"
+   ],
+   "product_time": "2025-01-30T17:43:00+00:00",
+   "pass_time": "2025-01-30T17:57:11.935163+00:00",
+   "tile": "EMSR788_AOI04_t00_00",
+   "flood_km2": 0.98,
+   "layers": {
+    "radar": {
+     "name": "Sentinel-1 VV",
+     "iou": null
+    },
+    "cems": {
+     "name": "Copernicus EMS map",
+     "iou": null
+    },
+    "s1f11_r4": {
+     "name": "SAR U-Net (S1F11)",
+     "iou": 0.27413903618670243
+    },
+    "s1f11_r9": {
+     "name": "Fusion (S1F11)",
+     "iou": 0.28029320382492234
+    },
+    "s1f11_tm": {
+     "name": "TerraMind-small (S1F11)",
+     "iou": 0.36080298419554335
+    },
+    "ks_r4": {
+     "name": "SAR U-Net (Kuro Siwo, flood)",
+     "iou": 0.49702596030907775
+    },
+    "ks_r9_flood": {
+     "name": "Fusion (Kuro Siwo, flood labels)",
+     "iou": 0.5288088113579933
+    },
+    "ks_r9_water": {
+     "name": "Fusion (Kuro Siwo, water labels)",
+     "iou": 0.3431322055386078
+    },
+    "r2": {
+     "name": "Physics baseline (row 2)",
+     "iou": 0.5375504894913398
+    },
+    "r2s": {
+     "name": "Physics baseline, seasonal reference (row 2s)",
+     "iou": 0.39733023208777873
+    },
+    "s1f11_tm_fixed": {
+     "name": "TerraMind-small (S1F11), corrected",
+     "iou": 0.3435915575993397
+    },
+    "gfm": {
+     "name": "Copernicus GFM (ensemble)",
+     "iou": 0.3175138069830572
+    }
+   }
+  },
+  {
+   "key": "EMSR789_AOI05",
+   "activation": "EMSR789",
+   "aoi": 5,
+   "product": "EMSR789_AOI05_DEL_MONIT01",
+   "sensors": [
+    "COSMO-SkyMed Second Generation"
+   ],
+   "product_time": "2025-03-11T22:36:00+00:00",
+   "pass_time": "2025-03-11T23:45:44.305728+00:00",
+   "tile": "EMSR789_AOI05_t00_00",
+   "flood_km2": 1.85,
+   "layers": {
+    "radar": {
+     "name": "Sentinel-1 VV",
+     "iou": null
+    },
+    "cems": {
+     "name": "Copernicus EMS map",
+     "iou": null
+    },
+    "s1f11_r4": {
+     "name": "SAR U-Net (S1F11)",
+     "iou": 0.3385024368630926
+    },
+    "s1f11_r9": {
+     "name": "Fusion (S1F11)",
+     "iou": 0.3675361547333866
+    },
+    "s1f11_tm": {
+     "name": "TerraMind-small (S1F11)",
+     "iou": 0.37913628715647785
+    },
+    "ks_r4": {
+     "name": "SAR U-Net (Kuro Siwo, flood)",
+     "iou": 0.524995106674496
+    },
+    "ks_r9_flood": {
+     "name": "Fusion (Kuro Siwo, flood labels)",
+     "iou": 0.5115477278391626
+    },
+    "ks_r9_water": {
+     "name": "Fusion (Kuro Siwo, water labels)",
+     "iou": 0.510922621429143
+    },
+    "r2": {
+     "name": "Physics baseline (row 2)",
+     "iou": 0.44048266811765835
+    },
+    "r2s": {
+     "name": "Physics baseline, seasonal reference (row 2s)",
+     "iou": 0.417213784092765
+    },
+    "s1f11_tm_fixed": {
+     "name": "TerraMind-small (S1F11), corrected",
+     "iou": 0.47382380544334274
+    },
+    "gfm": {
+     "name": "Copernicus GFM (ensemble)",
+     "iou": 0.0
+    }
+   }
+  },
+  {
+   "key": "EMSR838_AOI05",
+   "activation": "EMSR838",
+   "aoi": 5,
+   "product": "EMSR838_AOI05_DEL_MONIT02",
+   "sensors": [
+    "ICEYE"
+   ],
+   "product_time": "2025-08-31T17:28:00+00:00",
+   "pass_time": "2025-09-01T13:12:40.831811+00:00",
+   "tile": "EMSR838_AOI05_t02_00",
+   "flood_km2": 79.82,
+   "layers": {
+    "radar": {
+     "name": "Sentinel-1 VV",
+     "iou": null
+    },
+    "cems": {
+     "name": "Copernicus EMS map",
+     "iou": null
+    },
+    "s1f11_r4": {
+     "name": "SAR U-Net (S1F11)",
+     "iou": 0.36672644772069746
+    },
+    "s1f11_r9": {
+     "name": "Fusion (S1F11)",
+     "iou": 0.5354370335568044
+    },
+    "s1f11_tm": {
+     "name": "TerraMind-small (S1F11)",
+     "iou": 0.5292056461856217
+    },
+    "ks_r4": {
+     "name": "SAR U-Net (Kuro Siwo, flood)",
+     "iou": 0.5323303628268675
+    },
+    "ks_r9_flood": {
+     "name": "Fusion (Kuro Siwo, flood labels)",
+     "iou": 0.516307947392846
+    },
+    "ks_r9_water": {
+     "name": "Fusion (Kuro Siwo, water labels)",
+     "iou": 0.5586480766112097
+    },
+    "r2": {
+     "name": "Physics baseline (row 2)",
+     "iou": 0.5190802093350516
+    },
+    "r2s": {
+     "name": "Physics baseline, seasonal reference (row 2s)",
+     "iou": 0.5657708906372271
+    },
+    "s1f11_tm_fixed": {
+     "name": "TerraMind-small (S1F11), corrected",
+     "iou": 0.5181168372166767
+    },
+    "gfm": {
+     "name": "Copernicus GFM (ensemble)",
+     "iou": 0.48550563382488915
+    }
+   }
+  },
+  {
+   "key": "EMSR856_AOI07",
+   "activation": "EMSR856",
+   "aoi": 7,
+   "product": "EMSR856_AOI07_DEL_MONIT01",
+   "sensors": [
+    "COSMO-SkyMed"
+   ],
+   "product_time": "2026-01-11T16:32:00+00:00",
+   "pass_time": "2026-01-11T16:33:07.386172+00:00",
+   "tile": "EMSR856_AOI07_t00_01",
+   "flood_km2": 13.8,
+   "layers": {
+    "radar": {
+     "name": "Sentinel-1 VV",
+     "iou": null
+    },
+    "cems": {
+     "name": "Copernicus EMS map",
+     "iou": null
+    },
+    "s1f11_r4": {
+     "name": "SAR U-Net (S1F11)",
+     "iou": 0.29005813573714806
+    },
+    "s1f11_r9": {
+     "name": "Fusion (S1F11)",
+     "iou": 0.4449166714251919
+    },
+    "s1f11_tm": {
+     "name": "TerraMind-small (S1F11)",
+     "iou": 0.19247628770414082
+    },
+    "ks_r4": {
+     "name": "SAR U-Net (Kuro Siwo, flood)",
+     "iou": 0.4258642143051245
+    },
+    "ks_r9_flood": {
+     "name": "Fusion (Kuro Siwo, flood labels)",
+     "iou": 0.4056859498766394
+    },
+    "ks_r9_water": {
+     "name": "Fusion (Kuro Siwo, water labels)",
+     "iou": 0.4046641869310475
+    },
+    "r2": {
+     "name": "Physics baseline (row 2)",
+     "iou": 0.44646160900419607
+    },
+    "r2s": {
+     "name": "Physics baseline, seasonal reference (row 2s)",
+     "iou": 0.38067978362274346
+    },
+    "s1f11_tm_fixed": {
+     "name": "TerraMind-small (S1F11), corrected",
+     "iou": 0.1782493579917584
+    },
+    "gfm": {
+     "name": "Copernicus GFM (ensemble)",
+     "iou": 0.18384506441899157
+    }
+   }
+  },
+  {
+   "key": "EMSR864_AOI15",
+   "activation": "EMSR864",
+   "aoi": 15,
+   "product": "EMSR864_AOI15_DEL_PRODUCT",
+   "sensors": [
+    "COSMO-SkyMed Second Generation"
+   ],
+   "product_time": "2026-02-09T06:15:00+00:00",
+   "pass_time": "2026-02-08T18:26:14.409918+00:00",
+   "tile": "EMSR864_AOI15_t03_01",
+   "flood_km2": 1.01,
+   "layers": {
+    "radar": {
+     "name": "Sentinel-1 VV",
+     "iou": null
+    },
+    "cems": {
+     "name": "Copernicus EMS map",
+     "iou": null
+    },
+    "s1f11_r4": {
+     "name": "SAR U-Net (S1F11)",
+     "iou": 0.15207235861246396
+    },
+    "s1f11_r9": {
+     "name": "Fusion (S1F11)",
+     "iou": 0.1219911398206141
+    },
+    "s1f11_tm": {
+     "name": "TerraMind-small (S1F11)",
+     "iou": 0.05459962807546335
+    },
+    "ks_r4": {
+     "name": "SAR U-Net (Kuro Siwo, flood)",
+     "iou": 0.15944124796160117
+    },
+    "ks_r9_flood": {
+     "name": "Fusion (Kuro Siwo, flood labels)",
+     "iou": 0.13143983770037432
+    },
+    "ks_r9_water": {
+     "name": "Fusion (Kuro Siwo, water labels)",
+     "iou": 0.12978866717184473
+    },
+    "r2": {
+     "name": "Physics baseline (row 2)",
+     "iou": 0.21665569453587888
+    },
+    "r2s": {
+     "name": "Physics baseline, seasonal reference (row 2s)",
+     "iou": 0.20616451073837966
+    },
+    "s1f11_tm_fixed": {
+     "name": "TerraMind-small (S1F11), corrected",
+     "iou": 0.12300637286306774
+    },
+    "gfm": {
+     "name": "Copernicus GFM (ensemble)",
+     "iou": 0.2148224043715847
+    }
+   }
+  }
+ ]
+}

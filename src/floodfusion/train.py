@@ -90,8 +90,13 @@ LOGGER = logging.getLogger(__name__)
 EVAL_CONTEXT_PX = 64
 #: Row 6 is defined on cloud-free chips only (MILESTONES section 6).
 ROW6_MIN_CLEAR_FRACTION = 0.9
-#: Architectures with an optical input, to which modality dropout applies.
-OPTICAL_FUSION_ARCHITECTURES = frozenset({"fusion_early", "fusion_late", "fusion_crossattn"})
+#: Architectures with an optical input, to which modality dropout applies. TerraMind was missing from
+#: this set in v1.1, so it trained without dropout although its config sets 0.5 (``reports/v1_1_erratum.md``).
+OPTICAL_FUSION_ARCHITECTURES = frozenset({"fusion_early", "fusion_late", "fusion_crossattn",
+                                          "terramind_tiny", "terramind_small", "terramind_base_fair",
+                                          "terramind_base_fair_frozen", "terramind_small_fair",
+                                          "fusion_crossattn_ctx", "fusion_crossattn_ctx_seasonal",
+                                          "fusion_crossattn_ctx_aef"})
 
 
 # ---------------------------------------------------------------------------
@@ -156,12 +161,14 @@ def load_training_data(cfg: ExperimentConfig, data_root: Path | str) -> Training
 # Steps
 # ---------------------------------------------------------------------------
 def model_inputs(batch: Mapping[str, Any], available: torch.Tensor, *, force_sar_only: bool = False) -> dict[str, Any]:
-    """The keyword arguments every architecture's ``forward`` accepts."""
+    """The keyword arguments every architecture's ``forward`` accepts (plus ``context`` when the batch has it)."""
+    extra = ({"context": batch["context"], "context_available": batch["context_available"]}
+             if "context" in batch else {})
     if force_sar_only:
         return {"sar": batch["sar"], "terrain": batch["terrain"], "optical": None,
-                "optical_quality": None, "optical_available": torch.zeros_like(available)}
+                "optical_quality": None, "optical_available": torch.zeros_like(available), **extra}
     return {"sar": batch["sar"], "terrain": batch["terrain"], "optical": batch["optical"],
-            "optical_quality": batch["optical_quality"], "optical_available": available}
+            "optical_quality": batch["optical_quality"], "optical_available": available, **extra}
 
 
 def _autocast(device: torch.device, cfg: ExperimentConfig) -> Any:
@@ -431,8 +438,11 @@ def _save(path: Path, payload: Mapping[str, Any]) -> None:
 
 
 def _loaders(data: TrainingData, cfg: ExperimentConfig) -> tuple[Any, Any, BalancedChipSampler]:
-    train_ds = FloodChipDataset(data.train, cfg.norm, cfg.data, cfg.grid, training=True)
-    val_ds = FloodChipDataset(data.val, cfg.norm, cfg.data, cfg.grid, context_px=EVAL_CONTEXT_PX)
+    from floodfusion.data.sidecars import sidecars_for
+
+    extra = sidecars_for(cfg.model.architecture)
+    train_ds = FloodChipDataset(data.train, cfg.norm, cfg.data, cfg.grid, training=True, sidecars=extra)
+    val_ds = FloodChipDataset(data.val, cfg.norm, cfg.data, cfg.grid, context_px=EVAL_CONTEXT_PX, sidecars=extra)
     sampler = BalancedChipSampler(data.train, negative_to_positive_ratio=cfg.data.negative_to_positive_ratio,
                                   positive_fraction_threshold=cfg.data.positive_fraction_threshold,
                                   seed=cfg.train.seed)

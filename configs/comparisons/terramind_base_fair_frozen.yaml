@@ -1,0 +1,13 @@
+# =============================================================================
+#  v1.2 fair-fight TerraMind (TerraMind-1.0-base, frozen encoder; CV rows 24-26, reports/v1_2_deviations.md).
+#  Siamese: the encoder runs on the post-event S1 (+ S2 where usable) and on the pre-event S1, tokens
+#  concatenated per layer (models/terramind.py). Same data, folds, sampler, loss, schedule, calibration and
+#  threshold rule as our model; modality dropout as row 9. Needs the optional extra: uv sync --extra fm
+# =============================================================================
+extends: ../base.yaml
+name: "cmp_terramind_base_fair_frozen"
+ablation_row: 0   # outside the 13-row grid; keyed by name in the reports
+
+model:
+  architecture: "terramind_base_fair_frozen"
+  modality_dropout_p: 0.5

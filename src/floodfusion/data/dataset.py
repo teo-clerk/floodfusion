@@ -20,6 +20,8 @@ key                          shape                dtype        meaning
 ``optical_available``        ``()``               ``bool``     scalar; False -> use embedding
 ``landcover``                ``(1, H, W)``        ``uint8``    WorldCover code (analysis only)
 ``synthetic``                ``()``               ``bool``     True if rendered in memory
+``context`` (v1.2, optional) ``(C, H, W)``        ``float32``  sidecar layers the architecture reads
+``context_available``        ``(n_sidecars,)``    ``bool``     False -> that sidecar's channels are meaningless
 ``chip_id``                  —                    ``str``      manifest primary key
 ``basin_id``                 —                    ``str``      split key
 ============================ ==================== ============ ==============================
@@ -105,7 +107,7 @@ LOGGER = logging.getLogger(__name__)
 #: Upper bound on cached rasterio handles per process. Thousands of scene files with one
 #: handle each would exhaust the file-descriptor limit; a few dozen is ample when chips are
 #: windows of a handful of event stacks.
-MAX_OPEN_HANDLES = 32
+MAX_OPEN_HANDLES = 96   # the stack and up to two sidecars per event
 
 #: Spatial tensors that every augmentation must transform identically.
 _SPATIAL_KEYS = ("sar", "optical", "terrain", "label", "valid", "optical_quality", "landcover")
@@ -169,7 +171,14 @@ class FloodChipDataset(Dataset[dict[str, Any]]):
         *,
         training: bool = False,
         context_px: int = 0,
+        sidecars: Sequence[str] = (),
     ) -> None:
+        from floodfusion.data.sidecars import SIDECARS
+
+        unknown = [n for n in sidecars if n not in SIDECARS]
+        if unknown:
+            raise ValueError(f"unknown sidecar(s) {unknown}; known: {sorted(SIDECARS)}")
+        self.sidecars = tuple(sidecars)
         self.records = tuple(records)
         self.norm = norm
         self.data_cfg = data_cfg
@@ -320,12 +329,36 @@ class FloodChipDataset(Dataset[dict[str, Any]]):
         sample["optical_quality"] = torch.where(cloud, torch.zeros_like(quality), quality)
         return sample
 
+    def _context(self, record: ChipRecord, sample: Mapping[str, Any]) -> tuple[torch.Tensor, torch.Tensor]:
+        """The architecture's sidecar channels for this window (zeros where a sidecar is missing) and availability."""
+        from floodfusion.data.sidecars import SIDECARS, normalise_sidecar, read_sidecar_window
+
+        h, w = sample["sar"].shape[-2:]
+        valid = sample["valid"][0].numpy()
+        # The post-event VV in dB, recovered from the frozen normalisation (only the seasonal change needs it).
+        vv_post = sample["sar"][0].numpy() * self.norm.sar_std_db[0] + self.norm.sar_mean_db[0]
+        blocks, available = [], []
+        for name in self.sidecars:
+            spec = SIDECARS[name]
+            path = Path(record.raster_path).with_name(spec.filename)
+            values = None
+            if not self._use_synthetic(record) and path.is_file():
+                raw = read_sidecar_window(self._get_handle(path), record.window, self.context_px, spec.raw_bands)
+                values = normalise_sidecar(name, raw, vv_post_db=np.where(valid, vv_post, np.nan), norm=self.norm)
+            ok = values is not None and bool(np.isfinite(values).any())
+            blocks.append(np.nan_to_num(values, nan=0.0) if ok else np.zeros((spec.n_channels, h, w), np.float32))
+            available.append(ok)
+        context = torch.from_numpy(np.ascontiguousarray(np.concatenate(blocks).astype(np.float32)))
+        return context, torch.tensor(available)
+
     def _augment(self, sample: dict[str, Any]) -> dict[str, Any]:
         """Flips and 90-degree rotations, drawn once, applied to every spatial tensor."""
         k = int(torch.randint(0, 4, ()).item())
         flip_h = bool(torch.randint(0, 2, ()).item())
         flip_v = bool(torch.randint(0, 2, ()).item())
-        for key in _SPATIAL_KEYS:
+        for key in (*_SPATIAL_KEYS, "context"):
+            if key not in sample:
+                continue
             t = sample[key]
             if k:
                 t = torch.rot90(t, k, dims=(-2, -1))
@@ -350,6 +383,8 @@ class FloodChipDataset(Dataset[dict[str, Any]]):
             sample = self._paste_cloud(sample)
         sample["optical_available"] = torch.tensor(available)
         sample["synthetic"] = torch.tensor(self._use_synthetic(record))
+        if self.sidecars:
+            sample["context"], sample["context_available"] = self._context(record, sample)
         sample["chip_id"] = record.chip_id
         sample["basin_id"] = record.basin_id
         if self.training:

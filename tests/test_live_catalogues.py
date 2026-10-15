@@ -60,3 +60,18 @@ def test_tiny_event_ingest(tmp_path: Path) -> None:
                if name.startswith("vv"))
     assert meta["coregistration_qa"]["pre_vs_post"]["median_abs_displacement"] < 1.0  # P1-M1
     assert 39.0 < np.mean(meta["incidence_deg"]) < 41.0
+
+
+def test_gfm_serves_the_benchmark_frame_with_every_layer() -> None:
+    """Copernicus GFM on EODC (v1.2 comparator): the item of EMSR657's post-event frame, its assets and hosts."""
+    from urllib.parse import urlparse
+
+    from floodfusion.data import gfm
+
+    items = gfm.search_items((25.93, 56.15, 26.13, 56.31), ["20230408T155612"])
+    frame = gfm.match_frames(items, ["20230408T155612"])["20230408T155612"]
+    assert frame, "GFM no longer serves the EMSR657 frame"
+    item = frame[0]
+    assert item["id"].startswith("ENSEMBLE_FLOOD_20230408T155612_")
+    assert gfm.missing_assets(item) == []
+    assert {urlparse(item["assets"][key]["href"]).hostname for _, key in gfm.LAYERS} <= set(gfm.DATA_HOSTS)

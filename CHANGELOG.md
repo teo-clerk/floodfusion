@@ -2,6 +2,79 @@
 
 All notable changes; the format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.0] — 2026-10
+
+A fair fight with TerraMind, Copernicus's operational flood maps as a yardstick, and a blind test on floods no model
+had seen: activations from EMSR899 on, never looked at during development and scored only after the freeze
+(`reports/protocol_v1_2.md`, committed before any v1.2 model or blind score). Every
+decision since is in `reports/v1_2_deviations.md`.
+
+### Results (exploratory; the confirmatory test is the blind one)
+- **Selection.** The pooled CV selected the seasonal-context model (row 21) over the same model without context:
+  0.380 vs 0.361 whole-scene macro IoU at τ*, better in 49 of 79 groups. Neither inference add-on met its adoption rule.
+- **The fair TerraMind.** TerraMind-base + LoRA was trained on the same pooled set with the same learning-rate
+  budget. In CV (chip level, 79 groups with a defined IoU) it scores 0.313 at τ* against row 21's 0.394. Most of the
+  gap is threshold transfer: 0.369 vs 0.392 at a cross-fitted threshold, 0.406 vs 0.430 at each group's best;
+  AP 0.617 vs 0.651 (fold-level).
+- **The frozen models on the 38 seen CEMS floods** (scored once after the freeze, rebuilt stacks; descriptive):
+  v1.2 0.417, fair TerraMind 0.405, v1.1's best 0.407. On the 34 floods GFM covers, GFM scores 0.321 against
+  v1.2's 0.419.
+  - **With the blind test's own analysis:** ours beats GFM (+0.098, significant at both units), and nearly ties
+    TerraMind (+0.012 IoU, +0.015 AP) and v1.1's best (+0.010), neither significant
+    (`reports/v12_cems_seen_tests.md`).
+
+### The blind test
+- **Frozen** at tag `v1.2.0-freeze`: row 21 and TerraMind-base + LoRA (3 seeds each), v1.1's best, and GFM. 36 files
+  are pinned in `reports/v12_freeze.json`.
+- **Rehearsed** end to end on EMSR664 before the freeze.
+- **First sweep (2026-10-14):** census to EMSR934, three flood activations. EMSR926 has no published delineation
+  package and EMSR927 only grading maps, so both are not eligible; EMSR933 settles on 2026-10-31.
+- **Sealing:** scores stay sealed (hash-chained ledger) until 20 activations in 15 clusters are scored, or 2027-12-31.
+
+### v1.1 errata (`reports/v1_1_erratum.md`)
+- **TerraMind trained without modality dropout.**
+  - Its config set modality dropout to 0.5, but the training loop applied dropout only to the fusion rows.
+  - Its decoder's BatchNorm also trained on sub-batches.
+  - Both are fixed; TerraMind is re-trained, and P4 is re-scored beside the pre-registered result.
+  - **H4 reverses.** Trained as described, TerraMind beats the fusion model on the 38 CEMS activations: 0.299 vs
+    0.258; fusion − TerraMind = −0.042 per activation and −0.043 per cluster, significant at both. v1.1's conclusion
+    that the task-specific model beats the foundation model is withdrawn. The pre-registered verdict is kept as run.
+- **Zero terrain past a DEM tile edge.**
+  - Copernicus GLO-30 declares no nodata, so terrain was read as 0 m past a 1° tile boundary.
+  - Affected: 14.6 % of the CEMS benchmark's stack area, 8.6 % of Sen1Floods11's and 6.4 % of Kuro Siwo's
+    (`scripts/dem_exposure.py`).
+  - The fix is in `read_dem`. Kuro Siwo and the CEMS benchmark are rebuilt for v1.2; the v1.1 data stays for the
+    regression checks.
+  - **Measured on the rebuilt CEMS stacks:** the models that read terrain (fusion, the physics baseline) gain +0.002
+    to +0.010 IoU. The others move by less than 0.001, through the scored region alone (its shadow and layover masks
+    come from the DEM). The corrected P4 still goes against fusion: −0.033 per activation, −0.034 per cluster, significant.
+
+### Added
+- **Copernicus GFM as a comparator** (`data/gfm.py`, `make gfm`). The EODC public STAC has GFM for 82 of 90
+  benchmark pairs.
+- **Score histograms, threshold-free AP, oracle IoU and a bounded per-scene EM self-calibration**
+  (`histograms.py`, `cems_scores_v12.py`). The v1.1 models' counts must reproduce v1.1's exactly.
+- **The fair TerraMind** (rows 24–26):
+  - siamese pre/post encoder with its native DEM;
+  - in-house LoRA (`models/lora.py`);
+  - size and adaptation chosen by a timing probe under a pre-registered rule.
+- **GEOID-Flood** (CC BY 4.0) re-ingested through Kuro Siwo's pipeline: 111 events selected before EMSR656, 102 of
+  which produced chips.
+- **The pooled training set** (`data/pool.py`): 100 km groups recomputed across datasets.
+- **Sidecar context:**
+  - `data/sidecars.py`: seasonal reference, AlphaEarth, DEM;
+  - row 20–22 context models (`ContextFloodSegmenter`). AlphaEarth is deferred while the public mirror is too slow.
+- **The blind-test runner** (`prospective.py`, `make v12-watch`):
+  - census with expiry and settling;
+  - scores sealed outside the repository, with their sha256 in a committed ledger;
+  - a freeze check.
+- **The Arena page** (`site/arena.html`):
+  - scoreboard with five metrics and 95 % intervals;
+  - map explorer: 11 floods, 12 layers each, GFM's included. GFM's terms of service (checked 2026-10-15) allow
+    reuse with a source notice, given in the Arena's footer, the README and the model and data cards;
+  - research landscape, errata and blind-test tracker.
+- **Golden-output tests** pin the v1.1 checkpoints' logits across refactors.
+
 ## [1.1.0] — 2026-10
 
 A pre-registered test of v1.0's claims on independent references. The protocol

@@ -5,7 +5,11 @@ ship with an exclusion mask saying where they must not be trusted, and use Senti
 clear. Version 1.1 tests them on **38 flood activations mapped independently by Copernicus EMS**, with four
 questions fixed in advance, and on two benchmarks with every flood held out: Sen1Floods11 (10 floods) and Kuro Siwo
 (36 floods). Its main finding: **on independent maps the choice of training labels mattered, and the optical
-input did not detectably.**
+input did not detectably.** **Version 1.2** adds a seasonal radar reference ("is this water unusual for this place
+and season?"). It takes on a TerraMind trained on the same flood labels, and Copernicus's operational flood maps, in
+a blind test on floods no model had seen: Copernicus activations from EMSR899 on (from late July 2026), never looked
+at during development and scored only after the freeze. It also publishes an erratum that withdraws v1.1's TerraMind
+result.
 
 [![ci](https://github.com/teo-clerk/floodfusion/actions/workflows/ci.yml/badge.svg)](https://github.com/teo-clerk/floodfusion/actions/workflows/ci.yml)
 ![python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
@@ -23,6 +27,58 @@ Copernicus EMS, and the limits.
 Copernicus EMS's COSMO-SkyMed delineation of 21 May (right).*
 
 ## Results at a glance
+
+### v1.2: a fair fight with TerraMind, Copernicus's own flood maps as a yardstick, and a blind test
+
+**The idea.** Instead of asking *is this pixel water?*, v1.2's model asks *is this water unusual for this place and
+season?* It reads a seasonal radar reference (the same orbit, a year earlier) beside the flood image. The
+[protocol](reports/protocol_v1_2.md) was committed before any v1.2 model was trained; every rule since is in the
+[deviations log](reports/v1_2_deviations.md). **[The Arena](https://teo-clerk.github.io/floodfusion/arena.html)**
+puts every model on the same floods.
+
+**What v1.2 has found so far (exploratory).**
+- **v1.1's TerraMind result was a bug** ([erratum](reports/v1_1_erratum.md)). Trained as its protocol describes,
+  TerraMind beats the task-specific model it lost to (0.299 vs 0.258 on 38 CEMS floods).
+- **A fair TerraMind trails in cross-validation, mostly on its threshold, and nearly ties on independent maps.**
+  - **The comparison:** TerraMind-base with LoRA, a pre-event image and its DEM input, against our seasonal-context
+    model. Both were trained on the same flood labels: Kuro Siwo plus GEOID-Flood, 7,006 chips from 138 floods. Each
+    family got the same three-learning-rate budget (row 21 inherits row 9's rate).
+  - **The result:** in grouped five-fold CV over 81 location groups (79 with a defined IoU), TerraMind scores 0.313
+    at its own threshold against ours at 0.394.
+  - **The cause is mostly threshold transfer.** At a threshold fitted on the other groups, the gap shrinks to 0.369
+    vs 0.392; at each group's best threshold, to 0.406 vs 0.430. Threshold-free, ours leads 0.651 vs 0.617 AP
+    (fold-level). P5 requires IoU at τ* and AP to favour ours, a condition pre-registered before any CV run for this
+    very reason. [CV table](reports/v12_pool_cv.md).
+  - **On the 38 seen CEMS floods** (the frozen models, scored once after the freeze, on stacks rebuilt with the DEM
+    fix): ours 0.417, TerraMind 0.405, v1.1's best 0.407 ([seen-floods analysis](reports/v12_cems_seen_tests.md)).
+    - The gaps to TerraMind (+0.012 IoU, +0.015 AP) and to v1.1's best (+0.010) are small and not significant.
+    - At its stopping rule the blind test detects about 0.06 per activation and 0.07 per cluster
+      ([power](reports/v12_power.md)). P5 and P7 will most likely end *not supported* unless new floods behave
+      differently.
+- **The seasonal context helps a little.** The CV selection rule chose it (row 21) over the same model without context
+  (row 9): 0.380 vs 0.361 on whole test scenes, better in 49 of 79 groups. The edge is modest and single-seed.
+  [Selection](reports/v12_selection.json).
+- **Neither inference add-on met its adoption rule.** Per-scene self-calibration lowers CV IoU (−0.04); a HAND cut
+  barely moves it (+0.001) and helps fewer than half the groups.
+- **Copernicus GFM, the operational service**, scores 0.321 on the 34 CEMS floods it covers, against 0.419 for v1.2's
+  model on the same floods.
+  - **The gap:** +0.098 per activation, better on 25 of 34. It is significant at both unit definitions with the
+    blind test's own analysis (descriptive: seen floods).
+  - **Why GFM loses:** its likelihood ranks pixels well (AP 0.517); its fixed cut is what loses. The physics baseline
+    scores 0.381 on the same floods ([rebuilt-stack scores](reports/v12_cems_rebuilt.md)).
+
+**The test that decides it: floods no model had seen.**
+- **The floods:** every eligible Copernicus EMS flood activation from EMSR899 on. Their events start in late July
+  2026, so some happened before the freeze. None was looked at during development (only code, date, category and
+  name were queried, as disclosed), and each is scored only after the freeze.
+- **The models:** frozen at tag `v1.2.0-freeze`.
+- **The three questions:** does v1.2's model beat
+  - the fair TerraMind, at its own threshold **and** threshold-free (P5);
+  - Copernicus GFM (P6);
+  - v1.1's best (P7)?
+- **Sealing:** scores stay sealed (sha256 in a committed ledger) until 20 activations in 15 clusters are scored, or
+  31 December 2027.
+- **The analysis:** written in code before the first blind flood ([`blind_analysis.py`](src/floodfusion/blind_analysis.py)).
 
 ### v1.1: four questions fixed in advance, tested on 38 Copernicus EMS flood activations
 
@@ -42,9 +98,17 @@ the [deviations log](reports/v1_1_deviations.md).
 | Pre-registered question | Per activation | Per cluster | Supported |
 | --- | --- | --- | --- |
 | **H1** Two training recipes on the same Kuro Siwo chips: *flood* labels vs *water* labels | +0.059 IoU, better in 33/38, Holm p < 0.001 | +0.062, 27/30, p < 0.001 | **yes** |
-| **H4** The task-specific fusion model vs the TerraMind foundation model | +0.031, 24/38, Holm p = 0.034 | +0.039, 20/30, p = 0.009 | **yes**, but see below |
+| **H4** The task-specific fusion model vs the TerraMind foundation model | +0.031, 24/38, Holm p = 0.034 | +0.039, 20/30, p = 0.009 | **yes as run; reversed by the [erratum](reports/v1_1_erratum.md)** |
 | **H2** Fusion beats the SAR U-Net where optical is usable (≥ 50 % clear) | +0.038, 5/8, Holm p = 0.34, not significant | K = 7, too few | no verdict |
 | **H3** Without optical (< 10 % clear), fusion is no worse than the SAR U-Net (margin 0.05) | −0.020, non-inferior (one-sided p = 0.004) | −0.024, not shown (one-sided p = 0.029 > 0.025) | no |
+
+> **Erratum (2026-10-13): H4's conclusion is withdrawn.** TerraMind was trained without the modality dropout its config and the
+> protocol state. Re-trained as described, it **beats** the fusion model on the same 38 activations: fusion −
+> TerraMind = −0.042 per activation (fusion better in 10/38) and −0.043 per cluster (8/30), significant at both.
+> TerraMind scores 0.299 against fusion's 0.258. This is a post-hoc correction; the pre-registered verdict is kept as
+> run. A second defect (zero terrain past DEM tile edges) affected the fusion model, not TerraMind, on about 15 % of
+> the benchmark's area. Rescored on stacks rebuilt with the fix, models that read terrain gain at most 0.01, and the
+> reversal holds (−0.033 per activation, significant). Both are in [`reports/v1_1_erratum.md`](reports/v1_1_erratum.md).
 
 How to read the two supported results:
 - **H1** compares whole training recipes. The label changes what the sampler draws, the early stopping, the priors and
@@ -63,7 +127,8 @@ cloud cover are in the [strata report](reports/cems_benchmark_strata.md).
 | Cross-attention fusion | 0.258 | **0.397** |
 | The same fusion model, optical removed at inference | 0.272 | 0.398 |
 | Fusion trained on *water* labels of the same Kuro Siwo chips | — | 0.338 |
-| TerraMind-1.0-small, frozen + UNet decoder | 0.226 | — |
+| TerraMind-1.0-small, frozen + UNet decoder, as run in v1.1 | 0.226 | — |
+| The same TerraMind, trained as the protocol describes ([erratum](reports/v1_1_erratum.md)) | 0.299 | — |
 
 The physics baseline (adaptive threshold + change + terrain masks, no learning; one offset set on Sen1Floods11
 validation) scores **0.371**.
@@ -87,9 +152,10 @@ validation) scores **0.371**.
   - The physics baseline (0.371) beats every Sen1Floods11-trained network.
   - Trained on Kuro Siwo flood labels, the fusion model uses almost nothing from optical: 0.397 with it, 0.398
     without.
-- **Much of TerraMind's deficit is its threshold.** At the best single threshold for each model, TerraMind is slightly
-  ahead (0.270 vs 0.260). That threshold is chosen in-sample, so it is optimistic. H4 holds as pre-registered, at each
-  model's own threshold.
+- **TerraMind's deficit was a bug.** As run, TerraMind trailed at each model's own threshold but was already ahead at
+  the best single threshold (0.270 vs 0.260, chosen in-sample). It had been trained without modality dropout, so its
+  SAR-only path, which most CEMS pixels need, was barely trained. Trained as described, it leads at both thresholds
+  (0.299 at τ*, 0.328 at the oracle threshold).
 - **Absolute agreement is modest.**
   - CEMS products are drawn on 1–3 m images up to a day from the Sentinel-1 pass, and generalised by an analyst.
   - The seven activations mapped on optical very-high-resolution images agree with every tested model at only
@@ -129,7 +195,7 @@ validation) scores **0.371**.
 scored by a model that never saw it ([full table](reports/sen1floods11_table.md)). The v1.1 re-run at the frozen
 v1.1 code replicates it ([table](reports/v11_sen1floods11_table.md)):
 - fusion 0.608 against the SAR U-Net's 0.343 (+0.265, all 10 floods, Holm p = 0.018);
-- TerraMind 0.572.
+- TerraMind 0.572 as run; 0.597 trained as described (the erratum), still slightly below fusion here.
 
 | Model | IoU at τ* | AP |
 | --- | --- | --- |
@@ -340,7 +406,7 @@ src/floodfusion/
 configs/           one frozen YAML per ablation row, overlays, comparisons/, event definitions
 tests/             unit, integration and end-to-end tests (markers: slow, gpu, network, data)
 reports/           every table above, regenerated by the make targets
-assets/            the figures in this README
+assets/            the figures in this README and the Arena's map quicklooks
 ```
 
 Code comments cite a design specification as `docs/NN §x`, its milestone plan as `MILESTONES.md` and
@@ -354,8 +420,9 @@ See [`CITATION.cff`](CITATION.cff). Please also cite Sen1Floods11 (Bonafilia et 
 
 ## Acknowledgements
 
-Contains modified Copernicus Sentinel data, processed by Microsoft Planetary Computer. Copernicus EMS
-products: © European Union, Copernicus Emergency Management Service. Copernicus DEM: © DLR e.V.
+Contains modified Copernicus Sentinel data, processed by Microsoft Planetary Computer. Contains modified
+Copernicus Emergency Management Service information (2023–2026): rapid-mapping delineations and Global
+Flood Monitoring (GFM) flood maps, © European Union. Copernicus DEM: © DLR e.V.
 2010–2014 and © Airbus Defence and Space GmbH 2014–2018, provided under COPERNICUS by the European Union
 and ESA. JRC Global Surface Water: EC JRC / Google. ESA WorldCover 2021. TerraMind: IBM and ESA.
 Kuro Siwo annotations: Orion AI Lab, CC BY 4.0 (re-downloaded by the user; nothing is redistributed here).
@@ -364,4 +431,5 @@ by the author.
 
 ## Licence
 
-MIT — see [`LICENSE`](LICENSE).
+MIT — see [`LICENSE`](LICENSE). The figures and map images in `assets/` contain modified Copernicus data: keep
+the notices under Acknowledgements when reusing them.

@@ -1,0 +1,48 @@
+# v1.2 blind test: the frozen models and the pre-registered tests (reports/protocol_v1_2.md; written by
+# scripts/v12_freeze_spec.py from reports/v12_selection.json and reports/v12_tm_probe.json). Its sha256 is pinned in
+# reports/v12_freeze.json; a sweep refuses to run if this file changes.
+primary_stratum: sar
+exclude: []
+optical_usable: 0.5
+sar_only_below: 0.1
+configs_dir: configs
+overlays: []
+tests: []
+models:
+- key: ours
+  name: v1.2 (row21_fusion_context_seasonal)
+  runs:
+  - runs/v12/final/all/all/row21_fusion_context_seasonal/seed42
+  - runs/v12/final/all/all/row21_fusion_context_seasonal/seed43
+  - runs/v12/final/all/all/row21_fusion_context_seasonal/seed44
+- key: tm_fair
+  name: TerraMind, fair (terramind_base_fair)
+  runs:
+  - runs/v12/final/all/all/cmp_terramind_base_fair/seed42
+  - runs/v12/final/all/all/cmp_terramind_base_fair/seed43
+  - runs/v12/final/all/all/cmp_terramind_base_fair/seed44
+- key: v11
+  name: v1.1 best (fusion, Kuro Siwo flood labels)
+  runs:
+  - runs/v11/kurosiwo/all/all/row09_fusion_crossattn/seed42
+  - runs/v11/kurosiwo/all/all/row09_fusion_crossattn/seed43
+  - runs/v11/kurosiwo/all/all/row09_fusion_crossattn/seed44
+- key: gfm
+  name: Copernicus GFM (ensemble)
+  kind: gfm
+  runs: []
+blind_tests:
+- id: P5
+  a: tm_fair
+  b: ours
+  metric_b: iou_tau
+  also_ap: true
+- id: P6
+  a: gfm
+  b: ours
+  metric_b: iou_tau
+  gfm_covered: true
+- id: P7
+  a: v11
+  b: ours
+  metric_b: iou_tau

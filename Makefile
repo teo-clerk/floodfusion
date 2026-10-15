@@ -18,10 +18,10 @@ REAL_ROOT  ?= data/real
 # Seed protocol of the synthetic grid: auto (decided from a measured run), full, affordable.
 SEED_PROTOCOL ?= auto
 
-.PHONY: help setup lock preflight test test-fast test-all test-gpu cov lint synth ingest splits \
+.PHONY: arena tm-probe v12-splits v12-tune v12-runs v12-finals help setup lock preflight test test-fast test-all test-gpu cov lint synth ingest splits \
         baseline train-p1 vram-budget ablation table predict demo clean \
         s1f11 s1f11-download s1f11-ingest s1f11-splits s1f11-cv s1f11-table stress forli \
-        kurosiwo-data cems-data seasonal v11-splits v11-synthetic v11-runs v11-tables v11-cems
+        kurosiwo-data cems-data seasonal gfm geoid-data erratum v12-cems-preview v12-watch v11-splits v11-synthetic v11-runs v11-tables v11-cems
 
 help:  ## List targets
 	@grep -E '^[a-zA-Z0-9_-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -114,6 +114,7 @@ KS_ROOT ?= data/kurosiwo
 KS_WATER ?= data/kurosiwo_water
 KS_OVERLAY ?= configs/overlays/kurosiwo.yaml
 CEMS_ROOT ?= data/cems_benchmark
+GFM_WORKERS ?= 10
 
 kurosiwo-data:  ## Kuro Siwo: pinned polygons -> chips (flood labels) -> the same chips with water labels
 	$(PY) -m floodfusion.data.kurosiwo download --raw $(KS_RAW)
@@ -128,6 +129,43 @@ seasonal:  ## Seasonal Sentinel-1 references beside every Sen1Floods11, Kuro Siw
 	$(PY) -m floodfusion.data.seasonal --root $(S1F11_ROOT)
 	$(PY) -m floodfusion.data.seasonal --root $(KS_ROOT)
 	for d in $(CEMS_ROOT)/EMSR*_AOI*; do $(PY) -m floodfusion.data.seasonal --root $$d || exit 1; done
+
+GEOID_RAW ?= data/geoid_raw
+GEOID_ROOT ?= data/geoid
+geoid-data:  ## GEOID-Flood labels (pinned, sha256) -> chips re-ingested on Planetary Computer inputs (v1.2 training)
+	$(PY) -m floodfusion.data.geoid download --raw $(GEOID_RAW)
+	$(PY) -m floodfusion.data.geoid ingest --raw $(GEOID_RAW) --out $(GEOID_ROOT)
+
+gfm:  ## Copernicus GFM layers (the v1.2 comparator) beside every CEMS benchmark stack; resumable
+	$(PY) -m floodfusion.data.gfm --workers $(GFM_WORKERS) --root $(CEMS_ROOT)/EMSR*_AOI*
+
+erratum:  ## v1.1 erratum: TerraMind re-trained with modality dropout (Sen1Floods11) and P4 re-scored (~3 GPU-h)
+	scripts/v12_queue.sh erratum
+
+v12-cems-preview:  ## v1.1 models + corrected TerraMind + Copernicus GFM on CEMS 2023-26, with histograms (GPU)
+	scripts/v12_queue.sh cems-preview
+
+arena:  ## The Arena's map quicklooks (GPU), then the site
+	scripts/v12_queue.sh arena
+	$(PY) scripts/build_site.py
+
+tm-probe:  ## Time the fair-TerraMind variants and apply the pre-registered size rule (GPU, ~10 min)
+	scripts/v12_queue.sh probe
+
+v12-splits:  ## The pooled training set (Kuro Siwo v12 + GEOID-Flood, joint 100 km groups) and its folds
+	scripts/v12_queue.sh pool
+
+v12-tune:  ## Equal learning-rate budget per family on fold 0's inner split (GPU)
+	scripts/v12_queue.sh tune
+
+v12-runs:  ## Pooled cross-validation, one seed: row 9, the fair TerraMind, row 21 (GPU; resumable)
+	scripts/v12_queue.sh cv
+
+v12-finals:  ## All groups x 3 seeds: v1.2's selected model and the fair TerraMind (GPU; before the freeze)
+	scripts/v12_queue.sh finals
+
+v12-watch:  ## One blind-test sweep (run from the freeze worktree; refuses a changed system); takes the GPU lock
+	flock -n /tmp/floodfusion-gpu.lock $(PY) -m floodfusion.prospective sweep
 
 v11-splits:  ## Kuro Siwo grouped five-fold + the all-groups model, for both label sets
 	$(PY) -m floodfusion.crossval splits --data-root $(KS_ROOT) --overlay $(KS_OVERLAY) --scheme kfold

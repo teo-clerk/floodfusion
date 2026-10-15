@@ -191,3 +191,170 @@ def test_v11_extracts_fail_loudly_on_missing_parts(monkeypatch):
     monkeypatch.setattr(module, "KS_ROWS", {**module.KS_ROWS, "99": "Not a row"})
     with pytest.raises(ValueError, match="99"):
         module.kurosiwo(ROOT / "reports")
+
+
+# --- Arena (v1.2) -------------------------------------------------------------------------------------
+
+def _row(name="Model", value=0.4):
+    m = ("iou_tau", "iou_tau_binned", "iou_selfcal", "iou_oracle", "ap")
+    return {"name": name, "k": 30, **{k: value for k in m}, "ci": {k: [value - 0.05, value + 0.05] for k in m}}
+
+
+def _preview(tmp_path: Path, *, drop: str | None = None) -> Path:
+    reports = tmp_path / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+    tables = [{"unit": u, "gfm_common": g, "units": ["EMSR1", "EMSR2"],
+               "models": {"ks_r9_flood": _row("Fusion"), "gfm": {**_row("GFM"), "iou_selfcal": float("nan")}}}
+              for u in ("activation", "cluster") for g in (False, True)]
+    if drop:
+        del tables[0]["models"]["ks_r9_flood"][drop]
+    (reports / "v12_cems_preview.json").write_text(json.dumps({"tables": tables, "n_pairs": 70, "gfm_pairs": 64}))
+    return reports
+
+
+def test_arena_sections_are_pending_until_their_reports_exist(tmp_path):
+    s = _script()
+    (tmp_path / "reports").mkdir()
+    (tmp_path / "assets").mkdir()
+    assert s._arena_scoreboard(tmp_path / "reports") == {"status": "pending"}
+    assert s._arena_maps(tmp_path / "assets") == {"status": "pending", "pairs": []}
+    assert s._blind(tmp_path / "reports")["status"] == "not started"
+    assert [e["resolved"] for e in s._errata(tmp_path / "reports")] == [False, False]
+
+
+def test_arena_scoreboard_reads_every_table_and_turns_nan_into_null(tmp_path):
+    board = _script()._arena_scoreboard(_preview(tmp_path))
+    assert board["status"] == "ok" and len(board["tables"]) == 4 and board["gfm_pairs"] == 64
+    gfm = board["tables"][0]["models"]["gfm"]
+    assert gfm["iou_selfcal"] is None and gfm["ci"]["ap"] == pytest.approx([0.35, 0.45])
+    json.dumps(board, allow_nan=False)                                 # the site's payload rule
+
+
+def test_arena_scoreboard_fails_loudly_on_a_missing_metric(tmp_path):
+    with pytest.raises(KeyError, match="lacks"):
+        _script()._arena_scoreboard(_preview(tmp_path, drop="ap"))
+
+
+def test_arena_maps_refuse_a_manifest_naming_a_missing_quicklook(tmp_path):
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    pair = {"key": "EMSR1_AOI01", "activation": "EMSR1", "aoi": 1, "product": "P", "sensors": ["ICEYE"],
+            "product_time": "2024-01-01T10:00:00", "pass_time": "2024-01-01T11:00:00", "flood_km2": 3.2,
+            "layers": {"radar": {"name": "Sentinel-1 VV", "iou": None}, "ks_r9": {"name": "Fusion", "iou": 0.5}}}
+    (assets / "arena-manifest.json").write_text(json.dumps({"pairs": [pair]}))
+    (assets / "arena-EMSR1_AOI01-radar.webp").write_bytes(b"x")
+    with pytest.raises(FileNotFoundError, match=r"arena-EMSR1_AOI01-ks_r9\.webp"):
+        _script()._arena_maps(assets)
+    (assets / "arena-EMSR1_AOI01-ks_r9.webp").write_bytes(b"x")
+    maps = _script()._arena_maps(assets)
+    assert maps["pairs"][0]["layers"]["ks_r9"] == {"name": "Fusion", "iou": 0.5, "src": "assets/arena-EMSR1_AOI01-ks_r9.webp"}
+
+
+def test_erratum_one_reports_the_corrected_p4_once_it_exists(tmp_path):
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    test = {"id": "P4c", "delta": 0.012, "ci": [-0.01, 0.03], "wins": 20, "k": 38, "p": 0.21}
+    (reports / "v1_1_erratum_p4.json").write_text(json.dumps({"tests": {"activation": [test],
+                                                                        "cluster": [{**test, "k": 30}]}}))
+    first = _script()._errata(reports)[0]
+    assert first["resolved"] and "+0.012 [-0.010, +0.030]" in first["result"] and "20/38" in first["result"]
+
+
+def test_blind_test_shows_counts_never_scores(tmp_path):
+    ledger = tmp_path / "reports" / "prospective" / "ledger.jsonl"
+    ledger.parent.mkdir(parents=True)
+    rows = [  # the runner's own row format (floodfusion.prospective._row); a pair's last line is its state
+        {"key": "EMSR926", "activation": "EMSR926", "event_date": "2026-08-21", "status": "settling", "at": "t0"},
+        {"key": "EMSR926_AOI01", "activation": "EMSR926", "event_date": "2026-08-21", "status": "scored",
+         "at": "t1", "stratum": "sar", "sealed_sha256": "ab"},
+        {"key": "EMSR927_AOI02", "activation": "EMSR927", "event_date": "2026-08-25", "status": "scored",
+         "at": "t1", "stratum": "optical", "sealed_sha256": "cd"},                     # not the primary stratum
+        {"key": "EMSR933", "activation": "EMSR933", "event_date": "2026-09-30", "status": "settling", "at": "t0"},
+        {"key": "EMSR933", "activation": "EMSR933", "event_date": "2026-09-30", "status": "not eligible", "at": "t2"}]
+    ledger.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+    s = _script()
+    blind = s._blind(tmp_path / "reports", records=tmp_path / "records")
+    assert blind["k_activations"] == 1 and blind["k_clusters"] is None             # records not available here
+    assert [f["status"] for f in blind["floods"]] == ["settling", "scored", "scored", "not eligible"]
+    assert "sealed_sha256" not in json.dumps(blind) and "iou" not in json.dumps(blind)
+    records = tmp_path / "records"
+    records.mkdir()
+    (records / "EMSR926.json").write_text(json.dumps({"eventTime": "2026-08-21T00:00:00Z",
+                                                      "extent": "POLYGON ((10 45, 11 45, 11 46, 10 46, 10 45))"}))
+    assert s._blind(tmp_path / "reports", records=records)["k_clusters"] == 1
+
+
+def test_the_arena_page_and_its_script_agree(tmp_path):
+    out = tmp_path / "site"
+    _script().build(out)
+    html = (out / "arena.html").read_text(encoding="utf-8")
+    script = (out / "arena.js").read_text(encoding="utf-8")
+    ids = set(re.findall(r'\bid="([^"]+)"', html))
+    for wanted in re.findall(r'byId\("([^"]+)"\)', script):
+        assert wanted in ids, f"arena.js looks up #{wanted}, which arena.html does not define"
+    for anchor in re.findall(r'href="#([^"]+)"', html):
+        assert anchor in ids, f"arena.html links to #{anchor}, which does not exist"
+    assert (out / "arena-data.js").read_text(encoding="utf-8").startswith("window.FLOODFUSION_ARENA = {")
+
+
+def test_the_scoreboard_prefers_every_model_on_the_rebuilt_stacks(tmp_path):
+    s = _script()
+    row = {"name": "M", "k": 2, **{m: 0.4 for m in s.ARENA_METRICS}, "ci": {m: [0.3, 0.5] for m in s.ARENA_METRICS}}
+    report = {"tables": [{"unit": u, "gfm_common": g, "units": ["EMSR1", "EMSR2"], "models": {"m": row}}
+                         for u, g in s.ARENA_TABLES], "n_pairs": 3, "gfm_pairs": 2}
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    (reports / "v12_cems_preview.json").write_text(json.dumps(report))
+    assert s._arena_scoreboard(reports)["source"] == "preview"
+    (reports / "v12_cems_rebuilt.json").write_text(json.dumps(report))
+    assert s._arena_scoreboard(reports)["source"] == "rebuilt"
+
+
+def test_every_listed_map_layer_gfm_included_must_be_in_the_assets(tmp_path):
+    s = _script()
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    pair = {"key": "EMSR1_AOI01", "activation": "EMSR1", "aoi": 1, "product": "P", "sensors": ["ICEYE"],
+            "product_time": "2026-01-01T00:00:00", "pass_time": "2026-01-01T06:00:00", "flood_km2": 1.0,
+            "layers": {"radar": {"name": "Sentinel-1 VV", "iou": None}, "gfm": {"name": "GFM", "iou": 0.5},
+                       "ours": {"name": "Ours", "iou": 0.6}}}
+    (assets / s.ARENA_MANIFEST).write_text(json.dumps({"pairs": [pair]}))
+    for key in ("radar", "ours"):
+        (assets / f"arena-EMSR1_AOI01-{key}.webp").write_bytes(b"x")
+    with pytest.raises(FileNotFoundError, match="gfm"):
+        s._arena_maps(assets)
+    (assets / "arena-EMSR1_AOI01-gfm.webp").write_bytes(b"x")
+    layers = s._arena_maps(assets)["pairs"][0]["layers"]
+    assert set(layers) == {"radar", "gfm", "ours"}
+    assert layers["gfm"] == {"name": "GFM", "iou": 0.5, "src": "assets/arena-EMSR1_AOI01-gfm.webp"}
+
+
+def test_the_arena_gives_the_cems_notice_for_the_gfm_maps_it_ships():
+    """GFM's terms of service ask for this notice wherever its data are shown adapted."""
+    manifest = json.loads((ROOT / "assets" / "arena-manifest.json").read_text(encoding="utf-8"))
+    assert any("gfm" in pair["layers"] for pair in manifest["pairs"])
+    page = " ".join((ROOT / "site" / "arena.html").read_text(encoding="utf-8").split())
+    assert "Contains modified Copernicus Emergency Management Service information" in page
+    assert "Global Flood Monitoring (GFM)" in page
+
+
+def test_erratum_2_reports_its_measured_effect_once_the_rebuilt_stacks_are_scored(tmp_path):
+    s = _script()
+    reports = tmp_path / "reports"
+    reports.mkdir()
+
+    def report(values):
+        models = {k: {"iou_tau": v} for k, v in values.items()}
+        return {"tables": [{"unit": "activation", "gfm_common": False, "models": models}]}
+
+    (reports / "v12_cems_preview.json").write_text(json.dumps(report(
+        {"s1f11_r9": 0.258, "ks_r9_flood": 0.397, "r2": 0.371, "s1f11_tm_fixed": 0.299})))
+    assert s._errata(reports)[1]["result"] is None                         # not yet rebuilt
+    (reports / "v12_cems_rebuilt.json").write_text(json.dumps(report(
+        {"s1f11_r9": 0.266, "v11": 0.407, "r2": 0.373, "s1f11_tm_fixed": 0.299})))
+    test = {"id": "P4c", "delta": -0.033, "ci": [-0.055, -0.011], "wins": 13, "k": 38}
+    (reports / "v1_1_erratum2_p4.json").write_text(json.dumps({"tests": {"activation": [test]}}))
+    dem = s._errata(reports)[1]
+    assert dem["resolved"] and dem["status"] == "Measured on the rebuilt stacks"
+    assert "+0.002 to +0.010" in dem["result"] and "at most 0.0000" in dem["result"]
+    assert "-0.033" in dem["result"] and "13/38" in dem["result"] and "holds" in dem["result"]

@@ -1,0 +1,38 @@
+{
+ "rule": "first of ['terramind_base_fair', 'terramind_base_fair_frozen', 'terramind_small_fair'] with peak reserved <= 7.5 GB and projected pooled run <= 3.0 h; else the last that fits in memory; none fits: no fair opponent",
+ "assumptions": "same epoch count as row 9; validation and loading scale with the step-time ratio",
+ "pool_chips": 5604,
+ "row9_projected_run_h": 0.47611076148521086,
+ "timed_micro_batches": 32,
+ "timings": {
+  "row09": {
+   "s_per_micro_batch": 0.1382845168750464,
+   "peak_allocated_gb": 1.321763038635254,
+   "peak_reserved_gb": 1.390625,
+   "trainable_params": 18155874,
+   "projected_run_h": 0.47611076148521086
+  },
+  "terramind_base_fair": {
+   "s_per_micro_batch": 0.11649805774993638,
+   "peak_allocated_gb": 2.8531455993652344,
+   "peak_reserved_gb": 2.9140625,
+   "trainable_params": 20418853,
+   "projected_run_h": 0.4011004285967114
+  },
+  "terramind_base_fair_frozen": {
+   "s_per_micro_batch": 0.10590007600001172,
+   "peak_allocated_gb": 3.313544273376465,
+   "peak_reserved_gb": 3.400390625,
+   "trainable_params": 19976485,
+   "projected_run_h": 0.364611794328839
+  },
+  "terramind_small_fair": {
+   "s_per_micro_batch": 0.05100434399992082,
+   "peak_allocated_gb": 1.6117687225341797,
+   "peak_reserved_gb": 1.642578125,
+   "trainable_params": 8141413,
+   "projected_run_h": 0.17560691254248417
+  }
+ },
+ "chosen": "terramind_base_fair"
+}

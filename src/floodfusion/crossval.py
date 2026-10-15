@@ -265,7 +265,13 @@ def _fold_config(configs_dir: Path, row: int, overlays: Sequence[Path], fold: Fo
 #: 15-17 = the v1.1 fusion variants (descriptive ablations, ``reports/protocol_v1_1.md``).
 EXTRA_ROWS = {14: "comparisons/terramind_small", 15: "variants/row09b_gate_bias0",
               16: "variants/row09c_cloud_augment", 17: "variants/row09r_sar_query",
-              18: "variants/row02e_event_fallback", 19: "variants/row02s_seasonal"}
+              18: "variants/row02e_event_fallback", 19: "variants/row02s_seasonal",
+              # v1.2: row 20, the reference design with context (both, seasonal only, AlphaEarth only) ...
+              20: "variants/row20_fusion_context", 21: "variants/row21_fusion_context_seasonal",
+              22: "variants/row22_fusion_context_aef",
+              # ... and the fair TerraMind (siamese pre/post; base + LoRA, base frozen, small + LoRA).
+              24: "comparisons/terramind_base_fair", 25: "comparisons/terramind_base_fair_frozen",
+              26: "comparisons/terramind_small_fair"}
 
 
 def _config_name(row: int) -> str:
@@ -275,7 +281,8 @@ def _config_name(row: int) -> str:
 
 
 #: Rows whose checkpoints are also evaluated SAR-only, and the run folder that evaluation goes to.
-SAR_ONLY_EVALUATED = {9: lambda name: "row11_fusion_eval_sar_only", 14: lambda name: f"{name}__eval_sar_only"}
+SAR_ONLY_EVALUATED = {9: lambda name: "row11_fusion_eval_sar_only",
+                      **{row: (lambda name: f"{name}__eval_sar_only") for row in (14, 20, 21, 22, 24, 25, 26)}}
 
 #: The reference row: under the affordable protocol it alone gets every seed.
 REFERENCE_ROW = 9
@@ -487,6 +494,23 @@ TABLE_PRESETS: dict[str, dict[str, Any]] = {
                     "independent check.",
                     "**Descriptive.** The confirmatory tests of v1.1 are on the CEMS benchmark; nothing here is "
                     "adjusted into that family."],
+    },
+    "pool_v12": {
+        "protocol": "kfold", "v11": True,
+        "title": "v1.2 training pool — Kuro Siwo (rebuilt) + GEOID-Flood, grouped five-fold, flood labels",
+        "intro": ["Real data: Kuro Siwo annotation polygons (Bountos et al., NeurIPS 2024; CC-BY-4.0), re-ingested "
+                  "with the DEM fix, pooled with the GEOID-Flood events before EMSR656 that Kuro Siwo lacks "
+                  "(Chiriaco et al., 2026; CC-BY-4.0); every input re-fetched from Planetary Computer. 7,006 chips "
+                  "from 138 floods. Label: **flood**, minus permanent water. Folds group events within 100 km "
+                  "across both sets (81 groups); each group is tested once by a model that never saw it; "
+                  "validation = the next fold. One seed per row; each family at its tuned learning rate. "
+                  "Protocol: `reports/protocol_v1_2.md`; rules: `reports/v1_2_deviations.md`."],
+        "caveats": ["**Folds hold several groups.** The oracle-threshold IoU, AP and the other fold-averaged columns "
+                    "of the main table are fold-level quantities (each fold weighted equally), not per-group macros; "
+                    "IoU at τ* and every gap are per group. The cross-fitted section below compares thresholds per "
+                    "group.",
+                    "**Single seed, exploratory.** Model selection used the whole-stack measure "
+                    "(`reports/v12_selection.json`); v1.2's confirmatory tests are the blind ones."],
     },
     "kurosiwo_water": {
         "protocol": "kfold", "v11": True,

@@ -359,7 +359,10 @@ def _supported(by_unit: Mapping[str, Sequence[Mapping[str, Any]]]) -> list[str]:
     for tid, a in acts.items():
         c = clus[tid]
         same_sign = (a["delta"] > 0) == (c["delta"] > 0)
-        verdict = ("yes" if a["holds"] and c["holds"] and (same_sign or a["margin"] is not None) else
+        negative = a["margin"] is None and a["delta"] < 0 and c["delta"] < 0
+        # A two-sided test significant at both units *against* B refutes its hypothesis (protocol_v1_1.md §4).
+        verdict = ("no: refuted, A > B at both units" if a["holds"] and c["holds"] and negative else
+                   "yes" if a["holds"] and c["holds"] and (same_sign or a["margin"] is not None) else
                    "no verdict" if a["holds"] is None or c["holds"] is None else "no")
         lines.append(f"| {tid} | {a['verdict']} | {c['verdict']} | {verdict} |")
     return lines
