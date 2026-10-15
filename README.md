@@ -99,8 +99,9 @@ the [deviations log](reports/v1_1_deviations.md).
 > protocol state. Re-trained as described, it **beats** the fusion model on the same 38 activations: fusion −
 > TerraMind = −0.042 per activation (fusion better in 10/38) and −0.043 per cluster (8/30), significant at both.
 > TerraMind scores 0.299 against fusion's 0.258. This is a post-hoc correction; the pre-registered verdict is kept as
-> run. A second defect (zero terrain past DEM tile edges) affects the fusion model, not TerraMind, on about 14 % of the
-> benchmark's area. Both are in [`reports/v1_1_erratum.md`](reports/v1_1_erratum.md).
+> run. A second defect (zero terrain past DEM tile edges) affected the fusion model, not TerraMind, on about 14 % of
+> the benchmark's area. Rescored on stacks rebuilt with the fix, models that read terrain gain at most 0.01, and the
+> reversal holds (−0.033 per activation, significant). Both are in [`reports/v1_1_erratum.md`](reports/v1_1_erratum.md).
 
 How to read the two supported results:
 - **H1** compares whole training recipes. The label changes what the sampler draws, the early stopping, the priors and

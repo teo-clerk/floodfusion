@@ -326,3 +326,25 @@ def test_a_withheld_gfm_layer_is_skipped_but_any_other_missing_layer_fails(tmp_p
     (assets / "arena-EMSR1_AOI01-ours.webp").unlink()
     with pytest.raises(FileNotFoundError, match="ours"):
         s._arena_maps(assets)
+
+
+def test_erratum_2_reports_its_measured_effect_once_the_rebuilt_stacks_are_scored(tmp_path):
+    s = _script()
+    reports = tmp_path / "reports"
+    reports.mkdir()
+
+    def report(values):
+        models = {k: {"iou_tau": v} for k, v in values.items()}
+        return {"tables": [{"unit": "activation", "gfm_common": False, "models": models}]}
+
+    (reports / "v12_cems_preview.json").write_text(json.dumps(report(
+        {"s1f11_r9": 0.258, "ks_r9_flood": 0.397, "r2": 0.371, "s1f11_tm_fixed": 0.299})))
+    assert s._errata(reports)[1]["result"] is None                         # not yet rebuilt
+    (reports / "v12_cems_rebuilt.json").write_text(json.dumps(report(
+        {"s1f11_r9": 0.266, "v11": 0.407, "r2": 0.373, "s1f11_tm_fixed": 0.299})))
+    test = {"id": "P4c", "delta": -0.033, "ci": [-0.055, -0.011], "wins": 13, "k": 38}
+    (reports / "v1_1_erratum2_p4.json").write_text(json.dumps({"tests": {"activation": [test]}}))
+    dem = s._errata(reports)[1]
+    assert dem["resolved"] and dem["status"] == "Measured on the rebuilt stacks"
+    assert "+0.002 to +0.010" in dem["result"] and "by +0.000" in dem["result"]
+    assert "-0.033" in dem["result"] and "13/38" in dem["result"] and "holds" in dem["result"]

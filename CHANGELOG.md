@@ -42,6 +42,8 @@ decision since is in `reports/v1_2_deviations.md`.
   - Affected: 14 % of the CEMS benchmark's area, and 6–8 % of the training sets'.
   - The fix is in `read_dem`. Kuro Siwo and the CEMS benchmark are rebuilt for v1.2; the v1.1 data stays for the
     regression checks.
+  - **Measured on the rebuilt CEMS stacks:** models that read terrain gain at most 0.010 IoU, and TerraMind is
+    unchanged. The corrected P4 still goes against fusion: −0.033 per activation, −0.034 per cluster, significant.
 
 ### Added
 - **Copernicus GFM as a comparator** (`data/gfm.py`, `make gfm`). The EODC public STAC has GFM for 82 of 90

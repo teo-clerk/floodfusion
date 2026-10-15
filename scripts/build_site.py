@@ -395,9 +395,39 @@ def _p4c(reports: Path) -> str | None:
             + " (v1.1 as run: +0.031 and +0.039).")
 
 
+#: v1.1's models scored on both the original and the rebuilt CEMS stacks: their key in each report.
+DEM_PAIRS = {"s1f11_r9": "s1f11_r9", "ks_r9_flood": "v11", "s1f11_r4": "s1f11_r4", "ks_r4": "ks_r4", "r2": "r2",
+             "s1f11_tm_fixed": "s1f11_tm_fixed"}
+#: The one model in DEM_PAIRS that reads no terrain.
+NO_TERRAIN = "s1f11_tm_fixed"
+
+
+def _dem_effect(reports: Path) -> str | None:
+    """Erratum 2's measured effect in one sentence, or None until the rebuilt stacks are scored."""
+    paths = [reports / n for n in ("v12_cems_preview.json", "v12_cems_rebuilt.json", "v1_1_erratum2_p4.json")]
+    if not all(p.is_file() for p in paths):
+        return None
+
+    def per_activation(path: Path) -> dict[str, Any]:
+        tables = json.loads(_read(path))["tables"]
+        return next(t for t in tables if t["unit"] == "activation" and not t["gfm_common"])["models"]
+
+    old, new = per_activation(paths[0]), per_activation(paths[1])
+    change = {o: new[n]["iou_tau"] - old[o]["iou_tau"] for o, n in DEM_PAIRS.items() if o in old and n in new}
+    terrain = [v for k, v in change.items() if k != NO_TERRAIN]
+    if not terrain or NO_TERRAIN not in change:
+        raise KeyError(f"{paths[1].name}: the erratum-2 models are missing")
+    t = next(x for x in json.loads(_read(paths[2]))["tests"]["activation"] if x["id"] == "P4c")
+    holds = "the reversal of H4 holds" if t["delta"] < 0 else "the reversal of H4 does not hold"
+    return (f"Measured on the rebuilt CEMS stacks: models that read terrain move by {min(terrain):+.3f} to "
+            f"{max(terrain):+.3f} IoU, TerraMind (no terrain input) by {change[NO_TERRAIN]:+.3f}. Corrected P4 there: "
+            f"per activation {t['delta']:+.3f} [{t['ci'][0]:+.3f}, {t['ci'][1]:+.3f}], fusion better on "
+            f"{t['wins']}/{t['k']}: {holds}.")
+
+
 def _errata(reports: Path) -> list[dict[str, Any]]:
     link = "https://github.com/teo-clerk/floodfusion/blob/main/reports/v1_1_erratum.md"
-    p4c = _p4c(reports)
+    p4c, dem = _p4c(reports), _dem_effect(reports)
     return [
         {"id": "dropout", "title": "TerraMind trained without modality dropout",
          "summary": "Its config set modality dropout to 0.5, but the training loop applied it only to the fusion "
@@ -409,7 +439,9 @@ def _errata(reports: Path) -> list[dict[str, Any]]:
          "summary": "Copernicus GLO-30 declares no nodata, so past a 1° tile boundary the terrain was read as flat "
                     "ground at 0 m: slope and height above drainage were 0 on about 14 % of the CEMS benchmark's "
                     "area and 6–8 % of the training sets'. TerraMind reads no terrain.",
-         "resolved": False, "status": "Fixed · data rebuilt for v1.2", "result": None, "link": link},
+         "resolved": dem is not None,
+         "status": "Measured on the rebuilt stacks" if dem else "Fixed · data rebuilt for v1.2", "result": dem,
+         "link": link},
     ]
 
 
