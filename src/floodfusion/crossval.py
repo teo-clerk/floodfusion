@@ -495,6 +495,23 @@ TABLE_PRESETS: dict[str, dict[str, Any]] = {
                     "**Descriptive.** The confirmatory tests of v1.1 are on the CEMS benchmark; nothing here is "
                     "adjusted into that family."],
     },
+    "pool_v12": {
+        "protocol": "kfold", "v11": True,
+        "title": "v1.2 training pool — Kuro Siwo (rebuilt) + GEOID-Flood, grouped five-fold, flood labels",
+        "intro": ["Real data: Kuro Siwo annotation polygons (Bountos et al., NeurIPS 2024; CC-BY-4.0), re-ingested "
+                  "with the DEM fix, pooled with the GEOID-Flood events before EMSR656 that Kuro Siwo lacks "
+                  "(Chiriaco et al., 2026; CC-BY-4.0); every input re-fetched from Planetary Computer. 7,006 chips "
+                  "from 138 floods. Label: **flood**, minus permanent water. Folds group events within 100 km "
+                  "across both sets (81 groups); each group is tested once by a model that never saw it; "
+                  "validation = the next fold. One seed per row; each family at its tuned learning rate. "
+                  "Protocol: `reports/protocol_v1_2.md`; rules: `reports/v1_2_deviations.md`."],
+        "caveats": ["**Folds hold several groups.** The oracle-threshold IoU, AP and the other fold-averaged columns "
+                    "of the main table are fold-level quantities (each fold weighted equally), not per-group macros; "
+                    "IoU at τ* and every gap are per group. The cross-fitted section below compares thresholds per "
+                    "group.",
+                    "**Single seed, exploratory.** Model selection used the whole-stack measure "
+                    "(`reports/v12_selection.json`); v1.2's confirmatory tests are the blind ones."],
+    },
     "kurosiwo_water": {
         "protocol": "kfold", "v11": True,
         "title": "Kuro Siwo with the 'water' label — the same chips, label = flood ∪ reference water",
