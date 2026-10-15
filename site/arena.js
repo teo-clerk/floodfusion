@@ -107,7 +107,7 @@
   ];
   const FAMILY_COLOURS = [
     [/gfm/, "--c-gfm"], [/tm|terramind/, "--c-tm"], [/r4|unet/, "--c-sar"], [/r2s|r2$|baseline/, "--c-phys"],
-    [/v12|ctx|row2[0-2]/, "--c-v12"], [/r9|r11|fusion/, "--c-fusion"],
+    [/^ours$|v12|ctx|row2[0-2]/, "--c-v12"], [/^v11$|r9|r11|fusion/, "--c-fusion"],
   ];
   const colourOf = (key) => `var(${(FAMILY_COLOURS.find(([re]) => re.test(key)) || [null, "--muted"])[1]})`;
 

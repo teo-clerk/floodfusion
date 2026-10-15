@@ -318,6 +318,10 @@ def site_data(root: Path = ROOT) -> dict[str, Any]:
 #: The v1.2 preview tables: (unit, restricted to units GFM covers) -> one table each.
 ARENA_TABLES = (("activation", False), ("cluster", False), ("activation", True), ("cluster", True))
 ARENA_METRICS = ("iou_tau", "iou_tau_binned", "iou_selfcal", "iou_oracle", "ap")
+#: Readable names for the frozen spec's models (the spec itself is pinned by sha256 and keeps its own names).
+ARENA_NAMES = {"ours": "v1.2 · fusion + seasonal context (frozen)",
+               "tm_fair": "TerraMind-base + LoRA, fair (frozen)",
+               "v11": "v1.1 best · fusion, Kuro Siwo flood labels"}
 ARENA_MANIFEST = "arena-manifest.json"
 #: Map layers that may be absent from a build: Copernicus GFM's imagery stays local until its redistribution terms
 #: are verified (its scores are published).
@@ -350,7 +354,8 @@ def _arena_scoreboard(reports: Path) -> dict[str, Any]:
             missing = [m for m in ARENA_METRICS if m not in row]
             if missing:
                 raise KeyError(f"{path.name}: {key} lacks {missing}")
-            models[key] = {"name": row["name"], "k": row["k"], **{m: _finite(row[m]) for m in ARENA_METRICS},
+            models[key] = {"name": ARENA_NAMES.get(key, row["name"]), "k": row["k"],
+                           **{m: _finite(row[m]) for m in ARENA_METRICS},
                            "ci": {m: [_finite(v) for v in row["ci"][m]] for m in ARENA_METRICS}}
         tables.append({"unit": unit, "gfm_common": gfm, "units": table["units"], "models": models})
     return {"status": "ok", "source": source, "tables": tables, "n_pairs": report["n_pairs"],
