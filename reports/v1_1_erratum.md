@@ -121,9 +121,32 @@ Every v1.0 and v1.1 number from models or rules that read terrain:
 - the physics baselines, through their HAND and slope masks;
 - the shadow/layover exclusions.
 
-TerraMind reads no terrain, so the defect could bias the H4 comparison in either direction. The direction and size
-are measured, not assumed: the v1.1 models are re-scored on CEMS stacks rebuilt with the fix, as a descriptive
-comparison beside the published numbers, which stand as computed.
+TerraMind reads no terrain, so the defect could bias the H4 comparison in either direction.
+
+## What it changed on the CEMS benchmark (measured 2026-10-15)
+
+The same checkpoints were scored on the benchmark's stacks rebuilt with the fix (`data/cems_benchmark_v12`;
+`reports/v12_cems_rebuilt.md`, `reports/v1_1_erratum2_p4.md`): the same 90 pairs and 605 stacks, the same units
+(38 activations, 30 clusters). Descriptive; the published numbers stand as computed.
+
+| Model (macro IoU at τ*, 38 activations) | Original stacks | Rebuilt stacks | Change |
+|---|---|---|---|
+| Fusion (Kuro Siwo, flood labels) | 0.397 | 0.407 | +0.010 |
+| Fusion (Sen1Floods11) | 0.258 | 0.266 | +0.008 |
+| Physics baseline (row 2) | 0.371 | 0.373 | +0.002 |
+| SAR U-Net (Kuro Siwo, flood labels) | 0.394 | 0.395 | +0.001 |
+| SAR U-Net (Sen1Floods11) | 0.281 | 0.281 | 0.000 |
+| TerraMind-small (Sen1Floods11), corrected | 0.299 | 0.299 | 0.000 |
+
+- **Small, and against the models that read terrain.** Correct terrain helps them by at most 0.01. TerraMind, which
+  reads none, scores identically: the rebuild changed only the terrain bands, as designed.
+- **P4c survives it.** On the rebuilt stacks, fusion − corrected TerraMind is −0.033 per activation [−0.055, −0.011]
+  (fusion better in 13 of 38) and −0.034 per cluster (12 of 30). Both remain significant against fusion (p = 0.005
+  and 0.008), against −0.042 and −0.043 on the original stacks. Erratum 1's reversal of H4 does not depend on
+  erratum 2.
+- **Not re-measured: training.** The v1.1 models were also trained on stacks with the defect: about 8 % of
+  Sen1Floods11's stack area and 6 % of Kuro Siwo's. Only a re-training would show what that changed, and v1.1's
+  models stay as published. v1.2's models were trained on rebuilt data.
 
 ## The fix and the rebuilt data (v1.2)
 
