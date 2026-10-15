@@ -1,6 +1,6 @@
-# Kuro Siwo, re-ingested — grouped five-fold, flood labels drawn on radar
+# v1.2 training pool — Kuro Siwo (rebuilt) + GEOID-Flood, grouped five-fold, flood labels
 
-Real data: Kuro Siwo annotation polygons (Bountos et al., NeurIPS 2024; CC-BY-4.0) rasterised on our grid, every input re-fetched from Planetary Computer by `floodfusion.data.kurosiwo`; chips sampled per event by a seeded rule. Label: **flood** — water the event brought — minus JRC permanent water. Folds group events whose AOIs lie within 100 km; each group is tested once by a model that never saw it; validation = the next fold. Protocol: `reports/protocol_v1_1.md`.
+Real data: Kuro Siwo annotation polygons (Bountos et al., NeurIPS 2024; CC-BY-4.0), re-ingested with the DEM fix, pooled with the GEOID-Flood events before EMSR656 that Kuro Siwo lacks (Chiriaco et al., 2026; CC-BY-4.0); every input re-fetched from Planetary Computer. 7,006 chips from 138 floods. Label: **flood**, minus permanent water. Folds group events within 100 km across both sets (81 groups); each group is tested once by a model that never saw it; validation = the next fold. One seed per row; each family at its tuned learning rate. Protocol: `reports/protocol_v1_2.md`; rules: `reports/v1_2_deviations.md`.
 
 | # | Configuration | IoU at τ* [95 % CI over events] | IoU, oracle τ | AP | F1 | Seeds | Events |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -15,9 +15,8 @@ Real data: Kuro Siwo annotation polygons (Bountos et al., NeurIPS 2024; CC-BY-4.
 
 ## Caveats
 
-- **Folds hold several groups.** The oracle-threshold IoU, AP and the other fold-averaged columns of the main table are fold-level quantities (each fold weighted equally), not per-group macros; IoU at τ* and every gap are per group. The baseline variants' event-pooled threshold pools a split group (events within 100 km), not one acquisition.
-- **Labels drawn on radar.** Kuro Siwo's annotators drew on Sentinel-1: gaps involving optical understate optical's value here, as Sen1Floods11's overstate it; the CEMS benchmark is the independent check.
-- **Descriptive.** The confirmatory tests of v1.1 are on the CEMS benchmark; nothing here is adjusted into that family.
+- **Folds hold several groups.** The oracle-threshold IoU, AP and the other fold-averaged columns of the main table are fold-level quantities (each fold weighted equally), not per-group macros; IoU at τ* and every gap are per group. The cross-fitted section below compares thresholds per group.
+- **Single seed, exploratory.** Model selection used the whole-stack measure (`reports/v12_selection.json`); v1.2's confirmatory tests are the blind ones.
 
 ## Paired gaps over held-out groups (matched seeds)
 
