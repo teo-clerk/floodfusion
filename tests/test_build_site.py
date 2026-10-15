@@ -308,3 +308,21 @@ def test_the_scoreboard_prefers_every_model_on_the_rebuilt_stacks(tmp_path):
     assert s._arena_scoreboard(reports)["source"] == "preview"
     (reports / "v12_cems_rebuilt.json").write_text(json.dumps(report))
     assert s._arena_scoreboard(reports)["source"] == "rebuilt"
+
+
+def test_a_withheld_gfm_layer_is_skipped_but_any_other_missing_layer_fails(tmp_path):
+    s = _script()
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    pair = {"key": "EMSR1_AOI01", "activation": "EMSR1", "aoi": 1, "product": "P", "sensors": ["ICEYE"],
+            "product_time": "2026-01-01T00:00:00", "pass_time": "2026-01-01T06:00:00", "flood_km2": 1.0,
+            "layers": {"radar": {"name": "Sentinel-1 VV", "iou": None}, "gfm": {"name": "GFM", "iou": 0.5},
+                       "ours": {"name": "Ours", "iou": 0.6}}}
+    (assets / s.ARENA_MANIFEST).write_text(json.dumps({"pairs": [pair]}))
+    for key in ("radar", "ours"):
+        (assets / f"arena-EMSR1_AOI01-{key}.webp").write_bytes(b"x")
+    maps = s._arena_maps(assets)
+    assert set(maps["pairs"][0]["layers"]) == {"radar", "ours"}             # GFM imagery withheld
+    (assets / "arena-EMSR1_AOI01-ours.webp").unlink()
+    with pytest.raises(FileNotFoundError, match="ours"):
+        s._arena_maps(assets)
