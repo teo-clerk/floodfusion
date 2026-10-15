@@ -310,7 +310,7 @@ def test_the_scoreboard_prefers_every_model_on_the_rebuilt_stacks(tmp_path):
     assert s._arena_scoreboard(reports)["source"] == "rebuilt"
 
 
-def test_a_withheld_gfm_layer_is_skipped_but_any_other_missing_layer_fails(tmp_path):
+def test_every_listed_map_layer_gfm_included_must_be_in_the_assets(tmp_path):
     s = _script()
     assets = tmp_path / "assets"
     assets.mkdir()
@@ -321,11 +321,21 @@ def test_a_withheld_gfm_layer_is_skipped_but_any_other_missing_layer_fails(tmp_p
     (assets / s.ARENA_MANIFEST).write_text(json.dumps({"pairs": [pair]}))
     for key in ("radar", "ours"):
         (assets / f"arena-EMSR1_AOI01-{key}.webp").write_bytes(b"x")
-    maps = s._arena_maps(assets)
-    assert set(maps["pairs"][0]["layers"]) == {"radar", "ours"}             # GFM imagery withheld
-    (assets / "arena-EMSR1_AOI01-ours.webp").unlink()
-    with pytest.raises(FileNotFoundError, match="ours"):
+    with pytest.raises(FileNotFoundError, match="gfm"):
         s._arena_maps(assets)
+    (assets / "arena-EMSR1_AOI01-gfm.webp").write_bytes(b"x")
+    layers = s._arena_maps(assets)["pairs"][0]["layers"]
+    assert set(layers) == {"radar", "gfm", "ours"}
+    assert layers["gfm"] == {"name": "GFM", "iou": 0.5, "src": "assets/arena-EMSR1_AOI01-gfm.webp"}
+
+
+def test_the_arena_gives_the_cems_notice_for_the_gfm_maps_it_ships():
+    """GFM's terms of service ask for this notice wherever its data are shown adapted."""
+    manifest = json.loads((ROOT / "assets" / "arena-manifest.json").read_text(encoding="utf-8"))
+    assert any("gfm" in pair["layers"] for pair in manifest["pairs"])
+    page = " ".join((ROOT / "site" / "arena.html").read_text(encoding="utf-8").split())
+    assert "Contains modified Copernicus Emergency Management Service information" in page
+    assert "Global Flood Monitoring (GFM)" in page
 
 
 def test_erratum_2_reports_its_measured_effect_once_the_rebuilt_stacks_are_scored(tmp_path):

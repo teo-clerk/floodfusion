@@ -323,9 +323,6 @@ ARENA_NAMES = {"ours": "v1.2 · fusion + seasonal context (frozen)",
                "tm_fair": "TerraMind-base + LoRA, fair (frozen)",
                "v11": "v1.1 best · fusion, Kuro Siwo flood labels"}
 ARENA_MANIFEST = "arena-manifest.json"
-#: Map layers that may be absent from a build: Copernicus GFM's imagery stays local until its redistribution terms
-#: are verified (its scores are published).
-WITHHELD_LAYERS = frozenset({"gfm"})
 
 
 def _finite(x: Any) -> float | None:
@@ -374,8 +371,6 @@ def _arena_maps(assets: Path) -> dict[str, Any]:
         for key, layer in pair["layers"].items():
             name = f"arena-{pair['key']}-{key}.webp"
             if not (assets / name).is_file():
-                if key in WITHHELD_LAYERS:              # kept local (.gitignore): the explorer offers the others
-                    continue
                 raise FileNotFoundError(f"{path.name} lists {name}, which is not in {assets}")
             layers[key] = {"name": layer["name"], "iou": _finite(layer["iou"]), "src": f"assets/{name}"}
         pairs.append({**{k: pair[k] for k in ("key", "activation", "aoi", "product", "sensors", "product_time",

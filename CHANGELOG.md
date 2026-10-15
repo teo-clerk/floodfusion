@@ -70,7 +70,8 @@ decision since is in `reports/v1_2_deviations.md`.
   - a freeze check.
 - **The Arena page** (`site/arena.html`):
   - scoreboard with five metrics and 95 % intervals;
-  - map explorer;
+  - map explorer: 11 floods, 12 layers each, GFM's included. GFM's terms of service (checked 2026-10-15) allow
+    reuse with a source notice, given in the Arena's footer, the README and the model and data cards;
   - research landscape, errata and blind-test tracker.
 - **Golden-output tests** pin the v1.1 checkpoints' logits across refactors.
 

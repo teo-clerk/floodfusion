@@ -19,8 +19,8 @@ Seed 42 of every learned model is shown, and Copernicus GFM's ensemble is read f
 **Output.** WebP files (≤ :data:`MAX_SIDE` px), committed as flat names ``assets/arena-<pair>-<layer>.webp`` with
 ``assets/arena-manifest.json``: a layer per model, and the per-tile IoU of each.
 
-Products: © European Union, Copernicus Emergency Management Service (CEMS rapid mapping, GFM). Contains modified
-Copernicus Sentinel data.
+Contains modified Copernicus Emergency Management Service information (2023–2026): rapid-mapping delineations and
+Global Flood Monitoring (GFM) flood maps, © European Union. Contains modified Copernicus Sentinel data.
 """
 
 from __future__ import annotations

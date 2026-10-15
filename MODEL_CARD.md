@@ -202,7 +202,7 @@ marked "dry" under canopy, in a city, in radar shadow, or outside the acquisitio
 
 ## Data and attribution
 
-See [`DATA_CARD.md`](DATA_CARD.md). Contains modified Copernicus Sentinel data. CEMS products:
-© European Union, Copernicus Emergency Management Service. Kuro Siwo annotations (training and cross-validation of
-the v1.1 Kuro Siwo models): Bountos et al., NeurIPS 2024, CC BY 4.0. Sen1Floods11 labels: Bonafilia et al., 2020, no
-licence declared, never redistributed.
+See [`DATA_CARD.md`](DATA_CARD.md). Contains modified Copernicus Sentinel data. Contains modified Copernicus Emergency
+Management Service information (2023–2026): rapid-mapping delineations and Global Flood Monitoring (GFM) flood maps,
+© European Union. Kuro Siwo annotations (training and cross-validation of the v1.1 Kuro Siwo models): Bountos et al.,
+NeurIPS 2024, CC BY 4.0. Sen1Floods11 labels: Bonafilia et al., 2020, no licence declared, never redistributed.
