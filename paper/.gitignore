@@ -1,0 +1,10 @@
+# LaTeX build intermediates (the PDF itself is ignored repository-wide by *.pdf)
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.xdv
