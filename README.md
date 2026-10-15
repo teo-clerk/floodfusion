@@ -38,7 +38,7 @@ puts every model on the same floods.
 **What v1.2 has found so far (exploratory).**
 - **v1.1's TerraMind result was a bug** ([erratum](reports/v1_1_erratum.md)). Trained as its protocol describes,
   TerraMind beats the task-specific model it lost to (0.299 vs 0.258 on 38 CEMS floods).
-- **A fair TerraMind still trails, mostly on its threshold.**
+- **A fair TerraMind trails in cross-validation, mostly on its threshold, and nearly ties on independent maps.**
   - **The comparison:** TerraMind-base with LoRA, a pre-event image and its DEM input, against our seasonal-context
     model. Both were trained on the same flood labels: Kuro Siwo plus GEOID-Flood, 7,006 chips from 138 floods. Both
     were tuned with the same three-learning-rate budget.
@@ -46,14 +46,21 @@ puts every model on the same floods.
     against ours at 0.394.
   - **The cause:** at the best single threshold the gap shrinks to 0.366 vs 0.388. Threshold-free, ours leads 0.651
     vs 0.617 AP. The blind test therefore requires both to favour ours. [CV table](reports/v12_pool_cv.md).
+  - **On the 38 seen CEMS floods** (the frozen models, scored once after the freeze, on stacks rebuilt with the DEM
+    fix): ours 0.417, TerraMind 0.405, v1.1's best 0.407 ([seen-floods analysis](reports/v12_cems_seen_tests.md)).
+    - The gaps to TerraMind (+0.012 IoU, +0.015 AP) and to v1.1's best (+0.010) are small and not significant.
+    - The blind test detects about 0.06 at its stopping rule, so P5 and P7 will most likely end *not supported*
+      unless new floods behave differently.
 - **The seasonal context helps a little.** The CV selection rule chose it (row 21) over the same model without context
   (row 9): 0.380 vs 0.361 on whole test scenes, better in 49 of 79 groups. The edge is modest and single-seed.
   [Selection](reports/v12_selection.json).
 - **Per-scene self-calibration does not help** (−0.04 in CV), nor does a HAND cut (+0.001), so neither is used.
-- **Copernicus GFM, the operational service**, scores 0.321 on the 34 CEMS floods it covers. Our best v1.1 model
-  scores 0.395 on the same floods, and the physics baseline 0.379. GFM's likelihood ranks pixels about as well as our
-  models (AP 0.517 vs 0.513): its loss is its fixed cut. These floods were seen before, so this is descriptive
-  ([preview](reports/v12_cems_preview.md)).
+- **Copernicus GFM, the operational service**, scores 0.321 on the 34 CEMS floods it covers, against 0.419 for v1.2's
+  model on the same floods.
+  - **The gap:** +0.098 per activation, better on 25 of 34. It is significant at both unit definitions with the
+    blind test's own analysis (descriptive: seen floods).
+  - **Why GFM loses:** its likelihood ranks pixels well (AP 0.517); its fixed cut is what loses. The physics baseline
+    scores 0.379 on the same floods ([preview](reports/v12_cems_preview.md)).
 
 **The test that decides it: floods that had not happened when the models were frozen.**
 - **The floods:** every eligible Copernicus EMS flood activation from EMSR899 on.
