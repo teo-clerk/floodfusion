@@ -66,3 +66,7 @@ service-account*.json
 *.swp
 .DS_Store
 /reports/products/
+
+# Copernicus GFM-derived Arena map layers: kept local until GFM's attribution/redistribution terms are verified
+# (the Arena skips a missing GFM layer; GFM's scores are published, its imagery is not).
+/assets/arena-*-gfm.webp
