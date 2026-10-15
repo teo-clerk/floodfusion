@@ -403,8 +403,8 @@ def _p4c(reports: Path) -> str | None:
 #: v1.1's models scored on both the original and the rebuilt CEMS stacks: their key in each report.
 DEM_PAIRS = {"s1f11_r9": "s1f11_r9", "ks_r9_flood": "v11", "s1f11_r4": "s1f11_r4", "ks_r4": "ks_r4", "r2": "r2",
              "s1f11_tm_fixed": "s1f11_tm_fixed"}
-#: The one model in DEM_PAIRS that reads no terrain.
-NO_TERRAIN = "s1f11_tm_fixed"
+#: The models in DEM_PAIRS that read no terrain (the SAR U-Nets have use_terrain off; TerraMind has no terrain input).
+NO_TERRAIN = frozenset({"s1f11_r4", "ks_r4", "s1f11_tm_fixed"})
 
 
 def _dem_effect(reports: Path) -> str | None:
@@ -419,13 +419,15 @@ def _dem_effect(reports: Path) -> str | None:
 
     old, new = per_activation(paths[0]), per_activation(paths[1])
     change = {o: new[n]["iou_tau"] - old[o]["iou_tau"] for o, n in DEM_PAIRS.items() if o in old and n in new}
-    terrain = [v for k, v in change.items() if k != NO_TERRAIN]
-    if not terrain or NO_TERRAIN not in change:
+    terrain = [v for k, v in change.items() if k not in NO_TERRAIN]
+    other = [abs(v) for k, v in change.items() if k in NO_TERRAIN]
+    if not terrain or not other:
         raise KeyError(f"{paths[1].name}: the erratum-2 models are missing")
     t = next(x for x in json.loads(_read(paths[2]))["tests"]["activation"] if x["id"] == "P4c")
     holds = "the reversal of H4 holds" if t["delta"] < 0 else "the reversal of H4 does not hold"
-    return (f"Measured on the rebuilt CEMS stacks: models that read terrain move by {min(terrain):+.3f} to "
-            f"{max(terrain):+.3f} IoU, TerraMind (no terrain input) by {change[NO_TERRAIN]:+.3f}. Corrected P4 there: "
+    return (f"Measured on the rebuilt CEMS stacks: the models that read terrain (fusion, the physics baseline) move by "
+            f"{min(terrain):+.3f} to {max(terrain):+.3f} IoU; the others by at most {max(other):.4f}, through the scored "
+            f"region alone. Corrected P4 there: "
             f"per activation {t['delta']:+.3f} [{t['ci'][0]:+.3f}, {t['ci'][1]:+.3f}], fusion better on "
             f"{t['wins']}/{t['k']}: {holds}.")
 
@@ -442,8 +444,8 @@ def _errata(reports: Path) -> list[dict[str, Any]]:
          "result": p4c, "link": link},
         {"id": "dem", "title": "Zero terrain past a DEM tile edge",
          "summary": "Copernicus GLO-30 declares no nodata, so past a 1° tile boundary the terrain was read as flat "
-                    "ground at 0 m: slope and height above drainage were 0 on about 14 % of the CEMS benchmark's "
-                    "area and 6–8 % of the training sets'. TerraMind reads no terrain.",
+                    "ground at 0 m: slope and height above drainage were 0 on about 15 % of the CEMS benchmark's "
+                    "area and 6–9 % of the training sets'. TerraMind reads no terrain.",
          "resolved": dem is not None,
          "status": "Measured on the rebuilt stacks" if dem else "Fixed · data rebuilt for v1.2", "result": dem,
          "link": link},

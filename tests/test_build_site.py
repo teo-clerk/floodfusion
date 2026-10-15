@@ -346,5 +346,5 @@ def test_erratum_2_reports_its_measured_effect_once_the_rebuilt_stacks_are_score
     (reports / "v1_1_erratum2_p4.json").write_text(json.dumps({"tests": {"activation": [test]}}))
     dem = s._errata(reports)[1]
     assert dem["resolved"] and dem["status"] == "Measured on the rebuilt stacks"
-    assert "+0.002 to +0.010" in dem["result"] and "by +0.000" in dem["result"]
+    assert "+0.002 to +0.010" in dem["result"] and "at most 0.0000" in dem["result"]
     assert "-0.033" in dem["result"] and "13/38" in dem["result"] and "holds" in dem["result"]

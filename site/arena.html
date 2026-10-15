@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>floodfusion Arena</title>
-  <meta name="description" content="floodfusion v1.2 Arena: every model, including a fairly trained TerraMind and Copernicus's operational GFM, scored on the same Copernicus EMS flood maps, with a blind test on floods that had not happened when the models were frozen.">
+  <meta name="description" content="floodfusion v1.2 Arena: every model, including a fairly trained TerraMind and Copernicus's operational GFM, scored on the same Copernicus EMS flood maps, with a blind test on floods no model had seen, scored only after the models were frozen.">
   <meta name="color-scheme" content="light dark">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b6e99'/%3E%3Cpath d='M4 20c4-4 8 4 12 0s8 4 12 0v8H4z' fill='%23fff'/%3E%3C/svg%3E">
@@ -44,7 +44,7 @@
       <p class="lede">Instead of asking <em>is this pixel water?</em>, v1.2 asks <em>is this water unusual for this
         place and season?</em> Here that idea meets its opponents on equal terms:
         a foundation model trained on the same labels, the operational Copernicus flood service, and a blind test on
-        floods that had not happened when the models were frozen.</p>
+        floods no model had seen, scored only after the models were frozen.</p>
       <div class="stats" id="arena-stats"></div>
     </div>
   </section>
@@ -56,7 +56,7 @@
       <p class="section-lede">Every model maps every flood <a class="term" href="index.html#g-zeroshot">zero-shot</a>
         and is scored against the Copernicus EMS delineation of the same day. Five ways to score it:
         at the model's own threshold (τ*), the same on the binned scores, after a per-scene recalibration of the
-        flood prior, at the best single threshold chosen in hindsight, and threshold-free
+        flood prior, at each flood's best threshold chosen in hindsight, and threshold-free
         (<a class="term" href="index.html#g-ap">AP</a>). A win that flips between them is not a win.</p>
       <div class="panel">
         <div class="arena-controls">
@@ -127,7 +127,8 @@
           <h3>Retrospective benchmarks are running out</h3>
           <p>New training sets now cover the same Copernicus activations as this project's test set (GEOID-Flood
             reaches EMSR871; IBM and ESA's ImpactMesh covers hundreds of events). A model trained on them has seen
-            the test. Only floods that happen after a model is frozen stay clean, hence the blind test below.</p>
+            the test. Only floods no model was trained or tuned on, scored after it is frozen, stay clean: hence
+            the blind test below.</p>
           <p class="cite"><a href="https://github.com/IBM/ImpactMesh">ImpactMesh</a> (IBM, ESA Φ-lab).</p>
         </article>
         <article class="panel research-card">
@@ -155,11 +156,12 @@
   <section class="section" id="blind">
     <div class="wrap">
       <p class="kicker">5 · Blind test</p>
-      <h2>Floods that had not happened when the models were frozen</h2>
-      <p class="section-lede">Every eligible Copernicus flood activation from EMSR899 on is scored by models frozen
-        before it, under rules committed before it. Scores stay sealed until the stopping rule is met: at least 20
-        activations in 15 clusters, or 31 December 2027. Fewer floods could only detect large differences (about
-        0.10 IoU with 10 activations).</p>
+      <h2>Floods no model had seen</h2>
+      <p class="section-lede">Every eligible Copernicus flood activation from EMSR899 on (events from late July 2026)
+        is scored by the frozen models, under rules committed before any of them was looked at. None was seen during
+        development; each is scored only after the freeze. Scores stay sealed until the stopping rule is met: at
+        least 20 activations in 15 clusters, or 31 December 2027. That detects gaps of about 0.06 IoU per activation
+        and 0.07 per cluster; 10 activations would detect only about 0.10.</p>
       <div class="panel" id="blind-panel"></div>
     </div>
   </section>

@@ -23,7 +23,8 @@ Found on 2026-10-13 while planning v1.2, after every v1.1 result had been report
 - **P4 / H4 (fusion vs TerraMind on the CEMS benchmark).** Reported as supported (+0.031 per activation, +0.039 per
   cluster). Both defects handicap TerraMind, the first mostly where optical is missing, so the reported margin may be
   partly an artefact of the bug. The verdict stands as pre-registered and as run; it must be read with this erratum.
-- **The Sen1Floods11 TerraMind rows** (leave-one-event-out 0.572, published split 0.576) and every descriptive
+- **The Sen1Floods11 TerraMind rows** (leave-one-event-out 0.572 over three seeds, 0.576 in v1.0 with one;
+  published split 0.594 over three seeds) and every descriptive
   TerraMind number in `reports/cems_benchmark*.md`, the README, the model card and the site.
 - **No other model is affected.** Rows 4, 9 and 11, the Kuro Siwo models and the baselines never went through either
   code path. Their logits are pinned by `tests/test_golden_v11.py`.
@@ -54,7 +55,7 @@ verdict.
 | TerraMind, Sen1Floods11 leave-one-event-out, SAR-only | 0.413 | 0.509, better on 10 of 10 events |
 | TerraMind, Sen1Floods11 published split, 3 seeds (SAR-only) | 0.594 (0.451) | 0.619 (0.547) |
 
-The published-split row is v1.1's three-seed run; the 0.576 quoted in v1.0's table is a single seed.
+The published-split row is v1.1's three-seed run. v1.0's table quotes 0.576 for leave-one-event-out, with one seed.
 
 **What it means.** With TerraMind trained as the protocol describes it, **H4 reverses**: the foundation model beats
 the task-specific fusion model trained on the same Sen1Floods11 data, significantly at both unit definitions. P4c is a
@@ -73,13 +74,13 @@ That is where the missing dropout had left TerraMind untrained.
 - **Stands:** the other v1.1 conclusions (H1 labels; H2 no verdict; H3 not shown). None of them involves TerraMind.
 
 **One caveat runs the other way.** P4c is scored on the v1.1 CEMS stacks, which carry erratum 2 below. The fusion
-model reads terrain and TerraMind does not, so on about 14 % of the benchmark's area the fusion model saw corrupted
+model reads terrain and TerraMind does not, so on about 15 % of the benchmark's area the fusion model saw corrupted
 input. Re-scoring both models on the rebuilt benchmark (`data/cems_benchmark_v12`) measures that effect. It is
 reported beside P4c, descriptively.
 
 v1.2 takes the question further: a TerraMind trained on the same flood labels as our model (Kuro Siwo and
-GEOID-Flood), with its native DEM and a pre-event image, against our best model, on floods that occur after both are
-frozen (`reports/protocol_v1_2.md`, H5).
+GEOID-Flood), with its native DEM and a pre-event image, against our best model, on floods neither had seen:
+activations from EMSR899 on, scored only after both were frozen (`reports/protocol_v1_2.md`, H5).
 
 ---
 
@@ -106,20 +107,23 @@ Radar and optical are not affected: their files declare nodata (S1 RTC −32768;
 
 ## Exposure
 
-Stacks with part of their grid outside the first DEM tile they list:
+Stacks with part of their grid outside the first DEM tile they list (`scripts/dem_exposure.py`, metadata only;
+`reports/v1_1_erratum2_exposure.md`):
 
-| Dataset | Stacks affected | Median share of the stack | Total, in whole stacks |
-|---|---|---|---|
-| Sen1Floods11 | 49 of 379 | 0.68 | ≈ 32 |
-| Kuro Siwo | 52 of 452 | 0.48 | ≈ 29 |
-| CEMS benchmark | 168 of 605 | 0.50 | ≈ 86 (≈ 14 % of its stack area) |
+| Dataset | Stacks affected | Median share of an affected stack | Total, in whole stacks | Share of all stack area |
+|---|---|---|---|---|
+| Sen1Floods11 | 49 of 379 | 0.68 | ≈ 32 | 8.6 % |
+| Kuro Siwo | 52 of 452 | 0.48 | ≈ 28 | 6.4 % |
+| CEMS benchmark | 172 of 605 | 0.48 | ≈ 86 | 14.6 % |
+
+An earlier, ad-hoc count gave 168 stacks, a median of 0.50 and ≈ 29 for Kuro Siwo; the script replaces it.
 
 ## Which results it can affect
 
 Every v1.0 and v1.1 number from models or rules that read terrain:
-- rows 4, 9 and 11;
+- rows 9 and 11 (fusion; row 4, the SAR U-Net, reads no terrain);
 - the physics baselines, through their HAND and slope masks;
-- the shadow/layover exclusions.
+- every model's scored region, through the shadow/layover exclusions.
 
 TerraMind reads no terrain, so the defect could bias the H4 comparison in either direction.
 
@@ -129,23 +133,24 @@ The same checkpoints were scored on the benchmark's stacks rebuilt with the fix 
 `reports/v12_cems_rebuilt.md`, `reports/v1_1_erratum2_p4.md`): the same 90 pairs and 605 stacks, the same units
 (38 activations, 30 clusters). Descriptive; the published numbers stand as computed.
 
-| Model (macro IoU at τ*, 38 activations) | Original stacks | Rebuilt stacks | Change |
-|---|---|---|---|
-| Fusion (Kuro Siwo, flood labels) | 0.397 | 0.407 | +0.010 |
-| Fusion (Sen1Floods11) | 0.258 | 0.266 | +0.008 |
-| Physics baseline (row 2) | 0.371 | 0.373 | +0.002 |
-| SAR U-Net (Kuro Siwo, flood labels) | 0.394 | 0.395 | +0.001 |
-| SAR U-Net (Sen1Floods11) | 0.281 | 0.281 | 0.000 |
-| TerraMind-small (Sen1Floods11), corrected | 0.299 | 0.299 | 0.000 |
+| Model (macro IoU at τ*, 38 activations) | Reads terrain | Original stacks | Rebuilt stacks | Change |
+|---|---|---|---|---|
+| Fusion (Kuro Siwo, flood labels) | yes | 0.3967 | 0.4070 | +0.0103 |
+| Fusion (Sen1Floods11) | yes | 0.2575 | 0.2658 | +0.0083 |
+| Physics baseline (row 2) | yes (HAND, slope) | 0.3706 | 0.3725 | +0.0019 |
+| SAR U-Net (Kuro Siwo, flood labels) | no | 0.3945 | 0.3946 | +0.0001 |
+| SAR U-Net (Sen1Floods11) | no | 0.2807 | 0.2808 | +0.0001 |
+| TerraMind-small (Sen1Floods11), corrected | no | 0.2992 | 0.2992 | +0.0000 |
 
-- **Small, and against the models that read terrain.** Correct terrain helps them by at most 0.01. TerraMind, which
-  reads none, scores identically: the rebuild changed only the terrain bands, as designed.
+- **Small, and against the models that read terrain.** Correct terrain helps them by +0.002 to +0.010. The models
+  that read none move by at most 0.0001, through the scored region alone: its shadow and layover masks come from the
+  DEM.
 - **P4c survives it.** On the rebuilt stacks, fusion − corrected TerraMind is −0.033 per activation [−0.055, −0.011]
   (fusion better in 13 of 38) and −0.034 per cluster (12 of 30). Both remain significant against fusion (p = 0.005
   and 0.008), against −0.042 and −0.043 on the original stacks. Erratum 1's reversal of H4 does not depend on
   erratum 2.
-- **Not re-measured: training.** The v1.1 models were also trained on stacks with the defect: about 8 % of
-  Sen1Floods11's stack area and 6 % of Kuro Siwo's. Only a re-training would show what that changed, and v1.1's
+- **Not re-measured: training.** The v1.1 models were also trained on stacks with the defect: 8.6 % of
+  Sen1Floods11's stack area and 6.4 % of Kuro Siwo's. Only a re-training would show what that changed, and v1.1's
   models stay as published. v1.2's models were trained on rebuilt data.
 
 ## The fix and the rebuilt data (v1.2)

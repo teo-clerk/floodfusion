@@ -7,8 +7,9 @@ questions fixed in advance, and on two benchmarks with every flood held out: Sen
 (36 floods). Its main finding: **on independent maps the choice of training labels mattered, and the optical
 input did not detectably.** **Version 1.2** adds a seasonal radar reference ("is this water unusual for this place
 and season?"). It takes on a TerraMind trained on the same flood labels, and Copernicus's operational flood maps, in
-a blind test on floods that happen after the models were frozen. It also publishes an erratum that withdraws v1.1's
-TerraMind result.
+a blind test on floods no model had seen: Copernicus activations from EMSR899 on (from late July 2026), never looked
+at during development and scored only after the freeze. It also publishes an erratum that withdraws v1.1's TerraMind
+result.
 
 [![ci](https://github.com/teo-clerk/floodfusion/actions/workflows/ci.yml/badge.svg)](https://github.com/teo-clerk/floodfusion/actions/workflows/ci.yml)
 ![python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
@@ -40,30 +41,36 @@ puts every model on the same floods.
   TerraMind beats the task-specific model it lost to (0.299 vs 0.258 on 38 CEMS floods).
 - **A fair TerraMind trails in cross-validation, mostly on its threshold, and nearly ties on independent maps.**
   - **The comparison:** TerraMind-base with LoRA, a pre-event image and its DEM input, against our seasonal-context
-    model. Both were trained on the same flood labels: Kuro Siwo plus GEOID-Flood, 7,006 chips from 138 floods. Both
-    were tuned with the same three-learning-rate budget.
-  - **The result:** in grouped five-fold CV over 81 location groups, TerraMind scores 0.313 at its own threshold
-    against ours at 0.394.
-  - **The cause:** at the best single threshold the gap shrinks to 0.366 vs 0.388. Threshold-free, ours leads 0.651
-    vs 0.617 AP. The blind test therefore requires both to favour ours. [CV table](reports/v12_pool_cv.md).
+    model. Both were trained on the same flood labels: Kuro Siwo plus GEOID-Flood, 7,006 chips from 138 floods. Each
+    family got the same three-learning-rate budget (row 21 inherits row 9's rate).
+  - **The result:** in grouped five-fold CV over 81 location groups (79 with a defined IoU), TerraMind scores 0.313
+    at its own threshold against ours at 0.394.
+  - **The cause is mostly threshold transfer.** At a threshold fitted on the other groups, the gap shrinks to 0.369
+    vs 0.392; at each group's best threshold, to 0.406 vs 0.430. Threshold-free, ours leads 0.651 vs 0.617 AP
+    (fold-level). P5 requires IoU at τ* and AP to favour ours, a condition pre-registered before any CV run for this
+    very reason. [CV table](reports/v12_pool_cv.md).
   - **On the 38 seen CEMS floods** (the frozen models, scored once after the freeze, on stacks rebuilt with the DEM
     fix): ours 0.417, TerraMind 0.405, v1.1's best 0.407 ([seen-floods analysis](reports/v12_cems_seen_tests.md)).
     - The gaps to TerraMind (+0.012 IoU, +0.015 AP) and to v1.1's best (+0.010) are small and not significant.
-    - The blind test detects about 0.06 at its stopping rule, so P5 and P7 will most likely end *not supported*
-      unless new floods behave differently.
+    - At its stopping rule the blind test detects about 0.06 per activation and 0.07 per cluster
+      ([power](reports/v12_power.md)). P5 and P7 will most likely end *not supported* unless new floods behave
+      differently.
 - **The seasonal context helps a little.** The CV selection rule chose it (row 21) over the same model without context
   (row 9): 0.380 vs 0.361 on whole test scenes, better in 49 of 79 groups. The edge is modest and single-seed.
   [Selection](reports/v12_selection.json).
-- **Per-scene self-calibration does not help** (−0.04 in CV), nor does a HAND cut (+0.001), so neither is used.
+- **Neither inference add-on met its adoption rule.** Per-scene self-calibration lowers CV IoU (−0.04); a HAND cut
+  barely moves it (+0.001) and helps fewer than half the groups.
 - **Copernicus GFM, the operational service**, scores 0.321 on the 34 CEMS floods it covers, against 0.419 for v1.2's
   model on the same floods.
   - **The gap:** +0.098 per activation, better on 25 of 34. It is significant at both unit definitions with the
     blind test's own analysis (descriptive: seen floods).
   - **Why GFM loses:** its likelihood ranks pixels well (AP 0.517); its fixed cut is what loses. The physics baseline
-    scores 0.379 on the same floods ([preview](reports/v12_cems_preview.md)).
+    scores 0.381 on the same floods ([rebuilt-stack scores](reports/v12_cems_rebuilt.md)).
 
-**The test that decides it: floods that had not happened when the models were frozen.**
-- **The floods:** every eligible Copernicus EMS flood activation from EMSR899 on.
+**The test that decides it: floods no model had seen.**
+- **The floods:** every eligible Copernicus EMS flood activation from EMSR899 on. Their events start in late July
+  2026, so some happened before the freeze. None was looked at during development (only code, date, category and
+  name were queried, as disclosed), and each is scored only after the freeze.
 - **The models:** frozen at tag `v1.2.0-freeze`.
 - **The three questions:** does v1.2's model beat
   - the fair TerraMind, at its own threshold **and** threshold-free (P5);
@@ -95,11 +102,11 @@ the [deviations log](reports/v1_1_deviations.md).
 | **H2** Fusion beats the SAR U-Net where optical is usable (≥ 50 % clear) | +0.038, 5/8, Holm p = 0.34, not significant | K = 7, too few | no verdict |
 | **H3** Without optical (< 10 % clear), fusion is no worse than the SAR U-Net (margin 0.05) | −0.020, non-inferior (one-sided p = 0.004) | −0.024, not shown (one-sided p = 0.029 > 0.025) | no |
 
-> **Erratum (2026-10-13): H4 is withdrawn.** TerraMind was trained without the modality dropout its config and the
+> **Erratum (2026-10-13): H4's conclusion is withdrawn.** TerraMind was trained without the modality dropout its config and the
 > protocol state. Re-trained as described, it **beats** the fusion model on the same 38 activations: fusion −
 > TerraMind = −0.042 per activation (fusion better in 10/38) and −0.043 per cluster (8/30), significant at both.
 > TerraMind scores 0.299 against fusion's 0.258. This is a post-hoc correction; the pre-registered verdict is kept as
-> run. A second defect (zero terrain past DEM tile edges) affected the fusion model, not TerraMind, on about 14 % of
+> run. A second defect (zero terrain past DEM tile edges) affected the fusion model, not TerraMind, on about 15 % of
 > the benchmark's area. Rescored on stacks rebuilt with the fix, models that read terrain gain at most 0.01, and the
 > reversal holds (−0.033 per activation, significant). Both are in [`reports/v1_1_erratum.md`](reports/v1_1_erratum.md).
 

@@ -46,13 +46,14 @@
 - **How it was chosen.** By rules fixed before the runs (`reports/v1_2_deviations.md`).
   - **CV:** in grouped five-fold CV it beat the same model without context on whole test scenes: 0.380 vs 0.361 macro
     IoU at τ*, better in 49 of 79 groups. Exploratory and single-seed.
-  - **No add-on:** neither per-scene self-calibration nor a HAND cut helped, so neither is used.
-- **Its comparison in CV** (chip level, macro over 81 groups; `reports/v12_pool_cv.md`):
+  - **No add-on:** neither per-scene self-calibration (−0.042) nor a HAND cut (+0.001, helping 30 of 79 groups) met
+    the adoption rule.
+- **Its comparison in CV** (chip level, macro over the 79 of 81 groups with a defined IoU; `reports/v12_pool_cv.md`):
 
-  | Model | IoU at τ* | IoU at oracle τ | AP |
-  | --- | --- | --- | --- |
-  | v1.2, row 21 | 0.394 | 0.388 | 0.651 |
-  | TerraMind-base + LoRA, trained the same way | 0.313 | 0.366 | 0.617 |
+  | Model | IoU at τ* | at a cross-fitted τ | at each group's best τ | AP (fold-level) |
+  | --- | --- | --- | --- | --- |
+  | v1.2, row 21 | 0.394 | 0.392 | 0.430 | 0.651 |
+  | TerraMind-base + LoRA, trained the same way | 0.313 | 0.369 | 0.406 | 0.617 |
 - **On the 38 seen CEMS 2023–26 floods** (frozen models, scored once after the freeze, rebuilt stacks; descriptive):
   0.417 macro IoU at τ*, against 0.405 for the fair TerraMind, 0.407 for v1.1's best and 0.321 for Copernicus GFM
   (on the 34 floods it covers, where v1.2 scores 0.419). Only the gap to GFM is significant
@@ -133,7 +134,8 @@ All numbers come from the release runs; each report records its git SHA.
   - The same model without optical: 0.383.
   - SAR-only U-Net: 0.365.
   - Physics baseline + MNDWI: 0.444.
-  - TerraMind-1.0-small, frozen: 0.576 (v1.0, one seed); 0.597 trained as described (erratum, 3 seeds).
+  - TerraMind-1.0-small, frozen: 0.576 (v1.0, one seed). Over v1.1's three seeds: 0.572 as run, 0.597 trained as
+    described (erratum).
   - Fusion beats SAR-only on 10 of 10 events (Holm p = 0.018). Without optical, it equals SAR-only.
   - At the oracle threshold, fusion scores 0.668: some of the gap to τ\* is threshold transfer between events.
 - **Per event**, fusion ranges from 0.443 (Pakistan) to 0.852 (Mekong); see

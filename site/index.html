@@ -552,7 +552,7 @@
         <p class="footnote">H3 is a <a class="term" href="#g-noninf">non-inferiority</a> test: fusion may lose at
           most 0.05 IoU (the amber line), tested one-sided at 2.5 %. H1 compares two training recipes on identical Kuro Siwo chips:
           labels marking the water a flood brought, or all water. CEMS maps are flood maps too, so part of H1's gain is
-          agreement of definitions. <b>H4 is withdrawn</b>: re-trained as its protocol describes, TerraMind beats
+          agreement of definitions. <b>H4's conclusion is withdrawn</b>: re-trained as its protocol describes, TerraMind beats
           fusion on these floods, −0.042 per activation and −0.043 per cluster, significant at both
           (<a href="https://github.com/teo-clerk/floodfusion/blob/main/reports/v1_1_erratum.md">erratum</a>). H4's floods postdate the SSL4EO-S12 part of TerraMind's pre-training data (2019–2021), not all of it: TerraMesh
           runs mostly 2019–2023. The rules are in the
@@ -672,8 +672,8 @@
         </article>
         <article class="card lesson">
           <h3>A frozen foundation model wins, once trained properly</h3>
-          <p>TerraMind-1.0-small scored <span data-bind="tmIoU"></span> on the ten floods as run, 0.597 trained as
-            its protocol describes. On independent maps the corrected TerraMind beats the fusion model trained on the
+          <p>TerraMind-1.0-small scored 0.572 on the ten floods as run (three seeds; <span data-bind="tmIoU"></span>
+            with v1.0's one), 0.597 trained as its protocol describes. On independent maps the corrected TerraMind beats the fusion model trained on the
             same data (0.299 against 0.258): v1.1's H4 rested on a training bug (<a href="https://github.com/teo-clerk/floodfusion/blob/main/reports/v1_1_erratum.md">erratum</a>).
             v1.2's <a href="arena.html">Arena</a> gives it the same flood labels as ours.</p>
         </article>

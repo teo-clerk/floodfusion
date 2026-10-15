@@ -4,16 +4,18 @@ All notable changes; the format follows [Keep a Changelog](https://keepachangelo
 
 ## [1.2.0] — 2026-10
 
-A fair fight with TerraMind, Copernicus's operational flood maps as a yardstick, and a blind test on floods that occur
-after the models are frozen (`reports/protocol_v1_2.md`, committed before any v1.2 model or blind score). Every
+A fair fight with TerraMind, Copernicus's operational flood maps as a yardstick, and a blind test on floods no model
+had seen: activations from EMSR899 on, never looked at during development and scored only after the freeze
+(`reports/protocol_v1_2.md`, committed before any v1.2 model or blind score). Every
 decision since is in `reports/v1_2_deviations.md`.
 
 ### Results (exploratory; the confirmatory test is the blind one)
 - **Selection.** The pooled CV selected the seasonal-context model (row 21) over the same model without context:
-  0.380 vs 0.361 whole-scene macro IoU at τ*, better in 49 of 79 groups. Neither inference add-on helped.
-- **The fair TerraMind.** TerraMind-base + LoRA was trained on the same 7,006 chips with the same learning-rate
-  budget. In CV (chip level, 81 groups) it scores 0.313 at τ* against row 21's 0.394. Most of the gap is threshold
-  transfer: 0.366 vs 0.388 at the oracle threshold, 0.617 vs 0.651 AP.
+  0.380 vs 0.361 whole-scene macro IoU at τ*, better in 49 of 79 groups. Neither inference add-on met its adoption rule.
+- **The fair TerraMind.** TerraMind-base + LoRA was trained on the same pooled set with the same learning-rate
+  budget. In CV (chip level, 79 groups with a defined IoU) it scores 0.313 at τ* against row 21's 0.394. Most of the
+  gap is threshold transfer: 0.369 vs 0.392 at a cross-fitted threshold, 0.406 vs 0.430 at each group's best;
+  AP 0.617 vs 0.651 (fold-level).
 - **The frozen models on the 38 seen CEMS floods** (scored once after the freeze, rebuilt stacks; descriptive):
   v1.2 0.417, fair TerraMind 0.405, v1.1's best 0.407. On the 34 floods GFM covers, GFM scores 0.321 against
   v1.2's 0.419.
@@ -39,11 +41,13 @@ decision since is in `reports/v1_2_deviations.md`.
     that the task-specific model beats the foundation model is withdrawn. The pre-registered verdict is kept as run.
 - **Zero terrain past a DEM tile edge.**
   - Copernicus GLO-30 declares no nodata, so terrain was read as 0 m past a 1° tile boundary.
-  - Affected: 14 % of the CEMS benchmark's area, and 6–8 % of the training sets'.
+  - Affected: 14.6 % of the CEMS benchmark's stack area, 8.6 % of Sen1Floods11's and 6.4 % of Kuro Siwo's
+    (`scripts/dem_exposure.py`).
   - The fix is in `read_dem`. Kuro Siwo and the CEMS benchmark are rebuilt for v1.2; the v1.1 data stays for the
     regression checks.
-  - **Measured on the rebuilt CEMS stacks:** models that read terrain gain at most 0.010 IoU, and TerraMind is
-    unchanged. The corrected P4 still goes against fusion: −0.033 per activation, −0.034 per cluster, significant.
+  - **Measured on the rebuilt CEMS stacks:** the models that read terrain (fusion, the physics baseline) gain +0.002
+    to +0.010 IoU. The others move by less than 0.001, through the scored region alone (its shadow and layover masks
+    come from the DEM). The corrected P4 still goes against fusion: −0.033 per activation, −0.034 per cluster, significant.
 
 ### Added
 - **Copernicus GFM as a comparator** (`data/gfm.py`, `make gfm`). The EODC public STAC has GFM for 82 of 90
@@ -54,7 +58,8 @@ decision since is in `reports/v1_2_deviations.md`.
   - siamese pre/post encoder with its native DEM;
   - in-house LoRA (`models/lora.py`);
   - size and adaptation chosen by a timing probe under a pre-registered rule.
-- **GEOID-Flood** (CC BY 4.0) re-ingested through Kuro Siwo's pipeline: 111 events before EMSR656.
+- **GEOID-Flood** (CC BY 4.0) re-ingested through Kuro Siwo's pipeline: 111 events selected before EMSR656, 102 of
+  which produced chips.
 - **The pooled training set** (`data/pool.py`): 100 km groups recomputed across datasets.
 - **Sidecar context:**
   - `data/sidecars.py`: seasonal reference, AlphaEarth, DEM;

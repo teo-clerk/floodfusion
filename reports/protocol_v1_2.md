@@ -139,3 +139,25 @@ Written after cross-validation and before the freeze tag `v1.2.0-freeze`, by the
 
 Most of the τ* gap is threshold transfer, which is why P5 also requires AP. These numbers are not a test of H5; the
 blind floods are.
+
+## Corrections (2026-10-15, after the freeze; no rule changes)
+
+Found by a fact-check of the documents against the reports. The rules above stand as committed.
+
+1. **What makes the blind floods blind.** §1 says the blind questions are asked "on floods that occur after the
+   models are frozen". The operative rule is §2.2: every flood activation with a code from EMSR899 on. Their events
+   start on 20 July 2026, so the first ones (EMSR926, EMSR927, EMSR933) happened *before* the freeze on 14 October.
+   - **What makes them blind:** no model was trained or tuned on them, none was looked at during development (only
+     the metadata disclosed in §2.2), and every one is scored only after the freeze.
+   - **Contamination:** the training data ends at EMSR656 (2023), and TerraMind's pre-training ends in 2023.
+2. **Group counts.** §2.1 and §3 quote "71 groups", an estimate from a metadata probe. The built pool has 81 groups,
+   and 79 of them have flooded pixels in their test stacks: the unit set of the selection and add-on rules.
+3. **P5's AP condition predates the CV.** It was committed here (§4) on 2026-10-13, before any v1.2 run. Amendment 1's
+   "which is why P5 also requires AP" gives its reason; the CV did not cause it.
+4. **The oracle column of Amendment 1's table is fold-level**: each fold's best threshold, folds weighted equally.
+   - **Per group** (`reports/v12_pool_cv.md`, cross-fitted section): at a threshold fitted on the other groups, row 21
+     scores 0.392 and TerraMind 0.369; at each group's best threshold, 0.430 and 0.406.
+5. **Power, now sourced** (`scripts/v12_power.py`, `reports/v12_power.md`; the spread is v1.1's P4, SD 0.077):
+   - 20 activations detect 0.061 IoU at 80 % power, at Holm's smallest level;
+   - 15 units detect 0.072 (the cluster side of the stopping rule);
+   - 10 detect 0.096.
