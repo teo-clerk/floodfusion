@@ -19,7 +19,10 @@ cd paper && tectonic paper_v12.tex             # or, with TeX Live: latexmk -pdf
 ```
 
 [Tectonic](https://tectonic-typesetting.github.io) downloads the LaTeX packages it needs on first use. The source
-needs newtx, TikZ, natbib and xurl. `*.pdf` is gitignored repository-wide, so the compiled paper is never committed.
+needs newtx, TikZ, natbib and xurl.
+
+`*.pdf` is gitignored repository-wide; `paper/.gitignore` makes one exception, `paper_v12.pdf`, which the top-level
+README links to. Rebuild it and commit it together with any change to the source.
 
 ## Notices
 

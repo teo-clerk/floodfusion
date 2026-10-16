@@ -4,6 +4,19 @@ All notable changes; the format follows [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+### Added
+- `paper/`: the v1.2 preprint, *Labels, Thresholds and a Blind Test* (LaTeX source, figures, the script that draws
+  them from `reports/`, and the compiled PDF), linked from the top of the README.
+- `reports/v1_2_deviations.md` discloses that an agent fact-checking the paper read the cached activation record of
+  the blind flood EMSR933: its product list and the products' statuses, but no map, Sentinel-1 pass, sidecar or score.
+
+### Fixed
+- README and DATA_CARD: the CEMS maps are drawn on commercial images, not all on 1–3 m ones (34 of the 75
+  radar-drawn pairs on very-high-resolution VHR2-class images, 41 on coarser HR+-class images).
+- README: training runs, not every report, record the git SHA.
+- README and the site footers: the Sentinel notice says the data were accessed through Microsoft Planetary Computer
+  and that Sentinel-1 RTC is processed by Catalyst.
+
 ### Changed
 - `CITATION.cff` and `LICENSE` give the author's full name, Teo Clerici Jurado.
 - CI, Pages and the live-catalogue check run `actions/checkout` 7.0.1 and `astral-sh/setup-uv` 10.3.0 (Node.js 24),

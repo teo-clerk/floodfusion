@@ -17,9 +17,13 @@ result.
 ![uv](https://img.shields.io/badge/env-uv%20locked-purple)
 ![data](https://img.shields.io/badge/data-open%2C%20no%20credentials-brightgreen)
 
-**[Interactive explainer](https://teo-clerk.github.io/floodfusion/)**: the project on one page, with the
-radar physics, the pipeline, every result as an interactive chart, a drag-to-compare map against
-Copernicus EMS, and the limits.
+- **[Interactive explainer](https://teo-clerk.github.io/floodfusion/)**: the project on one page, with the radar
+  physics, the pipeline, every result as an interactive chart, a drag-to-compare map against Copernicus EMS, and the
+  limits.
+- **[The Arena](https://teo-clerk.github.io/floodfusion/arena.html)**: every model, a fairly trained TerraMind and
+  Copernicus's operational GFM included, on the same Copernicus EMS flood maps, and the blind test's progress.
+- **[The v1.2 paper (PDF)](paper/paper_v12.pdf)**: *Labels, Thresholds and a Blind Test*, a preprint (not peer
+  reviewed) with every number sourced from `reports/`. Its LaTeX source is in [`paper/`](paper/).
 
 ![EMSR664 Forlì: zero-shot Sentinel-1 flood map vs the Copernicus EMS delineation](assets/forli_hero.png)
 
