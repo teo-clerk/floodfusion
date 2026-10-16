@@ -1,0 +1,13 @@
+# LaTeX build intermediates (the PDF itself is ignored repository-wide by *.pdf)
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.xdv
+
+# The one committed PDF (the repository-wide *.pdf rule ignores every other), so the README can link to it
+!paper_v12.pdf
