@@ -33,7 +33,7 @@
 \newcommand{\file}[1]{\nolinkurl{#1}}
 \newcommand{\pp}{\,\%}
 \setlist{nosep,leftmargin=*}
-\setlength{\bibsep}{1.5pt}
+\setlength{\bibsep}{1pt}
 \renewcommand{\bibfont}{\footnotesize}
 
 \pagestyle{fancy}
@@ -908,13 +908,20 @@ rule to each scene is not free.
 % =====================================================================================================================
 \section{AI-assisted engineering and reproducibility}\label{sec:ai}
 
-\paragraph{Provenance and the author's role.} The project started from a design specification that the author
-received with a skeleton package and a test specification of 281 test functions (commit \texttt{212e0e6},
-9 October 2026). The specification fixed v1.0's architecture, its ablation grid, the training recipe and the decision
-rule; it is not public. The author approved each release's plan, including its preregistration design, and set the
-goals of v1.2: a fair comparison with a foundation model, a comparison with the operational service, and an
-interactive public presentation. The author also made the decisions on data licensing, compute scheduling and
-publication, and is responsible for the content of this paper.
+\paragraph{Provenance and the author's role.} The author, Teo Clerici Jurado, wrote the original v1.0 project
+specification and defined the project's core research objectives: to test findings made on Sen1Floods11 against real
+Copernicus EMS activations, to audit whether the comparison with a foundation model, TerraMind, is fair, and to decide
+the main comparison by a preregistered blind test. The specification fixed v1.0's architecture, its ablation grid,
+the training recipe and the decision rule. The repository's first commit (\texttt{212e0e6}, 9 October 2026) imported
+it unchanged (``as received'' in its message) with a skeleton package, the ablation configurations and a test
+specification of 281 test functions. The specification documents were removed from the history before publication
+and are not public; the commit holds the package, the configurations and the tests. The author directed the agent
+workflow described below: they set each release's goals, reviewed and approved each release's plan, and made the
+decisions on data licensing, compute scheduling and publication. The v1.2 protocol, preregistration design included,
+was drafted with Claude Code and reviewed and approved by the author; the audits were run by AI subagents. The author
+takes full scientific responsibility for the work, its errata and corrections, and this paper.
+% src: git show --stat 212e0e6 (root commit; message "import Project 01 curriculum skeleton as received", body
+% "exactly as delivered"); git ls-tree 212e0e6: configs/ 15 files, src/ 21, tests/ 16 with 281 test functions
 
 \paragraph{Use of an AI coding agent.} The project was built with Claude Code (Anthropic), an AI coding agent that the
 author operated throughout. In line with the generative-AI policies of publishers such as IEEE, NeurIPS and AGU, the
