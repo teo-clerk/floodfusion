@@ -1,0 +1,175 @@
+% floodfusion v1.2 -- one-page extended abstract. Build: cd paper && tectonic abstract_v12.tex
+% Same preamble, fonts, header and table style as paper_v12.tex. Every number is taken from paper_v12.tex, which
+% names its source report beside it; the paper section is named in a "% src:" comment here. The short reference list
+% abridges entries of references.bib.
+\documentclass[10pt,twocolumn,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage{newtxtext,newtxmath}
+\usepackage[a4paper,margin=17mm,top=19mm,bottom=20mm,columnsep=6.5mm]{geometry}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage[font=small,labelfont=bf,skip=4pt]{caption}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage[colorlinks=true,linkcolor=linkblue,citecolor=linkblue,urlcolor=linkblue]{hyperref}
+\usepackage{xurl}
+
+\definecolor{linkblue}{HTML}{1F4E79}
+
+\newcommand{\pp}{\,\%}
+% A citation number linked to its entry in the run-in reference list below.
+\newcommand{\refn}[2]{\hyperref[ref:#1]{#2}}
+\setlist{nosep,leftmargin=*}
+\widowpenalty=10000
+\clubpenalty=10000
+
+% The paper's section style, at extended-abstract size.
+\makeatletter
+\renewcommand\section{\@startsection{section}{1}{\z@}{-1.1ex \@plus -.3ex \@minus -.2ex}{0.5ex \@plus .2ex}%
+  {\normalfont\large\bfseries}}
+\renewcommand\paragraph{\@startsection{paragraph}{4}{\z@}{0.9ex \@plus .4ex \@minus .2ex}{-1em}%
+  {\normalfont\normalsize\bfseries}}
+\makeatother
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\footnotesize T.\ Clerici Jurado --- FloodFusion v1.2: extended abstract, 16 October 2026}
+\fancyhead[R]{\footnotesize Release \texttt{v1.2.0} $\cdot$ Preprint, not peer reviewed}
+\fancyfoot[C]{\scriptsize Contains modified Copernicus Sentinel data (2015--2026) and modified Copernicus Emergency
+  Management Service information (2023--2026), \copyright{} European Union.}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\hypersetup{pdftitle={FloodFusion v1.2: Labels, Threshold Transfers, and a Preregistered Blind Test on Copernicus EMS
+  Flood Activations}, pdfauthor={Teo Clerici Jurado}}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+  {\LARGE\bfseries FloodFusion v1.2: Labels, Threshold Transfers, and a\\[3pt]
+   Preregistered Blind Test on Copernicus EMS Flood Activations\par}
+  \vspace{4pt}
+  {\large Teo Clerici Jurado\par}
+  \vspace{1pt}
+  {\small BSc in AI \& Data Science, H-FARM College / University of Chichester\par}
+  \vspace{3pt}
+  {\small Repository: \href{https://github.com/teo-clerk/floodfusion}{\nolinkurl{github.com/teo-clerk/floodfusion}}
+   \quad$\cdot$\quad Interactive Arena:
+   \href{https://teo-clerk.github.io/floodfusion/arena.html}{\nolinkurl{teo-clerk.github.io/floodfusion/arena.html}}\par}
+  {\small Full technical paper (11 pages):
+   \href{https://github.com/teo-clerk/floodfusion/blob/main/paper/paper_v12.pdf}%
+   {\nolinkurl{github.com/teo-clerk/floodfusion/blob/main/paper/paper_v12.pdf}}\par}
+\end{center}
+\vspace{-2pt}
+}]
+
+% =====================================================================================================================
+\section{Motivation}\label{sec:motivation}
+% src: paper_v12.tex abstract and Sec. 1 (label coupling); Sec. 5.1 (+0.265 on ten events, 0.608, 0.266, 0.373);
+% Sec. 3.3 (benchmark: 38 activations, 75 pairs, 30 clusters)
+Flood-segmentation models for Sentinel-1 radar are usually ranked by cross-validation on benchmark chips whose labels
+share sensors, dates and definitions with the inputs. Sen1Floods11's labels~[\refn{bonafilia2020sen1floods11}{1}] were
+drawn mostly on the Sentinel-2 image that a fusion model also receives, and mark water on a date rather than flood.
+There our gated cross-attention SAR--optical fusion model beat a SAR-only U-Net by $+0.265$ IoU on all ten events,
+scoring 0.608 in leave-one-event-out cross-validation. We ask how far such scores carry to operational maps:
+Copernicus Emergency Management Service (CEMS) rapid-mapping delineations of \textbf{38 flood activations from
+2023--2026}, drawn on non-Sentinel radar satellites and fixed by a
+preregistered rule before any model was scored. Applied without training on these events, at its own calibrated
+threshold, the same fusion model scores 0.266, below a physics baseline (0.373). The benchmark was seen during
+development, so these results are exploratory.
+
+\par\vspace{2pt}
+{\centering
+\captionof{table}{The 38 CEMS activations (stacks rebuilt after the DEM fix); v1.2 and the fair
+TerraMind were scored once, after the freeze. IoU: macro over activations at each model's own threshold $\tau^{*}$,
+95\pp{} bootstrap CI; AP: threshold-free. v1.2: gated cross-attention fusion with a seasonal radar reference; v1.1's
+best: the same fusion without it. Pool: Kuro Siwo + GEOID-Flood (7,006 chips, 138 floods). GFM: binary product,
+AP from its likelihood.}
+\label{tab:cems}
+% src: paper_v12.tex Table 3 (tab:cems), both blocks
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}l c c@{}}
+\toprule
+Model (training labels) & IoU at $\tau^{*}$ [95\pp{} CI] & AP \\
+\midrule
+\multicolumn{3}{@{}l}{\emph{All units: 38 activations, 30 clusters}} \\
+FloodFusion v1.2 (pool) & \textbf{0.417} [0.365, 0.467] & \textbf{0.598} \\
+FloodFusion v1.1's best (Kuro Siwo) & 0.407 [0.355, 0.461] & 0.527 \\
+TerraMind-base + LoRA, fair (pool) & 0.405 [0.351, 0.455] & 0.583 \\
+Physics baseline (no labels) & 0.373 [0.314, 0.430] & --- \\
+\midrule
+\multicolumn{3}{@{}l}{\emph{Units GFM covers: 34 activations, 26 clusters}} \\
+FloodFusion v1.2 (pool) & \textbf{0.419} [0.363, 0.474] & \textbf{0.594} \\
+Copernicus GFM, ensemble & 0.321 [0.253, 0.387] & 0.517 \\
+\bottomrule
+\end{tabular}\par}
+\vspace{0pt}
+
+\paragraph{On the 38 activations.}\label{sec:results}
+% src: paper_v12.tex Sec. 5.3 (24 of 38, +0.012, +0.015, Holm p = 0.37; 22 of 38, +0.010); Sec. 5.4 and Table 5
+% (GFM: 25 of 34, +0.098, p = 0.0010; +0.081, p = 0.0185; physics 0.381; AP 0.517; oracle 0.427; only row 21 tested)
+v1.2 nearly ties a fairly adapted TerraMind-base: it is better on 24 of 38 activations, by $+0.012$ IoU and $+0.015$
+AP (Holm $p=0.37$), and better than v1.1's best by $+0.010$ (22 of 38). On the 34 activations covered by Copernicus's
+Global Flood Monitoring (GFM)~\mbox{[\refn{salamon2021gfm}{2}, \refn{krullikowski2023gfm}{3}]}, v1.2 is better on 25, by $+0.098$ IoU
+(Holm $p=0.0010$); per cluster, by $+0.081$ ($p=0.0185$). This is the blind test's analysis on seen floods: descriptive. Every model trained on flood labels, and even the physics baseline (0.381 there), scores above GFM's
+binary product; only v1.2's gap was tested. Thresholded per activation in hindsight, GFM's likelihood (AP 0.517)
+would reach 0.427: much of its deficit lies in its fixed decision rule, exclusion mask
+included.
+
+% =====================================================================================================================
+\section{Three takeaways}\label{sec:takeaways}
+
+\paragraph{1. Labels and the decision rule matter more than adding optical.}
+% src: paper_v12.tex Sec. 5.1 (0.407 vs 0.266; H1 +0.059, 33 of 38, Holm p < 0.001; 0.397 vs 0.398, v1.1 tiles);
+% Sec. 5.3 (oracle - tau*: 0.039 TerraMind, 0.050 row 21)
+Trained on Kuro Siwo's radar-drawn flood labels~[\refn{bountos2024kurosiwo}{4}], the same fusion architecture scores 0.407
+instead of 0.266. On the v1.1 tiles, v1.1's preregistered test H1 found flood labels beating water labels on identical
+chips by $+0.059$ IoU (33 of 38, Holm $p<0.001$), partly by sharing the CEMS maps' definition, and Sentinel-2 added
+nothing detectable: the Kuro Siwo model scores 0.397 with it and 0.398 without. The threshold matters too: on CEMS the
+two v1.2 models lose 0.039 and 0.050 IoU against each activation's best threshold in hindsight.
+
+\paragraph{2. A fair foundation-model comparison nearly ties.}
+% src: paper_v12.tex Sec. 4.4 (erratum 1: H4 Holm p = 0.034, -0.042 post hoc; erratum 2: 172 of 605 tiles);
+% Sec. 4.1 (fair TerraMind); Sec. 4.2 (tuning budget); Table 4 (0.313, 0.394, 0.080, 0.023, 0.034); Sec. 5.3 (ii)
+v1.1's H4 win over TerraMind (Holm $p=0.034$) is withdrawn: that TerraMind was trained without its configured
+modality dropout, and retrained as specified, post hoc, it overtakes our fusion model by 0.042 IoU. v1.2's opponent is
+TerraMind-base~[\refn{jakubik2025terramind}{5}] with LoRA~[\refn{hu2021lora}{6}], a siamese pre/post-event input and its DEM,
+trained on the same pool with the same recipe and three-learning-rate budget, on data rebuilt after a DEM tile-edge
+fix (172 of 605 CEMS tiles). Its 0.080 IoU deficit in grouped cross-validation (0.313 vs 0.394) was mostly threshold
+transfer: cross-fitting each group's threshold on the other groups cuts it to 0.023 (AP gap 0.034). On CEMS its
+threshold transfers well, and the two nearly tie.
+
+\paragraph{3. A sealed, preregistered blind test, built auditably.}
+% src: paper_v12.tex Sec. 7 (13 Oct protocol; v1.2.0-freeze, 36 files; ledger; stopping rule; Table 6: 0.061 at 20,
+% 0.072 at 15; status); Sec. 8 (provenance; reviews; 1,091 tests; 81.9 %; laptop GPU)
+The protocol was committed on 13 October 2026, before any v1.2 model was trained; models, calibrations and thresholds
+are frozen at tag \texttt{v1.2.0-freeze} (36 files pinned by SHA-256). Every eligible CEMS flood activation from
+EMSR899 on is scored only after the freeze, and the scores stay sealed, their SHA-256 in an append-only, hash-chained
+ledger (a commitment, not a blind), until 20 activations in 15 clusters or 31 December 2027. Holm-adjusted exact
+sign-flip tests at both unit definitions then compare v1.2 with the fair TerraMind (IoU and AP), GFM and v1.1's best.
+In an i.i.d.\ simulation, 20 activations detect a mean gap of 0.061 IoU at 80\pp{} power (15 clusters: 0.072), so
+unless new floods differ, the two near ties will most likely end \emph{not supported}. EMSR926 and EMSR927 were
+ineligible; EMSR933 is judged for eligibility when it settles, on 31 October 2026. An AI coding agent (Claude Code)
+built the software under the author's scientific direction: the author wrote the original specification, set the
+research objectives and approved each plan; the reviews, run by separate instances of the same AI, are not independent of
+it. 1,091 offline tests pass (81.9\pp{} statement and branch coverage), and the deviations logs record each rule
+before the result it could affect, disclosing the exceptions. Everything ran on one 8\,GB laptop GPU.
+
+% Data credits, AI use and an abridged reference list, run in to save space.
+\vspace{2pt}
+{\scriptsize\noindent\textbf{Data and AI use.} Labels: Kuro Siwo~[\refn{bountos2024kurosiwo}{4}] (CC BY) and GEOID-Flood~[\refn{chiriaco2026geoid}{7}] (CC BY 4.0); TerraMind: IBM
+and ESA. Claude Code (Anthropic) also drafted this abstract (full paper, Section~8).
+\textbf{References.}
+\phantomsection\label{ref:bonafilia2020sen1floods11}[1]~D.~Bonafilia et al., Sen1Floods11, \emph{CVPRW} 2020.
+\phantomsection\label{ref:salamon2021gfm}[2]~P.~Salamon et al., \emph{IGARSS} 2021.
+\phantomsection\label{ref:krullikowski2023gfm}[3]~C.~Krullikowski et al., \emph{IEEE JSTARS} 16, 2023.
+\phantomsection\label{ref:bountos2024kurosiwo}[4]~N.\,I.~Bountos et al., Kuro Siwo, \emph{NeurIPS D\&B} 2024.
+\phantomsection\label{ref:jakubik2025terramind}[5]~J.~Jakubik et al., TerraMind, \emph{ICCV} 2025.
+\phantomsection\label{ref:hu2021lora}[6]~E.\,J.~Hu et al., LoRA, \emph{ICLR} 2022.
+\phantomsection\label{ref:chiriaco2026geoid}[7]~G.~Chiriaco et al., GEOID-Flood, \emph{ECCV Workshops} 2026.\par}
+
+\end{document}

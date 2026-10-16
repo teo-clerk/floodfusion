@@ -7,6 +7,7 @@ All notable changes; the format follows [Keep a Changelog](https://keepachangelo
 ### Added
 - `paper/`: the v1.2 preprint, *Labels, Thresholds and a Blind Test* (LaTeX source, figures, the script that draws
   them from `reports/`, and the compiled PDF), linked from the top of the README.
+- `paper/abstract_v12.tex`: a one-page extended abstract of the paper (source only; its PDF is not committed).
 - `reports/v1_2_deviations.md` discloses that an agent fact-checking the paper read the cached activation record of
   the blind flood EMSR933: its product list and the products' statuses, but no map, Sentinel-1 pass, sidecar or score.
 
