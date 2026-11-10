@@ -428,3 +428,19 @@ def test_the_optical_window_widens_the_sentinel2_search_only() -> None:
     wide = EventConfig(**{**base.__dict__, "optical_window_days": 2}).query()
     assert (wide.optical_start, wide.optical_end) == (datetime(2024, 1, 8), datetime(2024, 1, 12))
     assert (wide.flood_start, wide.flood_end) == (datetime(2024, 1, 10), datetime(2024, 1, 10))
+
+
+def test_an_event_without_a_label_ingests_with_an_empty_label_band(archive, cfg, tmp_path) -> None:
+    """floodfusion Live maps new floods: there is no reference map yet, so the label band is empty (v1.3)."""
+    root, catalogue = archive
+    meta = ingest_event(_event(root, event_id="T_live", label_path=None), tmp_path, cfg,
+                        sources=IngestSources(client=catalogue))
+    stack, _, _ = read_event_stack(tmp_path / "events" / "T_live" / "stack.tif")
+    assert not (stack[ChipBand.LABEL] == 1).any() and meta["flood_fraction_of_valid"] == 0.0   # no-data outside the AOI
+    assert (tmp_path / "events" / "T_live" / "event.json").is_file()
+
+
+def test_an_event_yaml_may_omit_the_label(tmp_path) -> None:
+    path = tmp_path / "e.yaml"
+    path.write_text("event_id: x\nbbox: [1, 2, 3, 4]\nflood_start: 2023-01-01\nflood_end: 2023-01-02\n")
+    assert load_event_config(path).label_path is None
