@@ -12,6 +12,11 @@ raster paths relative to its own folder, so :mod:`floodfusion.crossval` reads it
 
 **The size rule (fixed before any run).** If the largest group holds more than :data:`MAX_GROUP_SHARE` of the
 windows, :func:`build_pool` refuses. Cross-validation would then need buffered spatial blocks.
+
+**v1.3: the CEMS benchmark as a training source** (``reports/protocol_v1_3.md`` §2.1). Its pairs are separate dataset
+roots without a manifest. :func:`collect_cems` lists every pair's tiles as one root, and :func:`build_pool` then
+regroups it like any other. A CEMS stack's event is its activation, read from the stack id
+(``EMSR657_AOI01_t00_00`` → ``cems:EMSR657``), so all AOIs of one activation share a group.
 """
 
 from __future__ import annotations
@@ -19,13 +24,15 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import re
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-__all__ = ["GROUP_PREFIX", "MAX_GROUP_SHARE", "build_pool", "main", "source_event"]
+__all__ = ["BLIND_FIRST_CODE", "GROUP_PREFIX", "MAX_GROUP_SHARE", "build_pool", "collect_cems", "main",
+           "source_event"]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -33,6 +40,10 @@ GROUP_PREFIX = "POOL_"
 MAX_GROUP_SHARE = 0.25
 #: The stack metadata blocks that name a dataset's own event, per source.
 _SOURCE_KEYS = ("kurosiwo", "geoid_flood")
+#: A CEMS benchmark stack id: ``<activation>_AOI<nn>_<tile>``.
+_CEMS_STACK = re.compile(r"(EMSR[0-9]{3,4})_AOI[0-9]{2}_.+", re.ASCII)
+#: The blind test's first activation (``protocol_v1_2.md`` §2.2): never a training source.
+BLIND_FIRST_CODE = 899
 
 
 def source_event(stack_meta: dict[str, Any]) -> str:
@@ -41,7 +52,37 @@ def source_event(stack_meta: dict[str, Any]) -> str:
         block = stack_meta.get(key)
         if isinstance(block, dict) and block.get("event"):
             return f"{key}:{block['event']}"
-    raise KeyError(f"stack {stack_meta.get('event_id')!r} names no source event ({', '.join(_SOURCE_KEYS)})")
+    match = _CEMS_STACK.fullmatch(str(stack_meta.get("event_id", "")))
+    if match:
+        return f"cems:{match.group(1)}"
+    raise KeyError(f"stack {stack_meta.get('event_id')!r} names no source event ({', '.join(_SOURCE_KEYS)}, "
+                   "or a CEMS stack id)")
+
+
+def collect_cems(benchmark: Path, out: Path, *, exclude: Collection[str] = ("EMSR664",),
+                 manifest_name: str = "manifest.parquet") -> str:
+    """Write ``out/chips/<manifest_name>`` listing the chips of every benchmark pair; return its hash.
+
+    A pair is a folder holding ``pair.json``; activations in ``exclude`` are left out (EMSR664, Forlì, is v1.0's
+    case study). Its record names each pair's stratum (``provenance.strata``). An activation of the blind set refuses
+    the whole collection.
+    """
+    from floodfusion.data.records import load_manifest, write_manifest
+
+    records, strata = [], {}
+    for pair_file in sorted(Path(benchmark).glob("*/pair.json")):
+        pair = json.loads(pair_file.read_text(encoding="utf-8"))
+        activation = str(pair["activation"])
+        if int(activation.removeprefix("EMSR")) >= BLIND_FIRST_CODE:
+            raise ValueError(f"{pair['key']}: {activation} belongs to the blind set, never to training")
+        if activation in exclude:
+            continue
+        strata[str(pair["key"])] = str(pair["stratum"])
+        for chips in sorted((pair_file.parent / "events").glob("*/chips.parquet")):
+            records.extend(load_manifest(chips))
+    return write_manifest(records, Path(out) / "chips" / manifest_name, provenance={
+        "generator": "floodfusion.data.pool.collect_cems", "benchmark": str(benchmark), "strata": strata,
+        "excluded": sorted(exclude)})
 
 
 def _footprint(meta: dict[str, Any]) -> Any:
@@ -91,10 +132,15 @@ def build_pool(roots: Sequence[Path], out: Path, *, manifest_name: str = "manife
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Pool re-ingested datasets into one manifest, regrouped by place.")
-    parser.add_argument("--root", type=Path, nargs="+", required=True, help="dataset roots with chips/manifest.parquet")
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--root", type=Path, nargs="+", help="dataset roots with chips/manifest.parquet")
+    source.add_argument("--cems", type=Path, help="a CEMS benchmark folder: list its pairs as one root at --out")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    if args.cems is not None:
+        LOGGER.info("CEMS root %s: manifest %s", args.out, collect_cems(args.cems, args.out)[:12])
+        return 0
     summary = build_pool(args.root, args.out)
     LOGGER.info("%d chips, %d events, %d groups; largest %s (%.1f %%); manifest %s", summary["n_chips"],
                 summary["n_events"], summary["n_groups"], summary["largest_group"], 100 * summary["largest_share"],
