@@ -58,6 +58,8 @@ TORCH_FREE_MODULES = (
     "floodfusion.cv_addons",
     "floodfusion.tuning",
     "floodfusion.blind_analysis",
+    # v1.3 (added 2026-11-10 under the approved v1.3 plan: new torch-free modules join this list)
+    "floodfusion.ladder",
 )
 
 
