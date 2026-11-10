@@ -44,6 +44,15 @@ def test_rung_two_fits_each_folds_threshold_on_the_other_folds_only():
     assert set(cuts) == {"fold0", "fold1"} and cuts["fold1"] < cuts["fold0"]
 
 
+def test_a_cluster_pools_its_activations_each_cut_at_its_own_threshold():
+    units = {"A": _unit({"b200": 100}, {"b120": 50}), "B": _unit({"b150": 100}, {"b120": 50}),
+             "C": _unit({"b200": 10}, {})}
+    cut_a = ladder._edge_tau(110)                      # bins from 111 flood: A's dry bin 120 counts as flood
+    cut_b = ladder._edge_tau(130)                      # bins from 131 flood: B's dry bin 120 stays dry
+    ious = ladder.cluster_ious(units, {"A": cut_a, "B": cut_b, "C": cut_b}, {"A": "AB", "B": "AB"})
+    assert ious == {"AB": pytest.approx(200 / 250), "C": pytest.approx(1.0)}
+
+
 def test_rung_two_needs_every_unit_in_a_fold():
     with pytest.raises(KeyError, match="EMSR701"):
         ladder.rung2({"EMSR701": _unit({"b200": 1}, {})}, {}, cost_ratio=3.0)

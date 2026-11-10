@@ -34,7 +34,7 @@ from typing import Any
 
 import numpy as np
 
-__all__ = ["COST_RATIO", "EXCLUDE", "MIN_GAIN", "MODEL", "PRIMARY_STRATUM", "SEED", "adopt", "cluster_histograms",
+__all__ = ["COST_RATIO", "EXCLUDE", "MIN_GAIN", "MODEL", "PRIMARY_STRATUM", "SEED", "adopt", "cluster_ious",
            "fold_of_activation", "load_scores", "main", "rung1", "rung2", "unit_histograms"]
 
 LOGGER = logging.getLogger(__name__)
@@ -77,11 +77,6 @@ def unit_histograms(scores: Mapping[str, Any], *, model: str = MODEL, seed: str 
     return _histograms(scores, "activation", model, seed)
 
 
-def cluster_histograms(scores: Mapping[str, Any], *, model: str = MODEL, seed: str = SEED) -> dict[str, dict[str, Any]]:
-    """The same per cluster (activations within 100 km and 60 days, as v1.1)."""
-    return _histograms(scores, "cluster", model, seed)
-
-
 def fold_of_activation(chip_dir: Path, *, protocol: str = "kfold") -> dict[str, str]:
     """``{activation: fold}``: the fold whose frozen test groups hold the activation's chips."""
     from floodfusion.data.records import load_manifest
@@ -105,11 +100,31 @@ def fold_of_activation(chip_dir: Path, *, protocol: str = "kfold") -> dict[str, 
 # ---------------------------------------------------------------------------
 # Rungs
 # ---------------------------------------------------------------------------
-def _iou(hist: Hist, tau: float) -> float:
+def _counts(hist: Hist, tau: float) -> tuple[int, int, int]:
     from floodfusion import histograms
 
     tp, fp, fn, _ = histograms.confusion_above(hist["pos"], hist["neg"], tau)
+    return tp, fp, fn
+
+
+def _iou(hist: Hist, tau: float) -> float:
+    tp, fp, fn = _counts(hist, tau)
     return tp / (tp + fp + fn) if tp + fp + fn else math.nan
+
+
+def cluster_ious(units: Mapping[str, Hist], cut_of: Mapping[str, float],
+                 cluster_of: Mapping[str, str]) -> dict[str, float]:
+    """Per cluster, the IoU of its activations' pooled counts, each activation cut at its own threshold.
+
+    A cluster (v1.1's: 100 km and 60 days, from activation extents) can span folds, so no single fold's threshold may
+    be applied to all of it (``reports/v1_3_deviations.md``). An activation outside ``cluster_of`` is its own cluster.
+    """
+    pooled: dict[str, list[int]] = {}
+    for name, hist in sorted(units.items()):
+        acc = pooled.setdefault(cluster_of.get(name, name), [0, 0, 0])
+        for i, n in enumerate(_counts(hist, cut_of[name])):
+            acc[i] += n
+    return {c: tp / (tp + fp + fn) if tp + fp + fn else math.nan for c, (tp, fp, fn) in sorted(pooled.items())}
 
 
 def rung1(units: Mapping[str, Hist], *, tau: float) -> dict[str, float]:
@@ -183,25 +198,16 @@ def adopt(lower: Mapping[str, float], upper: Mapping[str, float], *, min_gain: f
 # ---------------------------------------------------------------------------
 # Report
 # ---------------------------------------------------------------------------
-def _cluster_folds(clusters: Mapping[str, Any], scores: Mapping[str, Any], fold_of: Mapping[str, str]) -> dict[str, str]:
-    from floodfusion.cems_scores import activation_clusters
-
-    cluster_of = activation_clusters(scores["activations"])
-    out: dict[str, str] = {}
-    for activation, fold in fold_of.items():
-        cluster = cluster_of.get(activation, activation)
-        if cluster in clusters and out.setdefault(cluster, fold) != fold:
-            raise ValueError(f"cluster {cluster} spans folds {out[cluster]} and {fold}")
-    return out
-
-
 def r2_report(scores: Mapping[str, Any], fold_of: Mapping[str, str]) -> dict[str, Any]:
     """R1 and R2 per activation (the rule) and per cluster (descriptive); three seeds descriptive; the verdict."""
+    from floodfusion.cems_scores import activation_clusters
+
+    tau = 1 / (1 + COST_RATIO)
     units = unit_histograms(scores)
-    r1, (r2, cuts) = rung1(units, tau=1 / (1 + COST_RATIO)), rung2(units, fold_of)
-    clusters = cluster_histograms(scores)
-    c_fold = _cluster_folds(clusters, scores, fold_of)
-    c1, (c2, _) = rung1(clusters, tau=1 / (1 + COST_RATIO)), rung2(clusters, c_fold)
+    r1, (r2, cuts) = rung1(units, tau=tau), rung2(units, fold_of)
+    cluster_of = activation_clusters(scores["activations"])
+    c1 = cluster_ious(units, dict.fromkeys(units, tau), cluster_of)
+    c2 = cluster_ious(units, {a: cuts[fold_of[a]] for a in units}, cluster_of)
     three: dict[str, dict[str, float]] = {}
     for seed in ("seed42", "seed43", "seed44"):
         u = unit_histograms(scores, seed=seed)

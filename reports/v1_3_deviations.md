@@ -8,12 +8,16 @@ v1.3's claims (`reports/protocol_v1_3.md`). Dates are UTC; one row per line.
 | Date (UTC) | Disclosure |
 |---|---|
 | 2026-11-10 | v1.3 was designed with v1.2's results on the seen CEMS benchmark known (row 21: 0.417 at τ*, 0.468 at the oracle threshold, `reports/v12_cems_rebuilt.md`). The ladder's rungs were chosen because of them. Every v1.3 number on that benchmark is therefore exploratory; only H8 is confirmatory. |
+| 2026-11-10 | Four of the 30 clusters (v1.1's definition: activation extents within 100 km and 60 days) span two folds of the ladder: EMSR755 (with EMSR756, EMSR761, EMSR763), EMSR789 (with EMSR796), EMSR850 (with EMSR854, EMSR856) and EMSR861 (with EMSR864). The ladder's groups link the stacks' own footprints, as the v1.2 pool does (protocol §2.1), and those activations' mapped tiles lie more than 100 km apart. So a fold model can be trained on one activation of a storm and tested on another activation of the same storm, in a different place. The rule is per activation, and each activation sits in one fold. Found when the descriptive per-cluster table refused to run, before any rung-2 number was computed. |
 
 ## Rules fixed before any v1.3 result
 
 | Date (UTC) | Rule | Reason |
 |---|---|---|
 | 2026-11-10 | The protocol `reports/protocol_v1_3.md`: the ladder's data, groups, folds, rungs, measure and adoption rule; v1.3's final model; H8 as P8 in its own family; the reference ceiling's set, metric, strata and reading; the live service's blind-flood rule. | Committed before any v1.3 model is trained and before any v1.3 or ceiling number exists. |
+| 2026-11-10 | **The per-cluster table (descriptive):** a cluster's IoU pools its activations' pixel counts, each activation cut at its own fold's threshold. | Clusters can span folds (disclosure above); one threshold per cluster would borrow a fold's threshold for an activation it held out. Before any rung-2 number. |
+| 2026-11-10 | **The reference ceiling's set, made exact:** consecutive products are paired among the **delivered** delineations only, those with a download path. 221 of the 883 dated DEL products of the seen flood activations have none (an AOI product never made, e.g. marked not feasible). The set is therefore 80 pairs in 34 activations; the metadata probe's 111 in 45 had counted undelivered products. One package of the 80 now returns HTTP 404 (EMSR683 AOI09 MONIT01), so its pair is listed as not compared. | An undelivered product is not a map. Found when the download step ran; no product was compared and no IoU computed. |
+| 2026-11-10 | **The reference ceiling's sensitivity row:** the macro IoU is also reported without the pairs whose later product repeats more than 5 % of its flood area from images no later than the earlier product's (the carry-over probe). Those are EMSR657 AOI01's three pairs (43–58 %); every other pair repeats none. | Two maps that share polygons agree by construction. Fixed from the probe's shares alone, before any IoU was computed. |
 
 ## Probes (metadata and counts only, before any v1.3 result)
 

@@ -102,6 +102,12 @@ def test_summary_pools_pairs_per_activation_and_averages_activations():
     assert summary["sensor_pair"]["radar–optical"]["macro_iou"] == pytest.approx(1.0)
 
 
+def test_the_sensitivity_row_drops_pairs_that_repeat_flood():
+    pairs = [{"key": "a"}, {"key": "b"}, {"key": "c"}]
+    kept = rc.without_carry_over(pairs, {"a": 0.0, "b": 0.43, "c": 0.05})
+    assert [p["key"] for p in kept] == ["a", "c"]           # above 5 % only; a pair absent from the probe stays
+
+
 def test_iou_is_nan_when_neither_map_floods():
     assert math.isnan(rc.iou({"region_px": 5, "both": 0, "only_first": 0, "only_second": 0}))
 

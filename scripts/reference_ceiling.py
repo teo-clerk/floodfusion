@@ -206,6 +206,16 @@ def _strata(pairs: Sequence[Mapping[str, Any]], key: Callable[[Mapping[str, Any]
     return {k: _block(v) for k, v in sorted(groups.items())}
 
 
+#: The sensitivity row drops pairs whose later product repeats more than this share of its flood area
+#: (``reports/v1_3_deviations.md``, fixed from the carry-over probe before any IoU was computed).
+CARRY_OVER_LIMIT = 0.05
+
+
+def without_carry_over(pairs: Sequence[Mapping[str, Any]], probe: Mapping[str, float], *,
+                       limit: float = CARRY_OVER_LIMIT) -> list[Mapping[str, Any]]:
+    return [p for p in pairs if probe.get(p["key"], 0.0) <= limit]
+
+
 def summarise(pairs: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     return {"all": _block(pairs),
             "gap": _strata(pairs, lambda p: f"< {SHORT_GAP_H:g} h" if p["gap_h"] < SHORT_GAP_H
@@ -229,7 +239,8 @@ def _rows(blocks: Mapping[str, Mapping[str, Any]], label: str) -> list[str]:
     return lines
 
 
-def render(summary: Mapping[str, Any], skipped: Mapping[str, str], probe: Mapping[str, float]) -> str:
+def render(summary: Mapping[str, Any], skipped: Mapping[str, str], probe: Mapping[str, float],
+           sensitivity: Mapping[str, Any]) -> str:
     shares = sorted(probe.values())
     lines = [
         "# The reference ceiling: two Copernicus EMS maps of the same area, at most 24 h apart", "",
@@ -240,7 +251,9 @@ def render(summary: Mapping[str, Any], skipped: Mapping[str, str], probe: Mappin
         "**Reading, fixed in the protocol:** set against the models' 0.42 on radar-drawn pairs. Agreement near 0.5 "
         "means the benchmark is near its ceiling; near 0.8, most of the gap is the models'. Two maps hours apart also "
         "differ because the flood moved, as a model's map and its reference do.", "",
-        *_rows({"All pairs": summary["all"]}, ""), "",
+        *_rows({"All pairs": summary["all"],
+                f"Without pairs repeating > {CARRY_OVER_LIMIT:.0%} of their flood (sensitivity)": sensitivity}, ""),
+        "",
         "## By time between the two maps", "", *_rows(summary["gap"], "Gap"), "",
         "## By sensor pair", "", *_rows(summary["sensor_pair"], "Sensors"), "",
         "## By shared source image", "", *_rows(summary["shared_image"], "Source image"), "",
@@ -325,12 +338,14 @@ def _score(found: Sequence[Candidate], products: Path, work: Path, out: Path) ->
                       "sensor_pair": c.sensor_pair, "shared_image": c.shared_image, "counts": entry["counts"]})
     summary = summarise(pairs)
     probe = json.loads((work / "probe.json").read_text(encoding="utf-8"))
+    sensitivity = _block(without_carry_over(pairs, probe))
     out.parent.mkdir(parents=True, exist_ok=True)
     out.with_suffix(".json").write_text(json.dumps(_nan_to_none(
-        {"rule": {"first": FIRST, "last": LAST, "max_gap_h": MAX_GAP_H, "pixel_m": PIXEL_M},
-         "summary": summary, "pairs": pairs, "skipped": skipped, "carried_over_share": probe}),
-        indent=2, sort_keys=True, allow_nan=False), encoding="utf-8")
-    out.with_suffix(".md").write_text(render(summary, skipped, probe), encoding="utf-8")
+        {"rule": {"first": FIRST, "last": LAST, "max_gap_h": MAX_GAP_H, "pixel_m": PIXEL_M,
+                  "carry_over_limit": CARRY_OVER_LIMIT},
+         "summary": summary, "without_carry_over": sensitivity, "pairs": pairs, "skipped": skipped,
+         "carried_over_share": probe}), indent=2, sort_keys=True, allow_nan=False), encoding="utf-8")
+    out.with_suffix(".md").write_text(render(summary, skipped, probe, sensitivity), encoding="utf-8")
     LOGGER.info("macro IoU over %d activations: %s", summary["all"]["activations"], _f(summary["all"]["macro_iou"]))
 
 
