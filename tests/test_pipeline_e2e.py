@@ -123,6 +123,27 @@ def test_resume_refuses_a_foreign_checkpoint(pipeline, trained) -> None:
             resume=run_dir / "last.pt")
 
 
+def test_a_run_initialised_from_another_records_its_source_and_evaluates(pipeline, trained) -> None:
+    """v1.3's fine-tuning start: the source's weights and normalisation, recorded; evaluation loads it."""
+    import hashlib
+
+    from floodfusion.evaluate import evaluate_run
+    from floodfusion.train import adopt_init, fit, load_training_data
+
+    work, data_root, _, cfg = pipeline
+    source, source_record = trained
+    data = adopt_init(load_training_data(cfg, data_root), source)
+    run_dir = work / "runs" / "finetune" / "seed42"
+    record = fit(data, run_dir, device=torch.device("cpu"), init_from=source,
+                 provenance={"data_root": str(data_root)})
+    assert record["init_from"] == {"run": str(source), "epoch": torch.load(
+        source / "best.pt", weights_only=True)["epoch"],
+        "checkpoint_sha256": hashlib.sha256((source / "best.pt").read_bytes()).hexdigest()}
+    assert record["config"]["norm"] == source_record["config"]["norm"]
+    evaluate_run(run_dir, device="cpu")
+    assert (run_dir / "eval_test.json").is_file()
+
+
 def test_evaluation_calibrates_on_validation_and_scores_test(trained) -> None:
     from floodfusion.evaluate import evaluate_run
 

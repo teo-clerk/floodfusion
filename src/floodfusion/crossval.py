@@ -302,6 +302,17 @@ def seeds_for(row: int, seeds: Sequence[int], protocol: str) -> list[int]:
     return list(seeds) if protocol == "full" or row == REFERENCE_ROW else list(seeds[:1])
 
 
+def init_source(args: argparse.Namespace, run_name: str, seed: int) -> Path | None:
+    """The run a learned run starts from under ``--init-from-root`` (``<root>/<run name>/seed<seed>``), else None."""
+    root = getattr(args, "init_from_root", None)
+    if root is None:
+        return None
+    source = Path(root) / run_name / f"seed{seed}"
+    if not (source / "best.pt").is_file():
+        raise FileNotFoundError(f"--init-from-root: no {source / 'best.pt'} to start {run_name} seed {seed} from")
+    return source
+
+
 def _run_fold(fold: Fold, args: argparse.Namespace, device: Any) -> None:
     from floodfusion.ablation import _finished
     from floodfusion.baseline_runner import run_baseline_row
@@ -322,7 +333,12 @@ def _run_fold(fold: Fold, args: argparse.Namespace, device: Any) -> None:
             cfg = _fold_config(args.configs_dir, row, args.overlay, fold, seed)
             run_dir = run_dir_for(root, cfg.name, seed)
             if not _finished(run_dir):
-                fit(load_training_data(cfg, args.data_root), run_dir, device=device, provenance={
+                data, init = load_training_data(cfg, args.data_root), init_source(args, cfg.name, seed)
+                if init is not None:
+                    from floodfusion.train import adopt_init
+
+                    data = adopt_init(data, init)
+                fit(data, run_dir, device=device, init_from=init, provenance={
                     "config_path": str(args.configs_dir / f"{_config_name(row)}.yaml"),
                     "overlays": [str(o) for o in args.overlay], "overrides": [*fold.overrides(), f"train.seed={seed}"],
                     "data_root": str(args.data_root), "driver": "floodfusion.crossval",
@@ -377,7 +393,8 @@ def _protocol_record(args: argparse.Namespace, chip_dir: Path, manifest_name: st
             "seed_protocol": args.seed_protocol, "overlays": [str(o) for o in args.overlay],
             "folds": [vars(f) for f in folds_on_disk(chip_dir)],
             "manifest_sha256": load_manifest_meta(chip_dir / manifest_name)["manifest_sha256"],
-            "git_sha": git_state().get("git_sha")}
+            "git_sha": git_state().get("git_sha"),
+            **({"init_from_root": str(args.init_from_root)} if getattr(args, "init_from_root", None) else {})}
 
 
 def _freeze_protocol(args: argparse.Namespace, chip_dir: Path, manifest_name: str) -> None:
@@ -455,6 +472,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     run.add_argument("--device", default=None)
     run.add_argument("--skip-test", action="store_true", help="train only; never score the test split (dev runs)")
     run.add_argument("--new-protocol", action="store_true", help="accept a protocol differing from protocol.json")
+    run.add_argument("--init-from-root", type=Path, default=None,
+                     help="v1.3: start each learned run from <root>/<run name>/seed<seed> (train --init-from)")
     table = sub.choices["table"]
     table.add_argument("--out", type=Path, default=Path("reports/sen1floods11_table.md"))
     table.add_argument("--allow-dirty", action="store_true")

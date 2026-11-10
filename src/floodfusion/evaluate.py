@@ -130,6 +130,10 @@ def _load(run_dir: Path, data_root: Path | None, device: Any, force_sar_only: bo
     if force_sar_only:
         cfg = replace(cfg, eval=replace(cfg.eval, force_sar_only=True))
     data = load_training_data(cfg, Path(data_root or record["data_root"]))
+    if record.get("init_from"):     # it trained on its source run's normalisation (train --init-from)
+        from floodfusion.train import adopt_init
+
+        data = adopt_init(data, Path(record["init_from"]["run"]))
     if data.manifest_sha256 != record["manifest_sha256"]:
         raise ValueError(f"{run_dir}: trained on manifest {record['manifest_sha256'][:12]}…, "
                          f"data root now holds {data.manifest_sha256[:12]}…")

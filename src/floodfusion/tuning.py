@@ -10,6 +10,9 @@ The rule (``reports/v1_2_deviations.md``, fixed before any pooled run):
     group-disjoint.
 - **Choice** (:func:`best_rate`): the rate with the best inner-validation macro IoU (``best_val_macro_iou``). On an
   exact tie, the earlier rate in :data:`GRID`.
+**v1.3** (``reports/protocol_v1_3.md`` §3) reuses the rule for fine-tuning: ``--grid 1e-5 3e-5 1e-4``, ``--tag v13``
+and ``--init-from-root``, so that each rate's run starts from ``<root>/<run name>/seed42`` (``train --init-from``).
+
 - **Hand-over:** the chosen rate is written as an overlay (``reports/v12_lr_<run name>.yaml``). That family's CV and
   finals pass it after the dataset overlay.
 
@@ -66,9 +69,9 @@ def inner_split(fold0: Any, windows: Mapping[str, str], eval_grid: Collection[st
                    test_basins=fold0.val_basins)
 
 
-def best_rate(results: Mapping[float, float]) -> float:
+def best_rate(results: Mapping[float, float], grid: Sequence[float] = GRID) -> float:
     """The rate with the highest inner-validation IoU; an exact tie goes to the earlier rate of :data:`GRID`."""
-    ordered = [r for r in GRID if r in results]
+    ordered = [r for r in grid if r in results]
     return max(ordered, key=lambda r: (results[r], -ordered.index(r)))
 
 
@@ -77,8 +80,9 @@ def _yaml_float(rate: float) -> str:
     return f"{rate:.1e}"
 
 
-def overlay_text(rate: float, run_name: str) -> str:
-    return (f"# v1.2 equal tuning budget (floodfusion.tuning): {run_name}'s learning rate, chosen on fold 0's inner "
+def overlay_text(rate: float, run_name: str, *, tag: str = "v12") -> str:
+    label = f"v{tag[1]}.{tag[2:]}" if tag.startswith("v") and len(tag) > 2 else tag
+    return (f"# {label} equal tuning budget (floodfusion.tuning): {run_name}'s learning rate, chosen on fold 0's inner "
             f"split.\ntrain:\n  learning_rate: {_yaml_float(rate)}\n")
 
 
@@ -115,7 +119,8 @@ def _finished(record_path: Path, expected: Mapping[str, str]) -> bool:
     return True
 
 
-def tune_row(row: int, data_root: Path, overlays: Sequence[Path], runs_root: Path) -> dict[str, Any]:
+def tune_row(row: int, data_root: Path, overlays: Sequence[Path], runs_root: Path, *,
+             grid: Sequence[float] = GRID, init_from_root: Path | None = None) -> dict[str, Any]:
     """Train ``row`` once per rate of :data:`GRID` on the inner split (resumable); return the rates' results."""
     from floodfusion import train
     from floodfusion.config import config_sha256, config_to_dict, load_config
@@ -124,23 +129,28 @@ def tune_row(row: int, data_root: Path, overlays: Sequence[Path], runs_root: Pat
     config = Path("configs") / f"{_config_name(row)}.yaml"
     name = Path(_config_name(row)).name
     results = {}
-    for rate in GRID:
+    init = None if init_from_root is None else Path(init_from_root) / name / f"seed{SEED}"
+    for rate in grid:
         run_dir = runs_root / name / f"lr{rate:g}"
         overrides = [f"data.split_file_name={SPLIT_FILE}", f"data.norm_stats_file={NORM_FILE}",
                      "data.split_strategy=leave_one_basin_out", f"train.learning_rate={_yaml_float(rate)}"]
         data = train.load_training_data(load_config(config, overlays=overlays,
                                                     overrides=[*overrides, f"train.seed={SEED}"]), data_root)
+        if init is not None:          # a run started from another keeps that run's normalisation
+            data = train.adopt_init(data, init)
         # The run records the configuration as training saw it (with the split's norm statistics loaded).
         expected = {"config_sha256": config_sha256(config_to_dict(data.cfg)), "split_sha256": data.split_sha256}
         if not _finished(run_dir / "run.json", expected):
             train.main(["--config", str(config), "--data-root", str(data_root), "--seed", str(SEED),
+                        *(["--init-from", str(init)] if init is not None else []),
                         *[a for o in overlays for a in ("--overlay", str(o))], "--run-dir", str(run_dir),
                         *[a for o in overrides for a in ("--set", o)]])
             _finished(run_dir / "run.json", expected)                 # the run just written must match too
         record = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
         results[rate] = float(record["best_val_macro_iou"])
         LOGGER.info("%s lr %g: inner-val macro IoU %.4f", name, rate, results[rate])
-    return {"run_name": name, "results": {f"{r:g}": v for r, v in results.items()}, "chosen": best_rate(results)}
+    return {"run_name": name, "results": {f"{r:g}": v for r, v in results.items()},
+            "chosen": best_rate(results, grid), **({"init_from": str(init)} if init is not None else {})}
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -152,20 +162,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--overlay", type=Path, action="append", default=[])
     parser.add_argument("--runs-root", type=Path, default=Path("runs/v12/tune"))
     parser.add_argument("--reports", type=Path, default=Path("reports"))
+    parser.add_argument("--grid", type=float, nargs="+", default=list(GRID), help="learning rates, in tie order")
+    parser.add_argument("--init-from-root", type=Path, default=None,
+                        help="v1.3: start each rate's run from <root>/<run name>/seed42 (train --init-from)")
+    parser.add_argument("--tag", default="v12", help="report file prefix: <tag>_tuning.json, <tag>_lr_<run>.yaml")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     cfg = load_config(Path("configs/row09_fusion_crossattn.yaml"), overlays=args.overlay)
     chip_dir = args.data_root / Path(cfg.data.chip_root).name
     if not (chip_dir / SPLIT_FILE).is_file():
         _write_inner(chip_dir, cfg)
-    summary_path = args.reports / "v12_tuning.json"
+    summary_path = args.reports / f"{args.tag}_tuning.json"
     summary = json.loads(summary_path.read_text(encoding="utf-8"))["rows"] if summary_path.is_file() else {}
     for row in args.rows:
-        result = tune_row(row, args.data_root, args.overlay, args.runs_root)
-        (args.reports / f"v12_lr_{result['run_name']}.yaml").write_text(
-            overlay_text(result["chosen"], result["run_name"]), encoding="utf-8")
+        result = tune_row(row, args.data_root, args.overlay, args.runs_root, grid=args.grid,
+                          init_from_root=args.init_from_root)
+        (args.reports / f"{args.tag}_lr_{result['run_name']}.yaml").write_text(
+            overlay_text(result["chosen"], result["run_name"], tag=args.tag), encoding="utf-8")
         summary[result["run_name"]] = result
-    summary_path.write_text(json.dumps({"grid": list(GRID), "rows": summary}, indent=1) + "\n", encoding="utf-8")
+    summary_path.write_text(json.dumps({"grid": list(args.grid), "rows": summary}, indent=1) + "\n", encoding="utf-8")
     return 0
 
 

@@ -26,7 +26,7 @@ import gzip
 import json
 import logging
 import math
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -131,8 +131,12 @@ def model_priors(spec: Mapping[str, Any]) -> dict[str, dict[str, dict[str, float
     return out
 
 
-def score(spec: Mapping[str, Any], case_root: Path, device: Any, *, records: Path | None = None) -> dict[str, Any]:
-    """v1.1's per-pair counts for every model and seed, their histograms, and GFM (if the spec names it)."""
+def score(spec: Mapping[str, Any], case_root: Path, device: Any, *, records: Path | None = None,
+          pairs_only: Collection[str] | None = None) -> dict[str, Any]:
+    """v1.1's per-pair counts for every model and seed, their histograms, and GFM (if the spec names it).
+
+    ``pairs_only`` restricts scoring to those pair keys (v1.3: each fold model scores only the pairs it held out).
+    """
     from floodfusion.cems_scores import _models
     from floodfusion.data.gfm import read_sidecar
     from floodfusion.train import resolve_device
@@ -144,6 +148,8 @@ def score(spec: Mapping[str, Any], case_root: Path, device: Any, *, records: Pat
     pairs: dict[str, Any] = {}
     for pair_file in sorted(case_root.glob("EMSR*_AOI*/pair.json")):
         pair = json.loads(pair_file.read_text(encoding="utf-8"))
+        if pairs_only is not None and pair["key"] not in pairs_only:
+            continue
         entry: dict[str, Any] = {"pair": {k: pair[k] for k in ("activation", "aoi", "product", "stratum", "sensors",
                                                                "offset_h", "pass_time", "product_time")},
                                  "scored_px": 0, "clear_px": 0, "flood_px": 0, "gfm_missing_px": 0,

@@ -7,16 +7,18 @@ fold that held out its 100 km group (``data/pool_v13``):
 - **R1, zero-shot:** row 21 at its own τ*.
 - **R2, recalibration:** row 21's scores, cut at the threshold minimising ``r·FN + FP`` on the pooled pixels of every
   other fold (:func:`floodfusion.crossfit.crossfit_cost_threshold`, r = 3, the cost ratio that defines τ*).
-- **R3, fine-tuning:** row 21 trained further on each fold's training groups (scored by the v1.2 scorer later).
+- **R3, fine-tuning:** row 21 trained further on each fold's training groups (``crossval run --init-from-root``);
+  each fold model scores the pairs it held out with the v1.2 scorer (:func:`score_r3`), at its own τ*.
 
 Every rung is read from the same binned counts (:mod:`floodfusion.histograms`), seed 42, and compared by
 :func:`adopt`: a rung is adopted over the one below it only with a macro gain of at least :data:`MIN_GAIN` **and**
 an improvement on more than half of the activations.
 
-Run (CPU, from the committed scores)::
+Run::
 
-    uv run --frozen python -m floodfusion.ladder r2 --scores reports/v12_cems_rebuilt_scores.json.gz \
-        --chips data/pool_v13/chips --out reports/v13_ladder_r2.json
+    uv run --frozen python -m floodfusion.ladder r2         # rungs 1 and 2, CPU, from the committed v1.2 scores
+    uv run --frozen python -m floodfusion.ladder r3-score   # rung 3's fold models on their held-out pairs (GPU)
+    uv run --frozen python -m floodfusion.ladder report     # the three rungs and the verdict (CPU)
 
 Torch-free.
 """
@@ -34,8 +36,9 @@ from typing import Any
 
 import numpy as np
 
-__all__ = ["COST_RATIO", "EXCLUDE", "MIN_GAIN", "MODEL", "PRIMARY_STRATUM", "SEED", "adopt", "cluster_ious",
-           "fold_of_activation", "load_scores", "main", "rung1", "rung2", "unit_histograms"]
+__all__ = ["COST_RATIO", "EXCLUDE", "MIN_GAIN", "MODEL", "PRIMARY_STRATUM", "R3_KEY", "RUN_NAME", "SEED", "adopt",
+           "cluster_ious", "fold_of_activation", "fold_pairs", "ladder_report", "load_scores", "main", "render_ladder",
+           "rung1", "rung2", "score_r3", "unit_histograms"]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -46,6 +49,8 @@ COST_RATIO = 3.0
 #: Row 21 in the v1.2 scores, and the seed every rung uses.
 MODEL, SEED = "ours", "seed42"
 MIN_GAIN = 0.005
+#: Rung 3's runs: ``<runs root>/kfold/<fold>/<RUN_NAME>/<SEED>``, scored under the key :data:`R3_KEY`.
+RUN_NAME, R3_KEY = "row21_fusion_context_seasonal", "r3"
 _ACTIVATION = re.compile(r"(EMSR[0-9]{3,4})_", re.ASCII)
 _SPEC = {"exclude": EXCLUDE, "primary_stratum": PRIMARY_STRATUM}
 
@@ -61,10 +66,11 @@ def load_scores(path: Path) -> dict[str, Any]:
     return _load(Path(path))
 
 
-def _histograms(scores: Mapping[str, Any], unit: str, model: str, seed: str) -> dict[str, dict[str, np.ndarray]]:
+def _histograms(scores: Mapping[str, Any], unit: str, model: str, seed: str,
+                stratum: str = PRIMARY_STRATUM) -> dict[str, dict[str, np.ndarray]]:
     from floodfusion.cems_scores_v12 import _seed_hists, _unit_set, _units
 
-    groups = _units(scores, _SPEC, unit)
+    groups = _units(scores, {**_SPEC, "primary_stratum": stratum}, unit)
     out = {}
     for name in _unit_set(groups, gfm_covered=False):
         hist = _seed_hists(groups[name], model)[seed]
@@ -72,9 +78,10 @@ def _histograms(scores: Mapping[str, Any], unit: str, model: str, seed: str) -> 
     return out
 
 
-def unit_histograms(scores: Mapping[str, Any], *, model: str = MODEL, seed: str = SEED) -> dict[str, dict[str, Any]]:
-    """``{activation: {"pos", "neg"}}``: the primary stratum's activations with reference flood, pairs pooled."""
-    return _histograms(scores, "activation", model, seed)
+def unit_histograms(scores: Mapping[str, Any], *, model: str = MODEL, seed: str = SEED,
+                    stratum: str = PRIMARY_STRATUM) -> dict[str, dict[str, Any]]:
+    """``{activation: {"pos", "neg"}}``: a stratum's activations with reference flood (EMSR664 out), pairs pooled."""
+    return _histograms(scores, "activation", model, seed, stratum)
 
 
 def fold_of_activation(chip_dir: Path, *, protocol: str = "kfold") -> dict[str, str]:
@@ -244,21 +251,177 @@ def render(report: Mapping[str, Any]) -> str:
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Rung 3
+# ---------------------------------------------------------------------------
+def fold_pairs(case_root: Path, fold_of: Mapping[str, str]) -> dict[str, list[str]]:
+    """``{fold: [pair key, ...]}``: every pair, of every stratum, of the activations each fold holds out."""
+    out: dict[str, list[str]] = {}
+    for pair_file in sorted(Path(case_root).glob("EMSR*_AOI*/pair.json")):
+        pair = json.loads(pair_file.read_text(encoding="utf-8"))
+        fold = fold_of.get(str(pair["activation"]))
+        if fold is not None:
+            out.setdefault(fold, []).append(str(pair["key"]))
+    return dict(sorted(out.items()))
+
+
+def score_r3(runs_root: Path, case_root: Path, fold_of: Mapping[str, str], *, device: Any = None,
+             records: Path | None = None) -> dict[str, Any]:
+    """Each fold's fine-tuned model scores only the pairs that fold held out; one scores document, keyed ``r3``."""
+    from floodfusion import cems_scores_v12
+    from floodfusion.cems_scores import ModelSpec
+
+    merged: dict[str, Any] = {"pairs": {}, "activations": {}, "priors": {}, "fold_priors": {}, "models": {R3_KEY: {
+        "name": "R3: row 21 fine-tuned on each fold's training groups (protocol v1.3 §3)", "runs": [],
+        "kind": "learned", "role": "test"}}}
+    for fold, keys in fold_pairs(case_root, fold_of).items():
+        run = Path(runs_root) / "kfold" / fold / RUN_NAME / SEED
+        spec = {"models": [ModelSpec(R3_KEY, f"R3 {fold}", (str(run),))], "configs_dir": "configs", "overlays": ()}
+        part = cems_scores_v12.score(spec, Path(case_root), device, records=records, pairs_only=set(keys))
+        merged["pairs"].update(part["pairs"])
+        merged["activations"].update(part["activations"])
+        merged["fold_priors"][fold] = part["priors"][R3_KEY][SEED]
+        merged["models"][R3_KEY]["runs"].append(str(run))
+        LOGGER.info("R3 %s: %d pairs scored", fold, len(part["pairs"]))
+    return merged
+
+
+def _check_same_stacks(v12: Mapping[str, Any], r3: Mapping[str, Any]) -> None:
+    for key, entry in r3["pairs"].items():
+        mine = v12["pairs"].get(key)
+        if mine is None or any(mine[f] != entry[f] for f in ("scored_px", "flood_px")):
+            raise ValueError(f"{key}: rung 3 was scored on different stacks than rungs 1 and 2")
+
+
+def _macro(values: Mapping[str, float]) -> float | None:
+    finite = [v for v in values.values() if not math.isnan(v)]
+    return float(np.mean(finite)) if finite else None
+
+
+def _threshold_free(units: Mapping[str, Hist]) -> dict[str, float | None]:
+    from floodfusion import histograms
+
+    return {"ap": _macro({a: histograms.average_precision(h["pos"], h["neg"]) for a, h in units.items()}),
+            "oracle_iou": _macro({a: histograms.oracle_iou(h["pos"], h["neg"])[0] for a, h in units.items()})}
+
+
+def ladder_report(v12: Mapping[str, Any], r3: Mapping[str, Any], fold_of: Mapping[str, str]) -> dict[str, Any]:
+    """The three rungs per activation, the two adoption verdicts, v1.3's model, and the descriptive rows."""
+    from floodfusion.cems_scores import activation_clusters
+
+    _check_same_stacks(v12, r3)
+    tau = 1 / (1 + COST_RATIO)
+    fold_tau = {f: float(p["tau"]) for f, p in r3["fold_priors"].items()}
+    u12, u3 = unit_histograms(v12), unit_histograms(r3, model=R3_KEY)
+    r1, (r2, cuts) = rung1(u12, tau=tau), rung2(u12, fold_of)
+    r3_ious = {a: _iou(h, fold_tau[fold_of[a]]) for a, h in sorted(u3.items())}
+    v2 = adopt(r1, r2)
+    base_name, base = ("r2", r2) if v2["adopted"] else ("r1", r1)
+    v3 = {**adopt(base, r3_ious), "base": base_name}
+    model = "R3" if v3["adopted"] else ("R2" if v2["adopted"] else None)
+    cluster_of = activation_clusters(v12["activations"])
+    clusters = {"r1": cluster_ious(u12, dict.fromkeys(u12, tau), cluster_of),
+                "r2": cluster_ious(u12, {a: cuts[fold_of[a]] for a in u12}, cluster_of),
+                "r3": cluster_ious(u3, {a: fold_tau[fold_of[a]] for a in u3}, cluster_of)}
+    o12, o3 = unit_histograms(v12, stratum="optical"), unit_histograms(r3, model=R3_KEY, stratum="optical")
+    optical = {"n": len(o3), "r1": _macro(rung1(o12, tau=tau)),
+               "r3": _macro({a: _iou(h, fold_tau[fold_of[a]]) for a, h in o3.items()})}
+    return {"rule": {"model": MODEL, "seed": SEED, "cost_ratio": COST_RATIO, "min_gain": MIN_GAIN,
+                     "primary_stratum": PRIMARY_STRATUM, "exclude": list(EXCLUDE)},
+            "fold_of": dict(sorted(fold_of.items())), "r2_cuts": cuts, "r3_taus": dict(sorted(fold_tau.items())),
+            "r1": r1, "r2": r2, "r3": r3_ious, "verdicts": {"r2_over_r1": v2, "r3_over_base": v3},
+            "v13_model": model,
+            "descriptive": {"r3_over_r2": adopt(r2, r3_ious), "clusters": {
+                **clusters, "r3_over_r1": adopt(clusters["r1"], clusters["r3"])},
+                "threshold_free": {"r1": _threshold_free(u12), "r3": _threshold_free(u3)}, "optical": optical}}
+
+
+def _f(x: float | None) -> str:
+    return "—" if x is None else f"{x:.3f}"
+
+
+def render_ladder(report: Mapping[str, Any]) -> str:
+    v2, v3 = report["verdicts"]["r2_over_r1"], report["verdicts"]["r3_over_base"]
+    d = report["descriptive"]
+    c, tf, opt = d["clusters"], d["threshold_free"], d["optical"]
+    word = {True: "adopted", False: "not adopted"}
+    model = {"R3": "R3, row 21 fine-tuned on Copernicus labels (finals on all groups follow, protocol v1.3 §3)",
+             "R2": "R2, row 21 with the refitted threshold", None: "none: no rung was adopted; H8 is not run"}
+    lines = [
+        "# v1.3 ladder: does training on Copernicus's own labels help?", "",
+        "Protocol v1.3 §3, committed before any rung was computed. Seen CEMS 2023–26 benchmark, primary stratum "
+        "(products drawn on radar), EMSR664 excluded; seed 42. Every activation is scored by the fold that held out "
+        "its 100 km group; binned counts. Exploratory: this benchmark has been seen. Only H8, on the blind floods, "
+        "is confirmatory.", "",
+        f"| Rung | Macro IoU, {v2['n']} activations | Per cluster (descriptive) |", "| --- | --- | --- |",
+        f"| R1, zero-shot at τ* | {v2['macro_lower']:.3f} | {_macro(c['r1']):.3f} |",
+        f"| R2, cross-fitted cost-optimal threshold | {v2['macro_upper']:.3f} | {_macro(c['r2']):.3f} |",
+        f"| R3, fine-tuned on each fold's training groups | {v3['macro_upper']:.3f} | {_macro(c['r3']):.3f} |", "",
+        f"- **R2 over R1:** {v2['gain']:+.3f}, better in {v2['better']} of {v2['n']}: **{word[v2['adopted']]}**.",
+        f"- **R3 over {v3['base'].upper()}** (the highest rung adopted below it): {v3['gain']:+.3f}, better in "
+        f"{v3['better']} of {v3['n']}: **{word[v3['adopted']]}**.",
+        f"- Rule: a gain of at least +{MIN_GAIN} and better on more than half of the activations.", "",
+        f"**v1.3's model:** {model[report['v13_model']]}.", "",
+        "Descriptive, not part of the rule:", "",
+        f"- R3 over R2: {d['r3_over_r2']['gain']:+.3f}, better in {d['r3_over_r2']['better']} of "
+        f"{d['r3_over_r2']['n']}.",
+        f"- Per cluster, R3 over R1: {c['r3_over_r1']['gain']:+.3f}, better in {c['r3_over_r1']['better']} of "
+        f"{c['r3_over_r1']['n']} clusters.",
+        f"- Threshold-free: AP R1 {_f(tf['r1']['ap'])}, R3 {_f(tf['r3']['ap'])}; oracle IoU R1 "
+        f"{_f(tf['r1']['oracle_iou'])}, R3 {_f(tf['r3']['oracle_iou'])}.",
+        f"- Products drawn on optical images ({opt['n']} activations): R1 {_f(opt['r1'])}, R3 {_f(opt['r3'])}.",
+        "- Fold thresholds: R2 " + ", ".join(f"{k} {t:.3f}" for k, t in report["r2_cuts"].items())
+        + "; R3's τ* " + ", ".join(f"{k} {t:.3f}" for k, t in report["r3_taus"].items()) + ".", "",
+        "| Activation | Fold | R1 | R2 | R3 |", "| --- | --- | --- | --- | --- |",
+        *(f"| {a} | {report['fold_of'][a]} | {report['r1'][a]:.3f} | {report['r2'][a]:.3f} | {report['r3'][a]:.3f} |"
+          for a in report["r1"]),
+        "", "*Regenerate:* `uv run --frozen python -m floodfusion.ladder report`.", "",
+    ]
+    return "\n".join(lines)
+
+
+def _write(report: Mapping[str, Any], out: Path, text: str) -> None:
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(report, indent=2, sort_keys=True, allow_nan=False), encoding="utf-8")
+    out.with_suffix(".md").write_text(text, encoding="utf-8")
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="v1.3's adaptation ladder (protocol v1.3 §3).")
     sub = parser.add_subparsers(dest="cmd", required=True)
     r2 = sub.add_parser("r2", help="rungs 1 and 2 from the committed v1.2 scores (CPU)")
-    r2.add_argument("--scores", type=Path, default=Path("reports/v12_cems_rebuilt_scores.json.gz"))
-    r2.add_argument("--chips", type=Path, default=Path("data/pool_v13/chips"))
+    r3s = sub.add_parser("r3-score", help="rung 3: each fold model on the pairs it held out (GPU)")
+    rep = sub.add_parser("report", help="the three rungs and the verdict (CPU)")
+    for p in (r2, r3s, rep):
+        p.add_argument("--chips", type=Path, default=Path("data/pool_v13/chips"))
+    for p in (r2, rep):
+        p.add_argument("--scores", type=Path, default=Path("reports/v12_cems_rebuilt_scores.json.gz"))
     r2.add_argument("--out", type=Path, default=Path("reports/v13_ladder_r2.json"))
+    r3s.add_argument("--runs", type=Path, default=Path("runs/v13/ladder"))
+    r3s.add_argument("--case-root", type=Path, default=Path("data/cems_benchmark_v12"))
+    r3s.add_argument("--records", type=Path, default=Path("data/cems_records"))
+    r3s.add_argument("--device", default=None)
+    r3s.add_argument("--out", type=Path, default=Path("reports/v13_r3_scores.json.gz"))
+    rep.add_argument("--r3", type=Path, default=Path("reports/v13_r3_scores.json.gz"))
+    rep.add_argument("--out", type=Path, default=Path("reports/v13_ladder.json"))
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    report = r2_report(load_scores(args.scores), fold_of_activation(args.chips))
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(report, indent=2, sort_keys=True, allow_nan=False), encoding="utf-8")
-    args.out.with_suffix(".md").write_text(render(report), encoding="utf-8")
-    v = report["r2_over_r1"]
-    LOGGER.info("R1 %.3f, R2 %.3f: %s", v["macro_lower"], v["macro_upper"], "adopted" if v["adopted"] else "not adopted")
+    fold_of = fold_of_activation(args.chips)
+    if args.cmd == "r2":
+        report = r2_report(load_scores(args.scores), fold_of)
+        _write(report, args.out, render(report))
+        v = report["r2_over_r1"]
+        LOGGER.info("R1 %.3f, R2 %.3f: %s", v["macro_lower"], v["macro_upper"], "adopted" if v["adopted"] else
+                    "not adopted")
+    elif args.cmd == "r3-score":
+        from floodfusion.cems_scores_v12 import write_scores
+
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        write_scores(score_r3(args.runs, args.case_root, fold_of, device=args.device, records=args.records), args.out)
+    else:
+        report = ladder_report(load_scores(args.scores), load_scores(args.r3), fold_of)
+        _write(report, args.out, render_ladder(report))
+        LOGGER.info("v1.3's model: %s", report["v13_model"])
     return 0
 
 
