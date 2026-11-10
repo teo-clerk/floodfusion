@@ -1,0 +1,1373 @@
+{
+  "carried_over_share": {
+    "EMSR657_AOI01_MONIT01_MONIT02": 0.43154266962119997,
+    "EMSR657_AOI01_MONIT02_MONIT03": 0.5794005917043462,
+    "EMSR657_AOI01_PRODUCT_MONIT01": 0.4970394187672812,
+    "EMSR664_AOI01_PRODUCT_MONIT01": 0.0,
+    "EMSR683_AOI02_PRODUCT_MONIT01": 0.0,
+    "EMSR683_AOI03_PRODUCT_MONIT01": 0.0,
+    "EMSR692_AOI05_MONIT01_MONIT02": 0.0,
+    "EMSR705_AOI03_PRODUCT_MONIT01": 0.0,
+    "EMSR706_AOI04_PRODUCT_MONIT01": 0.0,
+    "EMSR711_AOI02_PRODUCT_MONIT01": 0.0,
+    "EMSR712_AOI02_MONIT05_MONIT06": 0.0,
+    "EMSR712_AOI03_MONIT05_MONIT06": 0.0,
+    "EMSR712_AOI03_MONIT07_MONIT08": 0.0,
+    "EMSR712_AOI04_PRODUCT_MONIT01": 0.0,
+    "EMSR712_AOI05_MONIT02_MONIT03": 0.0,
+    "EMSR712_AOI05_MONIT07_MONIT08": 0.0,
+    "EMSR712_AOI05_PRODUCT_MONIT01": 0.0,
+    "EMSR712_AOI06_MONIT03_MONIT04": 0.0,
+    "EMSR712_AOI06_PRODUCT_MONIT01": 0.0,
+    "EMSR712_AOI07_MONIT03_MONIT04": 0.0,
+    "EMSR712_AOI07_PRODUCT_MONIT01": 0.0,
+    "EMSR712_AOI08_MONIT04_MONIT05": 0.0,
+    "EMSR712_AOI08_PRODUCT_MONIT01": 0.0,
+    "EMSR718_AOI02_PRODUCT_MONIT01": 0.0,
+    "EMSR720_AOI01_PRODUCT_MONIT01": 0.0,
+    "EMSR720_AOI02_PRODUCT_MONIT01": 0.0,
+    "EMSR722_AOI01_MONIT03_MONIT04": 0.0,
+    "EMSR722_AOI01_PRODUCT_MONIT01": 0.0,
+    "EMSR722_AOI02_PRODUCT_MONIT01": 0.0,
+    "EMSR728_AOI01_PRODUCT_MONIT01": 0.0,
+    "EMSR728_AOI03_MONIT01_MONIT02": 0.0,
+    "EMSR728_AOI03_MONIT03_MONIT04": 0.0,
+    "EMSR728_AOI03_MONIT05_MONIT06": 0.0,
+    "EMSR728_AOI04_MONIT01_MONIT02": 0.0,
+    "EMSR728_AOI04_MONIT03_MONIT04": 0.0,
+    "EMSR728_AOI05_PRODUCT_MONIT01": 0.0,
+    "EMSR728_AOI06_PRODUCT_MONIT01": 0.0,
+    "EMSR756_AOI01_MONIT01_MONIT02": 0.0,
+    "EMSR757_AOI01_MONIT02_MONIT03": 0.0,
+    "EMSR762_AOI02_PRODUCT_MONIT01": 0.0,
+    "EMSR762_AOI03_PRODUCT_MONIT01": 0.0,
+    "EMSR768_AOI01_PRODUCT_MONIT01": 0.0,
+    "EMSR768_AOI02_MONIT01_MONIT02": 0.0,
+    "EMSR771_AOI06_MONIT02_MONIT03": 0.0,
+    "EMSR771_AOI08_MONIT02_MONIT03": 0.0,
+    "EMSR773_AOI01_MONIT02_MONIT03": 0.0,
+    "EMSR783_AOI01_MONIT01_MONIT02": 0.0,
+    "EMSR783_AOI01_PRODUCT_MONIT01": 0.0,
+    "EMSR788_AOI01_MONIT01_MONIT02": 0.0,
+    "EMSR788_AOI01_MONIT04_MONIT05": 0.0,
+    "EMSR788_AOI02_MONIT01_MONIT02": 0.0,
+    "EMSR788_AOI03_MONIT01_MONIT02": 0.0,
+    "EMSR788_AOI04_MONIT02_MONIT03": 0.0,
+    "EMSR788_AOI05_PRODUCT_MONIT01": 0.0,
+    "EMSR789_AOI01_MONIT02_MONIT03": 0.0,
+    "EMSR789_AOI02_MONIT02_MONIT03": 0.0,
+    "EMSR794_AOI02_PRODUCT_MONIT01": 0.0,
+    "EMSR796_AOI06_PRODUCT_MONIT01": 0.0,
+    "EMSR797_AOI01_PRODUCT_MONIT01": 0.0,
+    "EMSR797_AOI02_PRODUCT_MONIT01": 0.0,
+    "EMSR797_AOI03_PRODUCT_MONIT01": 0.0,
+    "EMSR838_AOI05_MONIT01_MONIT02": 0.0,
+    "EMSR838_AOI05_MONIT02_MONIT03": 0.0,
+    "EMSR838_AOI05_MONIT03_MONIT04": 0.0,
+    "EMSR841_AOI01_PRODUCT_MONIT01": 0.0,
+    "EMSR855_AOI01_PRODUCT_MONIT01": 0.0,
+    "EMSR856_AOI07_PRODUCT_MONIT01": 0.0,
+    "EMSR857_AOI01_MONIT02_MONIT03": 0.0,
+    "EMSR861_AOI12_MONIT04_MONIT05": 0.0,
+    "EMSR861_AOI13_MONIT02_MONIT03": 0.0,
+    "EMSR861_AOI14_MONIT01_MONIT02": 0.0,
+    "EMSR861_AOI26_MONIT02_MONIT03": 0.0,
+    "EMSR864_AOI03_MONIT01_MONIT02": 0.0,
+    "EMSR864_AOI03_PRODUCT_MONIT01": 0.0,
+    "EMSR864_AOI17_PRODUCT_MONIT01": 0.0,
+    "EMSR866_AOI05_PRODUCT_MONIT01": 0.0,
+    "EMSR868_AOI01_MONIT03_MONIT04": 0.0,
+    "EMSR871_AOI03_PRODUCT_MONIT01": 0.0,
+    "EMSR871_AOI04_PRODUCT_MONIT01": 0.0
+  },
+  "pairs": [
+    {
+      "activation": "EMSR657",
+      "counts": {
+        "both": 541472,
+        "only_first": 0,
+        "only_second": 89278,
+        "region_px": 13745129
+      },
+      "gap_h": 23.92,
+      "key": "EMSR657_AOI01_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR657",
+      "counts": {
+        "both": 606344,
+        "only_first": 24406,
+        "only_second": 132561,
+        "region_px": 13745129
+      },
+      "gap_h": 12.6,
+      "key": "EMSR657_AOI01_MONIT01_MONIT02",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR657",
+      "counts": {
+        "both": 725225,
+        "only_first": 13680,
+        "only_second": 22457,
+        "region_px": 13745129
+      },
+      "gap_h": 23.67,
+      "key": "EMSR657_AOI01_MONIT02_MONIT03",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR664",
+      "counts": {
+        "both": 406465,
+        "only_first": 473227,
+        "only_second": 515962,
+        "region_px": 19822287
+      },
+      "gap_h": 23.98,
+      "key": "EMSR664_AOI01_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR683",
+      "counts": {
+        "both": 6208,
+        "only_first": 5677,
+        "only_second": 6217,
+        "region_px": 443464
+      },
+      "gap_h": 12.73,
+      "key": "EMSR683_AOI02_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR683",
+      "counts": {
+        "both": 61343,
+        "only_first": 6879,
+        "only_second": 10894,
+        "region_px": 833561
+      },
+      "gap_h": 13.18,
+      "key": "EMSR683_AOI03_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR692",
+      "counts": {
+        "both": 2828150,
+        "only_first": 276137,
+        "only_second": 450764,
+        "region_px": 8915928
+      },
+      "gap_h": 23.2,
+      "key": "EMSR692_AOI05_MONIT01_MONIT02",
+      "sensor_pair": "optical\u2013optical",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR705",
+      "counts": {
+        "both": 19510,
+        "only_first": 13887,
+        "only_second": 4977,
+        "region_px": 2726038
+      },
+      "gap_h": 11.97,
+      "key": "EMSR705_AOI03_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR706",
+      "counts": {
+        "both": 14964,
+        "only_first": 3222,
+        "only_second": 14323,
+        "region_px": 1839987
+      },
+      "gap_h": 11.57,
+      "key": "EMSR706_AOI04_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR711",
+      "counts": {
+        "both": 104202,
+        "only_first": 1,
+        "only_second": 1406,
+        "region_px": 522789
+      },
+      "gap_h": 12.03,
+      "key": "EMSR711_AOI02_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR712",
+      "counts": {
+        "both": 242530,
+        "only_first": 161494,
+        "only_second": 9295,
+        "region_px": 7679487
+      },
+      "gap_h": 12.17,
+      "key": "EMSR712_AOI02_MONIT05_MONIT06",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR712",
+      "counts": {
+        "both": 342953,
+        "only_first": 38,
+        "only_second": 97551,
+        "region_px": 11127240
+      },
+      "gap_h": 23.72,
+      "key": "EMSR712_AOI03_MONIT05_MONIT06",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR712",
+      "counts": {
+        "both": 648923,
+        "only_first": 276418,
+        "only_second": 138078,
+        "region_px": 14743824
+      },
+      "gap_h": 12.17,
+      "key": "EMSR712_AOI03_MONIT07_MONIT08",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR712",
+      "counts": {
+        "both": 23714,
+        "only_first": 32568,
+        "only_second": 7890,
+        "region_px": 7142916
+      },
+      "gap_h": 23.75,
+      "key": "EMSR712_AOI04_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR712",
+      "counts": {
+        "both": 266650,
+        "only_first": 115954,
+        "only_second": 58952,
+        "region_px": 5076616
+      },
+      "gap_h": 23.75,
+      "key": "EMSR712_AOI05_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR712",
+      "counts": {
+        "both": 153226,
+        "only_first": 223846,
+        "only_second": 60934,
+        "region_px": 5694702
+      },
+      "gap_h": 12.4,
+      "key": "EMSR712_AOI05_MONIT02_MONIT03",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR712",
+      "counts": {
+        "both": 342869,
+        "only_first": 283582,
+        "only_second": 11986,
+        "region_px": 14905900
+      },
+      "gap_h": 23.85,
+      "key": "EMSR712_AOI05_MONIT07_MONIT08",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR712",
+      "counts": {
+        "both": 253899,
+        "only_first": 324533,
+        "only_second": 32970,
+        "region_px": 14648651
+      },
+      "gap_h": 23.75,
+      "key": "EMSR712_AOI06_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR712",
+      "counts": {
+        "both": 545415,
+        "only_first": 81303,
+        "only_second": 206170,
+        "region_px": 21863648
+      },
+      "gap_h": 23.73,
+      "key": "EMSR712_AOI06_MONIT03_MONIT04",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR712",
+      "counts": {
+        "both": 19708,
+        "only_first": 14741,
+        "only_second": 4607,
+        "region_px": 2013627
+      },
+      "gap_h": 23.75,
+      "key": "EMSR712_AOI07_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR712",
+      "counts": {
+        "both": 2854,
+        "only_first": 1115,
+        "only_second": 3114,
+        "region_px": 5487955
+      },
+      "gap_h": 12.4,
+      "key": "EMSR712_AOI07_MONIT03_MONIT04",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR712",
+      "counts": {
+        "both": 31713,
+        "only_first": 64075,
+        "only_second": 5278,
+        "region_px": 2225962
+      },
+      "gap_h": 23.75,
+      "key": "EMSR712_AOI08_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR712",
+      "counts": {
+        "both": 27444,
+        "only_first": 7655,
+        "only_second": 19759,
+        "region_px": 3991429
+      },
+      "gap_h": 12.4,
+      "key": "EMSR712_AOI08_MONIT04_MONIT05",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR718",
+      "counts": {
+        "both": 2514,
+        "only_first": 764,
+        "only_second": 735,
+        "region_px": 581131
+      },
+      "gap_h": 23.18,
+      "key": "EMSR718_AOI02_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR720",
+      "counts": {
+        "both": 3291,
+        "only_first": 110,
+        "only_second": 10030,
+        "region_px": 182420
+      },
+      "gap_h": 12.37,
+      "key": "EMSR720_AOI01_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR720",
+      "counts": {
+        "both": 6368,
+        "only_first": 9977,
+        "only_second": 8620,
+        "region_px": 299278
+      },
+      "gap_h": 10.92,
+      "key": "EMSR720_AOI02_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR722",
+      "counts": {
+        "both": 46676,
+        "only_first": 34674,
+        "only_second": 5403,
+        "region_px": 1149607
+      },
+      "gap_h": 12.37,
+      "key": "EMSR722_AOI01_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR722",
+      "counts": {
+        "both": 1396,
+        "only_first": 1432,
+        "only_second": 227,
+        "region_px": 1124673
+      },
+      "gap_h": 23.15,
+      "key": "EMSR722_AOI01_MONIT03_MONIT04",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR722",
+      "counts": {
+        "both": 15751,
+        "only_first": 26003,
+        "only_second": 427,
+        "region_px": 1755576
+      },
+      "gap_h": 11.85,
+      "key": "EMSR722_AOI02_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR728",
+      "counts": {
+        "both": 0,
+        "only_first": 0,
+        "only_second": 2113,
+        "region_px": 6188508
+      },
+      "gap_h": 23.48,
+      "key": "EMSR728_AOI01_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR728",
+      "counts": {
+        "both": 52688,
+        "only_first": 9663,
+        "only_second": 19989,
+        "region_px": 4640110
+      },
+      "gap_h": 23.1,
+      "key": "EMSR728_AOI03_MONIT01_MONIT02",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR728",
+      "counts": {
+        "both": 157303,
+        "only_first": 10829,
+        "only_second": 274465,
+        "region_px": 15009455
+      },
+      "gap_h": 17.12,
+      "key": "EMSR728_AOI03_MONIT03_MONIT04",
+      "sensor_pair": "radar\u2013optical",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR728",
+      "counts": {
+        "both": 54927,
+        "only_first": 39923,
+        "only_second": 1631,
+        "region_px": 5712073
+      },
+      "gap_h": 12.28,
+      "key": "EMSR728_AOI03_MONIT05_MONIT06",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR728",
+      "counts": {
+        "both": 67464,
+        "only_first": 54755,
+        "only_second": 82926,
+        "region_px": 8949372
+      },
+      "gap_h": 16.98,
+      "key": "EMSR728_AOI04_MONIT01_MONIT02",
+      "sensor_pair": "other",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR728",
+      "counts": {
+        "both": 12662,
+        "only_first": 38556,
+        "only_second": 1207,
+        "region_px": 6012827
+      },
+      "gap_h": 12.27,
+      "key": "EMSR728_AOI04_MONIT03_MONIT04",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR728",
+      "counts": {
+        "both": 13061,
+        "only_first": 21603,
+        "only_second": 28792,
+        "region_px": 31922247
+      },
+      "gap_h": 23.72,
+      "key": "EMSR728_AOI05_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR728",
+      "counts": {
+        "both": 37151,
+        "only_first": 142322,
+        "only_second": 15433,
+        "region_px": 10792960
+      },
+      "gap_h": 23.53,
+      "key": "EMSR728_AOI06_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR756",
+      "counts": {
+        "both": 7177,
+        "only_first": 23581,
+        "only_second": 9277,
+        "region_px": 9479921
+      },
+      "gap_h": 23.72,
+      "key": "EMSR756_AOI01_MONIT01_MONIT02",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR757",
+      "counts": {
+        "both": 529692,
+        "only_first": 188934,
+        "only_second": 122730,
+        "region_px": 12314356
+      },
+      "gap_h": 11.78,
+      "key": "EMSR757_AOI01_MONIT02_MONIT03",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR762",
+      "counts": {
+        "both": 83224,
+        "only_first": 57140,
+        "only_second": 30205,
+        "region_px": 7131271
+      },
+      "gap_h": 10.7,
+      "key": "EMSR762_AOI02_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR762",
+      "counts": {
+        "both": 59964,
+        "only_first": 49313,
+        "only_second": 11723,
+        "region_px": 4592209
+      },
+      "gap_h": 12.38,
+      "key": "EMSR762_AOI03_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR768",
+      "counts": {
+        "both": 7154,
+        "only_first": 1053,
+        "only_second": 29055,
+        "region_px": 2570379
+      },
+      "gap_h": 23.8,
+      "key": "EMSR768_AOI01_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR768",
+      "counts": {
+        "both": 0,
+        "only_first": 0,
+        "only_second": 0,
+        "region_px": 1031245
+      },
+      "gap_h": 12.35,
+      "key": "EMSR768_AOI02_MONIT01_MONIT02",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR771",
+      "counts": {
+        "both": 3134,
+        "only_first": 2149,
+        "only_second": 2074,
+        "region_px": 2315817
+      },
+      "gap_h": 23.72,
+      "key": "EMSR771_AOI06_MONIT02_MONIT03",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR771",
+      "counts": {
+        "both": 35245,
+        "only_first": 32177,
+        "only_second": 4300,
+        "region_px": 5894397
+      },
+      "gap_h": 23.72,
+      "key": "EMSR771_AOI08_MONIT02_MONIT03",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR773",
+      "counts": {
+        "both": 658295,
+        "only_first": 962801,
+        "only_second": 3764,
+        "region_px": 105506275
+      },
+      "gap_h": 19.13,
+      "key": "EMSR773_AOI01_MONIT02_MONIT03",
+      "sensor_pair": "radar\u2013optical",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR783",
+      "counts": {
+        "both": 25497,
+        "only_first": 22416,
+        "only_second": 10731,
+        "region_px": 4054992
+      },
+      "gap_h": 12.8,
+      "key": "EMSR783_AOI01_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR783",
+      "counts": {
+        "both": 67986,
+        "only_first": 33904,
+        "only_second": 14435,
+        "region_px": 10489312
+      },
+      "gap_h": 11.55,
+      "key": "EMSR783_AOI01_MONIT01_MONIT02",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR788",
+      "counts": {
+        "both": 352113,
+        "only_first": 69576,
+        "only_second": 19325,
+        "region_px": 8325981
+      },
+      "gap_h": 23.72,
+      "key": "EMSR788_AOI01_MONIT01_MONIT02",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR788",
+      "counts": {
+        "both": 34649,
+        "only_first": 12947,
+        "only_second": 62,
+        "region_px": 9074702
+      },
+      "gap_h": 23.7,
+      "key": "EMSR788_AOI01_MONIT04_MONIT05",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR788",
+      "counts": {
+        "both": 395,
+        "only_first": 751,
+        "only_second": 147,
+        "region_px": 504460
+      },
+      "gap_h": 24.0,
+      "key": "EMSR788_AOI02_MONIT01_MONIT02",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR788",
+      "counts": {
+        "both": 20419,
+        "only_first": 17411,
+        "only_second": 2575,
+        "region_px": 988263
+      },
+      "gap_h": 24.0,
+      "key": "EMSR788_AOI03_MONIT01_MONIT02",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR788",
+      "counts": {
+        "both": 1839,
+        "only_first": 9012,
+        "only_second": 355,
+        "region_px": 728544
+      },
+      "gap_h": 23.97,
+      "key": "EMSR788_AOI04_MONIT02_MONIT03",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR788",
+      "counts": {
+        "both": 153380,
+        "only_first": 17251,
+        "only_second": 13710,
+        "region_px": 2173551
+      },
+      "gap_h": 11.78,
+      "key": "EMSR788_AOI05_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR789",
+      "counts": {
+        "both": 47710,
+        "only_first": 41191,
+        "only_second": 14502,
+        "region_px": 3023826
+      },
+      "gap_h": 23.52,
+      "key": "EMSR789_AOI01_MONIT02_MONIT03",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR789",
+      "counts": {
+        "both": 75047,
+        "only_first": 21710,
+        "only_second": 43366,
+        "region_px": 4989522
+      },
+      "gap_h": 23.52,
+      "key": "EMSR789_AOI02_MONIT02_MONIT03",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR794",
+      "counts": {
+        "both": 10104,
+        "only_first": 8480,
+        "only_second": 3662,
+        "region_px": 2507384
+      },
+      "gap_h": 16.57,
+      "key": "EMSR794_AOI02_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR796",
+      "counts": {
+        "both": 15483,
+        "only_first": 6441,
+        "only_second": 18409,
+        "region_px": 4319982
+      },
+      "gap_h": 24.0,
+      "key": "EMSR796_AOI06_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR797",
+      "counts": {
+        "both": 171,
+        "only_first": 1576,
+        "only_second": 214,
+        "region_px": 2499745
+      },
+      "gap_h": 11.53,
+      "key": "EMSR797_AOI01_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR797",
+      "counts": {
+        "both": 12966,
+        "only_first": 9047,
+        "only_second": 3697,
+        "region_px": 3265964
+      },
+      "gap_h": 11.53,
+      "key": "EMSR797_AOI02_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR797",
+      "counts": {
+        "both": 923,
+        "only_first": 4996,
+        "only_second": 1875,
+        "region_px": 3421013
+      },
+      "gap_h": 11.53,
+      "key": "EMSR797_AOI03_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR838",
+      "counts": {
+        "both": 858692,
+        "only_first": 47165,
+        "only_second": 711996,
+        "region_px": 7189338
+      },
+      "gap_h": 17.57,
+      "key": "EMSR838_AOI05_MONIT01_MONIT02",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR838",
+      "counts": {
+        "both": 1445750,
+        "only_first": 662603,
+        "only_second": 331218,
+        "region_px": 8583166
+      },
+      "gap_h": 19.73,
+      "key": "EMSR838_AOI05_MONIT02_MONIT03",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR838",
+      "counts": {
+        "both": 1680759,
+        "only_first": 417768,
+        "only_second": 516891,
+        "region_px": 10136364
+      },
+      "gap_h": 12.07,
+      "key": "EMSR838_AOI05_MONIT03_MONIT04",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR841",
+      "counts": {
+        "both": 1380,
+        "only_first": 4374,
+        "only_second": 4052,
+        "region_px": 478731
+      },
+      "gap_h": 17.85,
+      "key": "EMSR841_AOI01_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR855",
+      "counts": {
+        "both": 5111,
+        "only_first": 13094,
+        "only_second": 624,
+        "region_px": 1007248
+      },
+      "gap_h": 11.92,
+      "key": "EMSR855_AOI01_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR856",
+      "counts": {
+        "both": 73226,
+        "only_first": 3323,
+        "only_second": 183380,
+        "region_px": 3112154
+      },
+      "gap_h": 23.87,
+      "key": "EMSR856_AOI07_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR857",
+      "counts": {
+        "both": 9253959,
+        "only_first": 1519092,
+        "only_second": 124392,
+        "region_px": 22877524
+      },
+      "gap_h": 12.35,
+      "key": "EMSR857_AOI01_MONIT02_MONIT03",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR861",
+      "counts": {
+        "both": 450017,
+        "only_first": 49877,
+        "only_second": 142550,
+        "region_px": 11308841
+      },
+      "gap_h": 12.02,
+      "key": "EMSR861_AOI12_MONIT04_MONIT05",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR861",
+      "counts": {
+        "both": 4133,
+        "only_first": 2395,
+        "only_second": 43933,
+        "region_px": 5384708
+      },
+      "gap_h": 23.85,
+      "key": "EMSR861_AOI13_MONIT02_MONIT03",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR861",
+      "counts": {
+        "both": 3774093,
+        "only_first": 1153129,
+        "only_second": 367652,
+        "region_px": 61035182
+      },
+      "gap_h": 12.0,
+      "key": "EMSR861_AOI14_MONIT01_MONIT02",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR861",
+      "counts": {
+        "both": 5740,
+        "only_first": 3921,
+        "only_second": 735,
+        "region_px": 1032843
+      },
+      "gap_h": 11.87,
+      "key": "EMSR861_AOI26_MONIT02_MONIT03",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR864",
+      "counts": {
+        "both": 2503792,
+        "only_first": 610325,
+        "only_second": 1760412,
+        "region_px": 25329845
+      },
+      "gap_h": 19.45,
+      "key": "EMSR864_AOI03_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR864",
+      "counts": {
+        "both": 4029056,
+        "only_first": 226892,
+        "only_second": 861103,
+        "region_px": 25242377
+      },
+      "gap_h": 12.0,
+      "key": "EMSR864_AOI03_MONIT01_MONIT02",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR864",
+      "counts": {
+        "both": 32673,
+        "only_first": 36321,
+        "only_second": 8893,
+        "region_px": 4918113
+      },
+      "gap_h": 12.0,
+      "key": "EMSR864_AOI17_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR866",
+      "counts": {
+        "both": 284609,
+        "only_first": 80644,
+        "only_second": 102372,
+        "region_px": 31095096
+      },
+      "gap_h": 23.88,
+      "key": "EMSR866_AOI05_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR868",
+      "counts": {
+        "both": 286134,
+        "only_first": 37688,
+        "only_second": 71298,
+        "region_px": 8905184
+      },
+      "gap_h": 21.6,
+      "key": "EMSR868_AOI01_MONIT03_MONIT04",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR871",
+      "counts": {
+        "both": 11416,
+        "only_first": 11499,
+        "only_second": 10466,
+        "region_px": 2816274
+      },
+      "gap_h": 23.88,
+      "key": "EMSR871_AOI03_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    },
+    {
+      "activation": "EMSR871",
+      "counts": {
+        "both": 63798,
+        "only_first": 26413,
+        "only_second": 18879,
+        "region_px": 5714731
+      },
+      "gap_h": 11.88,
+      "key": "EMSR871_AOI04_PRODUCT_MONIT01",
+      "sensor_pair": "radar\u2013radar",
+      "shared_image": false
+    }
+  ],
+  "rule": {
+    "carry_over_limit": 0.05,
+    "first": 656,
+    "last": 898,
+    "max_gap_h": 24.0,
+    "pixel_m": 10.0
+  },
+  "skipped": {
+    "EMSR683_AOI09_PRODUCT_MONIT01": "download failed: HTTPStatusError: HTTP 404 for https://rapidmapping.emergency.copernicus.eu/backend/EMSR683/AOI09/DEL_MONIT01/EMSR683_AOI09_DEL_MONIT01_v2.zip"
+  },
+  "summary": {
+    "all": {
+      "activations": 34,
+      "macro_iou": 0.5196432221194688,
+      "median_pair_iou": 0.49792184058074507,
+      "pairs": 79,
+      "per_activation": {
+        "EMSR657": 0.8689899847964877,
+        "EMSR664": 0.29123622330462995,
+        "EMSR683": 0.6948404616429056,
+        "EMSR692": 0.7955300781901582,
+        "EMSR705": 0.508417157450357,
+        "EMSR706": 0.46030330062444247,
+        "EMSR711": 0.9866772718234241,
+        "EMSR712": 0.5639348097984299,
+        "EMSR718": 0.6264639920259157,
+        "EMSR720": 0.25156266277737266,
+        "EMSR722": 0.4835478714135269,
+        "EMSR728": 0.3468791878279505,
+        "EMSR756": 0.17926814037716998,
+        "EMSR757": 0.6295694093819977,
+        "EMSR762": 0.4910947322932136,
+        "EMSR768": 0.19199184155439858,
+        "EMSR771": 0.48532480178049797,
+        "EMSR773": 0.40513951971246753,
+        "EMSR783": 0.5342832158839566,
+        "EMSR788": 0.7752883594129908,
+        "EMSR789": 0.5040816996953097,
+        "EMSR794": 0.4541940124067248,
+        "EMSR796": 0.38387920561326955,
+        "EMSR797": 0.3964472014662343,
+        "EMSR838": 0.5972269386866945,
+        "EMSR841": 0.14073016520497655,
+        "EMSR855": 0.2714429868819374,
+        "EMSR856": 0.2817153915107587,
+        "EMSR857": 0.8491862724127118,
+        "EMSR861": 0.7058785380553252,
+        "EMSR864": 0.6520226939519241,
+        "EMSR866": 0.6086265704357123,
+        "EMSR868": 0.7241698724438146,
+        "EMSR871": 0.5279249812242491
+      },
+      "undefined_activations": 0
+    },
+    "gap": {
+      "6\u201324 h": {
+        "activations": 34,
+        "macro_iou": 0.5196432221194688,
+        "median_pair_iou": 0.49792184058074507,
+        "pairs": 79,
+        "per_activation": {
+          "EMSR657": 0.8689899847964877,
+          "EMSR664": 0.29123622330462995,
+          "EMSR683": 0.6948404616429056,
+          "EMSR692": 0.7955300781901582,
+          "EMSR705": 0.508417157450357,
+          "EMSR706": 0.46030330062444247,
+          "EMSR711": 0.9866772718234241,
+          "EMSR712": 0.5639348097984299,
+          "EMSR718": 0.6264639920259157,
+          "EMSR720": 0.25156266277737266,
+          "EMSR722": 0.4835478714135269,
+          "EMSR728": 0.3468791878279505,
+          "EMSR756": 0.17926814037716998,
+          "EMSR757": 0.6295694093819977,
+          "EMSR762": 0.4910947322932136,
+          "EMSR768": 0.19199184155439858,
+          "EMSR771": 0.48532480178049797,
+          "EMSR773": 0.40513951971246753,
+          "EMSR783": 0.5342832158839566,
+          "EMSR788": 0.7752883594129908,
+          "EMSR789": 0.5040816996953097,
+          "EMSR794": 0.4541940124067248,
+          "EMSR796": 0.38387920561326955,
+          "EMSR797": 0.3964472014662343,
+          "EMSR838": 0.5972269386866945,
+          "EMSR841": 0.14073016520497655,
+          "EMSR855": 0.2714429868819374,
+          "EMSR856": 0.2817153915107587,
+          "EMSR857": 0.8491862724127118,
+          "EMSR861": 0.7058785380553252,
+          "EMSR864": 0.6520226939519241,
+          "EMSR866": 0.6086265704357123,
+          "EMSR868": 0.7241698724438146,
+          "EMSR871": 0.5279249812242491
+        },
+        "undefined_activations": 0
+      }
+    },
+    "sensor_pair": {
+      "optical\u2013optical": {
+        "activations": 1,
+        "macro_iou": 0.7955300781901582,
+        "median_pair_iou": 0.7955300781901582,
+        "pairs": 1,
+        "per_activation": {
+          "EMSR692": 0.7955300781901582
+        },
+        "undefined_activations": 0
+      },
+      "other": {
+        "activations": 1,
+        "macro_iou": 0.32886007458139366,
+        "median_pair_iou": 0.32886007458139366,
+        "pairs": 1,
+        "per_activation": {
+          "EMSR728": 0.32886007458139366
+        },
+        "undefined_activations": 0
+      },
+      "radar\u2013optical": {
+        "activations": 2,
+        "macro_iou": 0.3802743082377185,
+        "median_pair_iou": 0.3802743082377185,
+        "pairs": 2,
+        "per_activation": {
+          "EMSR728": 0.3554090967629695,
+          "EMSR773": 0.40513951971246753
+        },
+        "undefined_activations": 0
+      },
+      "radar\u2013radar": {
+        "activations": 32,
+        "macro_iou": 0.5145949918463177,
+        "median_pair_iou": 0.5022954097293222,
+        "pairs": 75,
+        "per_activation": {
+          "EMSR657": 0.8689899847964877,
+          "EMSR664": 0.29123622330462995,
+          "EMSR683": 0.6948404616429056,
+          "EMSR705": 0.508417157450357,
+          "EMSR706": 0.46030330062444247,
+          "EMSR711": 0.9866772718234241,
+          "EMSR712": 0.5639348097984299,
+          "EMSR718": 0.6264639920259157,
+          "EMSR720": 0.25156266277737266,
+          "EMSR722": 0.4835478714135269,
+          "EMSR728": 0.3467189727508079,
+          "EMSR756": 0.17926814037716998,
+          "EMSR757": 0.6295694093819977,
+          "EMSR762": 0.4910947322932136,
+          "EMSR768": 0.19199184155439858,
+          "EMSR771": 0.48532480178049797,
+          "EMSR783": 0.5342832158839566,
+          "EMSR788": 0.7752883594129908,
+          "EMSR789": 0.5040816996953097,
+          "EMSR794": 0.4541940124067248,
+          "EMSR796": 0.38387920561326955,
+          "EMSR797": 0.3964472014662343,
+          "EMSR838": 0.5972269386866945,
+          "EMSR841": 0.14073016520497655,
+          "EMSR855": 0.2714429868819374,
+          "EMSR856": 0.2817153915107587,
+          "EMSR857": 0.8491862724127118,
+          "EMSR861": 0.7058785380553252,
+          "EMSR864": 0.6520226939519241,
+          "EMSR866": 0.6086265704357123,
+          "EMSR868": 0.7241698724438146,
+          "EMSR871": 0.5279249812242491
+        },
+        "undefined_activations": 0
+      }
+    },
+    "shared_image": {
+      "not shared": {
+        "activations": 34,
+        "macro_iou": 0.5196432221194688,
+        "median_pair_iou": 0.49792184058074507,
+        "pairs": 79,
+        "per_activation": {
+          "EMSR657": 0.8689899847964877,
+          "EMSR664": 0.29123622330462995,
+          "EMSR683": 0.6948404616429056,
+          "EMSR692": 0.7955300781901582,
+          "EMSR705": 0.508417157450357,
+          "EMSR706": 0.46030330062444247,
+          "EMSR711": 0.9866772718234241,
+          "EMSR712": 0.5639348097984299,
+          "EMSR718": 0.6264639920259157,
+          "EMSR720": 0.25156266277737266,
+          "EMSR722": 0.4835478714135269,
+          "EMSR728": 0.3468791878279505,
+          "EMSR756": 0.17926814037716998,
+          "EMSR757": 0.6295694093819977,
+          "EMSR762": 0.4910947322932136,
+          "EMSR768": 0.19199184155439858,
+          "EMSR771": 0.48532480178049797,
+          "EMSR773": 0.40513951971246753,
+          "EMSR783": 0.5342832158839566,
+          "EMSR788": 0.7752883594129908,
+          "EMSR789": 0.5040816996953097,
+          "EMSR794": 0.4541940124067248,
+          "EMSR796": 0.38387920561326955,
+          "EMSR797": 0.3964472014662343,
+          "EMSR838": 0.5972269386866945,
+          "EMSR841": 0.14073016520497655,
+          "EMSR855": 0.2714429868819374,
+          "EMSR856": 0.2817153915107587,
+          "EMSR857": 0.8491862724127118,
+          "EMSR861": 0.7058785380553252,
+          "EMSR864": 0.6520226939519241,
+          "EMSR866": 0.6086265704357123,
+          "EMSR868": 0.7241698724438146,
+          "EMSR871": 0.5279249812242491
+        },
+        "undefined_activations": 0
+      }
+    }
+  },
+  "without_carry_over": {
+    "activations": 33,
+    "macro_iou": 0.5090569565838015,
+    "median_pair_iou": 0.49141128245168847,
+    "pairs": 76,
+    "per_activation": {
+      "EMSR664": 0.29123622330462995,
+      "EMSR683": 0.6948404616429056,
+      "EMSR692": 0.7955300781901582,
+      "EMSR705": 0.508417157450357,
+      "EMSR706": 0.46030330062444247,
+      "EMSR711": 0.9866772718234241,
+      "EMSR712": 0.5639348097984299,
+      "EMSR718": 0.6264639920259157,
+      "EMSR720": 0.25156266277737266,
+      "EMSR722": 0.4835478714135269,
+      "EMSR728": 0.3468791878279505,
+      "EMSR756": 0.17926814037716998,
+      "EMSR757": 0.6295694093819977,
+      "EMSR762": 0.4910947322932136,
+      "EMSR768": 0.19199184155439858,
+      "EMSR771": 0.48532480178049797,
+      "EMSR773": 0.40513951971246753,
+      "EMSR783": 0.5342832158839566,
+      "EMSR788": 0.7752883594129908,
+      "EMSR789": 0.5040816996953097,
+      "EMSR794": 0.4541940124067248,
+      "EMSR796": 0.38387920561326955,
+      "EMSR797": 0.3964472014662343,
+      "EMSR838": 0.5972269386866945,
+      "EMSR841": 0.14073016520497655,
+      "EMSR855": 0.2714429868819374,
+      "EMSR856": 0.2817153915107587,
+      "EMSR857": 0.8491862724127118,
+      "EMSR861": 0.7058785380553252,
+      "EMSR864": 0.6520226939519241,
+      "EMSR866": 0.6086265704357123,
+      "EMSR868": 0.7241698724438146,
+      "EMSR871": 0.5279249812242491
+    },
+    "undefined_activations": 0
+  }
+}
