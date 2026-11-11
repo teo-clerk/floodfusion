@@ -448,3 +448,44 @@ def test_the_live_page_and_the_live_service_share_the_blind_rule():
     assert live_rules.check_date(last, enabled=False) == last
     with pytest.raises(live_rules.BlindFloodRefusedError):
         live_rules.check_date(last + timedelta(days=1), enabled=False)
+
+
+# --- after the security and code reviews of 2026-11-11 -------------------------------------------------------------
+
+def test_the_live_page_takes_the_blind_switch_from_the_repository_not_from_the_data(tmp_path):
+    root = _live_root(tmp_path, [_entry("x", code="EMSR926")], blind=True)   # the data claims the switch is on
+    with pytest.raises(ValueError, match="blind"):
+        _script().live_data(root)
+    assert _script().live_data(_live_root(tmp_path / "ok", [_entry("a")], blind=True))["blind_floods"] is False
+
+
+def test_the_live_page_refuses_a_symlinked_file(tmp_path):
+    root = _live_root(tmp_path, [_entry("a")])
+    secret = tmp_path / "secret"
+    secret.write_text("token")
+    target = root / "maps" / "a" / "t00_00" / "flood.geojson"
+    target.unlink()
+    target.symlink_to(secret)
+    with pytest.raises(ValueError, match="not a plain file"):
+        _script().live_data(root, out=tmp_path / "site")
+    assert not (tmp_path / "site" / "live" / "maps" / "a" / "t00_00" / "flood.geojson").exists()
+
+
+def test_the_live_page_refuses_a_file_that_is_not_geojson(tmp_path):
+    root = _live_root(tmp_path, [_entry("a")])
+    (root / "maps" / "a" / "t00_00" / "flood.geojson").write_text("not json")
+    with pytest.raises(ValueError, match="JSON"):
+        _script().live_data(root, out=tmp_path / "site")
+
+
+def test_the_live_page_ships_each_map_s_stac_item(tmp_path):
+    root = _live_root(tmp_path, [_entry("a")])
+    (root / "maps" / "a" / "t00_00" / "item.json").write_text('{"type": "Feature"}')
+    data = _script().live_data(root, out=tmp_path / "site")
+    assert data["maps"][0]["items"] == ["live/maps/a/t00_00/item.json"]
+    assert (tmp_path / "site" / "live" / "maps" / "a" / "t00_00" / "item.json").is_file()
+
+
+def test_a_live_map_without_a_pass_time_is_refused(tmp_path):
+    with pytest.raises(ValueError, match="pass time"):
+        _script().live_data(_live_root(tmp_path, [{**_entry("a"), "pass_time": None}]))

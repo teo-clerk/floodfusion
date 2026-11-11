@@ -525,47 +525,87 @@ def hero_panels(hero: Path, out_dir: Path) -> list[Path]:
 # --- floodfusion Live (v1.3) ------------------------------------------------------------------------------------
 
 #: The blind set and its first event date (``floodfusion.live_rules``; this script runs without the package, and a
-#: test checks that the two agree). While blind floods are off, the page refuses to show any of them.
+#: test checks that the two agree). While blind floods are off, the page refuses to show any of them. The switch is
+#: read from this repository's ``configs/live.yaml``, never from the published data.
 BLIND_FIRST_CODE = 899
 BLIND_LAST_PASS_DATE = "2026-07-17"   # a later pass's optical window (±2 days) reaches 20 July 2026
 _LIVE_FIELDS = ("id", "kind", "code", "name", "aoi", "aoi_name", "bbox", "event_date", "pass_time", "orbit",
                 "orbit_state", "mapped_at", "delay_hours", "flood_km2", "valid_km2", "tiles", "skipped_tiles", "files")
 _LIVE_CODE = re.compile(r"EMSR(\d{3,4})")
 _LIVE_ID = re.compile(r"[A-Za-z0-9_]{1,80}")
+_LIVE_SWITCH = re.compile(r"^blind_floods:\s*(true|false)\s*(?:#.*)?$", re.MULTILINE)
+#: The published branch is data, not trusted code: each file is capped, and so is the whole set.
+_LIVE_MAX_FILE_BYTES = 20 * 1024 * 1024
+_LIVE_MAX_TOTAL_BYTES = 400 * 1024 * 1024
+
+
+def blind_floods_on(root: Path = ROOT) -> bool:
+    """The committed switch in ``configs/live.yaml`` (missing: off)."""
+    path = root / "configs" / "live.yaml"
+    found = _LIVE_SWITCH.findall(path.read_text(encoding="utf-8")) if path.is_file() else []
+    if len(found) > 1:
+        raise ValueError(f"{path}: blind_floods is set {len(found)} times")
+    return found == ["true"]
 
 
 def _is_blind_flood(entry: dict[str, Any]) -> bool:
     match = _LIVE_CODE.fullmatch(str(entry.get("code") or ""))
-    return bool(match and int(match.group(1)) >= BLIND_FIRST_CODE) or str(entry["pass_time"])[:10] > BLIND_LAST_PASS_DATE
+    return bool(match and int(match.group(1)) >= BLIND_FIRST_CODE) or entry["pass_time"][:10] > BLIND_LAST_PASS_DATE
 
 
-def _live_file(entry: dict[str, Any], name: str) -> str:
+def _live_file(entry: dict[str, Any], name: str, live_root: Path) -> Path:
+    """The published file ``name`` of ``entry``: a plain JSON file inside its map's folder, within the size cap."""
     parts = Path(name).parts
-    if parts[:2] != ("maps", entry["id"]) or ".." in parts or not name.endswith(".geojson"):
+    if parts[:2] != ("maps", entry["id"]) or ".." in parts or Path(name).suffix not in (".geojson", ".json"):
         raise ValueError(f"live map {entry['id']}: {name[:120]!r} is outside its map folder")
-    return name
+    root = Path(live_root).resolve()
+    source = Path(live_root) / name
+    chain = [Path(live_root).joinpath(*parts[:i]) for i in range(1, len(parts) + 1)]
+    if any(p.is_symlink() for p in chain) or not source.is_file() or not source.resolve().is_relative_to(root):
+        raise ValueError(f"live map {entry['id']}: {name[:120]!r} is not a plain file of the published folder")
+    if source.stat().st_size > _LIVE_MAX_FILE_BYTES:
+        raise ValueError(f"live map {entry['id']}: {name[:120]!r} is larger than {_LIVE_MAX_FILE_BYTES} bytes")
+    try:
+        json.loads(source.read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"live map {entry['id']}: {name[:120]!r} is not JSON ({exc})") from None
+    return source
 
 
-def live_data(live_root: Path, *, out: Path | None = None) -> dict[str, Any]:
-    """The live page's data from the watcher's ``index.json``; with ``out``, its flood polygons are copied there."""
+def live_data(live_root: Path, *, out: Path | None = None, root: Path = ROOT) -> dict[str, Any]:
+    """The live page's data from the watcher's ``index.json``; with ``out``, the polygons and STAC items are copied."""
     index_path = Path(live_root) / "index.json"
+    blind_on = blind_floods_on(root)
     if not index_path.is_file():
-        return {"maps": [], "updated_at": None, "blind_floods": False}
+        return {"maps": [], "updated_at": None, "blind_floods": blind_on}
+    if index_path.is_symlink() or index_path.stat().st_size > _LIVE_MAX_FILE_BYTES:
+        raise ValueError(f"{index_path} is not a plain file within the size cap")
     index = json.loads(index_path.read_text(encoding="utf-8"))
-    blind_on = index.get("blind_floods") is True
-    maps = []
+    maps, total = [], 0
     for raw in index.get("maps", []):
         entry = {key: raw.get(key) for key in _LIVE_FIELDS}
         if not _LIVE_ID.fullmatch(str(entry["id"])):
             raise ValueError(f"live map id {str(entry['id'])[:80]!r} is not a plain name")
+        if not isinstance(entry["pass_time"], str):
+            raise ValueError(f"live map {entry['id']} has no pass time")
         if _is_blind_flood(entry) and not blind_on:
             raise ValueError(f"live map {entry['id']} is a blind flood, and blind floods are off")
-        files = [_live_file(entry, name) for name in entry["files"] or []]
+        polygons = [str(name) for name in entry["files"] or []]
+        for name in polygons:
+            if not name.endswith("/flood.geojson"):
+                _live_file(entry, name, live_root)               # refuses a path outside the map's folder
+                raise ValueError(f"live map {entry['id']}: {name[:120]!r} is not a flood polygon file")
+        items = [name[: -len("flood.geojson")] + "item.json" for name in polygons]
+        items = [name for name in items if (Path(live_root) / name).is_file()]
+        sources = {name: _live_file(entry, name, live_root) for name in polygons + items}
+        total += sum(path.stat().st_size for path in sources.values())
+        if total > _LIVE_MAX_TOTAL_BYTES:
+            raise ValueError(f"the live maps exceed {_LIVE_MAX_TOTAL_BYTES} bytes")
         if out is not None:
-            for name in files:
+            for name, source in sources.items():
                 (out / "live" / name).parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(Path(live_root) / name, out / "live" / name)
-        maps.append({**entry, "files": [f"live/{name}" for name in files]})
+                shutil.copyfile(source, out / "live" / name)
+        maps.append({**entry, "files": [f"live/{n}" for n in polygons], "items": [f"live/{n}" for n in items]})
     maps.sort(key=lambda m: m["pass_time"], reverse=True)
     return {"maps": maps, "updated_at": index.get("updated_at"), "blind_floods": blind_on}
 
@@ -591,7 +631,7 @@ def build(out: Path, root: Path = ROOT, live_root: Path | None = None) -> Path:
             shutil.copy2(root / layer["src"], assets / Path(layer["src"]).name)
     payload = json.dumps(arena, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
     (out / "arena-data.js").write_text(f"window.FLOODFUSION_ARENA = {payload};\n", encoding="utf-8")
-    live = live_data(root / "live-data" if live_root is None else live_root, out=out)
+    live = live_data(root / "live-data" if live_root is None else live_root, out=out, root=root)
     payload = json.dumps(live, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
     (out / "live-data.js").write_text(f"window.FLOODFUSION_LIVE = {payload};\n", encoding="utf-8")
     return out / "index.html"

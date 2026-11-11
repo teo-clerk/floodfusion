@@ -167,3 +167,93 @@ def test_the_committed_showcase_is_seen_activations_only() -> None:
 
     showcase = yaml.safe_load((Path(__file__).resolve().parents[1] / "configs" / "live.yaml").read_text())["showcase"]
     assert showcase and all(live_rules.check_code(code, enabled=False) for code in showcase)
+
+
+# --- after the code review of 2026-11-11 ---------------------------------------------------------------------------
+
+class TileFake(Fake):
+    """A mapper whose tiles all fail or all have no pass, as map_area reports them."""
+
+    def __init__(self, *args, skipped: str, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.skipped = skipped
+
+    def mapper(self, job, out):
+        self.mapped.append(job.map_id)
+        out.mkdir(parents=True)
+        summary = {"tiles": {}, "skipped": {"t00_00": f"{self.skipped}: Planetary Computer timed out"}}
+        (out / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
+        return summary
+
+
+def test_a_map_whose_tiles_all_failed_is_not_published_and_is_tried_again(tmp_path: Path) -> None:
+    config = _config(tmp_path, showcase=("EMSR664",))
+    index = _run(tmp_path, TileFake(records={"EMSR664": FORLI}, skipped="failed"), config)
+    assert index["maps"] == [] and index["failures"] == {"EMSR664_AOI01_20230517T0516_095": 1,
+                                                         "EMSR664_AOI01_20230518T1705_117": 1}
+    again = Fake(records={"EMSR664": FORLI})
+    assert len(_run(tmp_path, again, config)["maps"]) == 2 and again.mapped
+
+
+def test_a_map_with_no_usable_pass_on_any_tile_is_recorded_and_not_tried_again(tmp_path: Path) -> None:
+    config = _config(tmp_path, showcase=("EMSR664",))
+    index = _run(tmp_path, TileFake(records={"EMSR664": FORLI}, skipped="dropped"), config)
+    assert index["maps"] == [] and len(index["empty"]) == 2 and "EMSR664" in index["complete"]
+
+
+def test_a_killed_run_keeps_the_maps_it_made_and_counts_the_attempt(tmp_path: Path) -> None:
+    class Killed(Fake):
+        def mapper(self, job, out):
+            if self.mapped:
+                raise KeyboardInterrupt            # the job's timeout
+            return super().mapper(job, out)
+
+    with pytest.raises(KeyboardInterrupt):
+        _run(tmp_path, Killed(records={"EMSR664": FORLI}), _config(tmp_path, showcase=("EMSR664",)))
+    saved = json.loads((tmp_path / "data" / "index.json").read_text())
+    assert [m["id"] for m in saved["maps"]] == ["EMSR664_AOI01_20230517T0516_095"]
+    assert saved["failures"] == {"EMSR664_AOI01_20230518T1705_117": 1}
+
+
+def test_a_map_that_keeps_failing_is_abandoned_and_listed(tmp_path: Path) -> None:
+    config = _config(tmp_path, showcase=("EMSR664",))
+    bad = "EMSR664_AOI01_20230517T0516_095"
+    for _ in range(watch.MAX_ATTEMPTS):
+        index = _run(tmp_path, Fake(records={"EMSR664": FORLI}, fail={bad}), config)
+    assert index["abandoned"] == [bad] and "EMSR664" in index["complete"] and bad not in index["failures"]
+
+
+def test_a_record_that_cannot_be_fetched_does_not_stop_the_run(tmp_path: Path) -> None:
+    class Flaky(Fake):
+        def fetch(self, code):
+            if code == "EMSR756":
+                raise ConnectionError("rapidmapping.emergency.copernicus.eu timed out")
+            return super().fetch(code)
+
+    fake = Flaky(records={"EMSR664": FORLI})
+    index = _run(tmp_path, fake, _config(tmp_path, showcase=("EMSR756", "EMSR664")))
+    assert len(index["maps"]) == 2 and "EMSR756" not in index["complete"]
+
+
+def test_a_code_not_public_yet_is_asked_for_again_once_a_later_one_is(tmp_path: Path) -> None:
+    flood = {**FORLI, "eventTime": "2026-11-09T00:00:00"}
+    passes = [Pass(datetime(2026, 11, 10, 5, 0, tzinfo=UTC), 95, "descending")]
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "index.json").write_text(json.dumps({"last_code": 949}))
+    config = _config(tmp_path, blind=True)
+    first = Fake(records={"EMSR951": {**flood, "code": "EMSR951"}}, passes=passes)
+    index = _run(tmp_path, first, config, stop_after=2)
+    assert index["last_code"] == 951 and list(index["pending_codes"]) == ["EMSR950"]
+    later = Fake(records={"EMSR950": {**flood, "code": "EMSR950"}, "EMSR951": {**flood, "code": "EMSR951"}},
+                 passes=passes)
+    index = _run(tmp_path, later, config, stop_after=2)
+    assert "EMSR950" in index["watching"] and index["pending_codes"] == {}
+    assert later.fetched[:2] == ["EMSR951", "EMSR950"]          # the watched code, then the pending one
+
+
+def test_aois_without_a_number_get_distinct_ids(tmp_path: Path) -> None:
+    aoi = FORLI["aois"][0]
+    record = {**FORLI, "aois": [{**aoi, "number": None}, {**aoi, "number": None, "name": "Lugo"}]}
+    fake = Fake(records={"EMSR664": record}, passes=PASSES[:1])
+    index = _run(tmp_path, fake, _config(tmp_path, showcase=("EMSR664",)))
+    assert [m["id"] for m in index["maps"]] == ["EMSR664_AOI01_20230517T0516_095", "EMSR664_AOI02_20230517T0516_095"]

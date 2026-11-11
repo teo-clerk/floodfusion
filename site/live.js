@@ -99,8 +99,11 @@
       for (let y = Math.floor(top / TILE); y <= Math.floor((top + height) / TILE); y += 1) {
         if (y < 0 || y >= 2 ** z || tiles.length >= MAX_TILES) continue;
         const wrapped = ((x % 2 ** z) + 2 ** z) % 2 ** z;
-        tiles.push(h("img", { src: TILE_URL(z, wrapped, y), alt: "", loading: "lazy", decoding: "async",
-                              style: `left:${(x * TILE - left).toFixed(1)}px;top:${(y * TILE - top).toFixed(1)}px` }));
+        const img = h("img", { src: TILE_URL(z, wrapped, y), alt: "", loading: "lazy", decoding: "async" });
+        // Through CSSOM, which the page's CSP allows (a style attribute would be inline style, which it refuses).
+        img.style.left = `${(x * TILE - left).toFixed(1)}px`;
+        img.style.top = `${(y * TILE - top).toFixed(1)}px`;
+        tiles.push(img);
       }
     }
     const [x0, y0] = project(west, north), [x1, y1] = project(east, south);
@@ -126,12 +129,15 @@
         : utc(entry.mapped_at)],
       ["Tiles", entry.skipped_tiles ? `${entry.tiles} mapped, ${entry.skipped_tiles} without a usable pass` : `${entry.tiles}`],
     ];
-    const links = entry.files.map((url, i) => h("a", { href: url, download: "" }, `flood polygons${entry.files.length > 1 ? ` ${i + 1}` : ""}`));
-    const items = entry.files.map((url) => url.replace(/flood\.geojson$/, "item.json"));
+    const many = entry.files.length > 1;
+    const links = [
+      ...entry.files.map((url, i) => h("a", { href: url, download: "" }, `flood polygons${many ? ` ${i + 1}` : ""}`)),
+      ...(entry.items || []).map((url, i) => h("a", { href: url }, `STAC item${many ? ` ${i + 1}` : ""}`)),
+    ];
     byId("map-details").replaceChildren(
       ...rows.flatMap(([k, v]) => [h("dt", {}, k), h("dd", {}, v)]),
       h("dt", {}, "Downloads"),
-      h("dd", {}, ...links.flatMap((a, i) => [i ? " · " : "", a, " · ", h("a", { href: items[i] }, "STAC item")])));
+      h("dd", {}, ...links.flatMap((a, i) => [i ? " · " : "", a])));
   }
 
   function select(entry, button) {

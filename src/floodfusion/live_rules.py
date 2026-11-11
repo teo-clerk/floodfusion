@@ -90,11 +90,11 @@ def check_date(when: date, *, enabled: bool, optical_window_days: int = _OPTICAL
     return when
 
 
-def _aoi(raw: Mapping[str, Any]) -> AoiExtent:
+def _aoi(raw: Mapping[str, Any], position: int) -> AoiExtent:
     from shapely import wkt
 
     west, south, east, north = wkt.loads(str(raw["extent"])).bounds
-    return AoiExtent(number=int(raw.get("number") or 0), name=str(raw.get("name", "")),
+    return AoiExtent(number=int(raw.get("number") or position), name=str(raw.get("name", "")),
                      bbox=(float(west), float(south), float(east), float(north)))
 
 
@@ -106,4 +106,4 @@ def allowed_fields(record: Mapping[str, Any], *, enabled: bool) -> ActivationSum
         raise ValueError(f"{code} is not a flood activation ({category[:40]!r})")
     event = datetime.fromisoformat(str(record["eventTime"]).replace("Z", "+00:00")).date()
     return ActivationSummary(code=code, name=str(record.get("name", "")), category=category, event_date=event,
-                             aois=tuple(_aoi(a) for a in record.get("aois", [])))
+                             aois=tuple(_aoi(a, i) for i, a in enumerate(record.get("aois", []), start=1)))

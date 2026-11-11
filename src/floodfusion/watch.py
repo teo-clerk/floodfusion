@@ -15,8 +15,10 @@ category, event date and AOI extents are read.
 
 A map is made by :func:`floodfusion.live.map_area`. Its light files (``summary.json``, and per tile ``flood.geojson``
 and the STAC ``item.json``) are copied into the data folder (the ``live-data`` branch) beside ``index.json``; the
-COGs stay in the work folder, for the workflow to attach to a release. At most :data:`MAX_MAPS_PER_RUN` maps are
-made per run; a map that fails is tried again on the next runs, up to :data:`MAX_ATTEMPTS` times.
+COGs stay in the work folder, kept by the workflow as the run's artifact. At most :data:`MAX_MAPS_PER_RUN` maps
+are made per run. A map that fails, or whose tiles all fail, is tried again on the next runs, up to
+:data:`MAX_ATTEMPTS` times, then listed as ``abandoned``; a map with no usable pass on any tile is listed as
+``empty``. The index is saved after every map, so a job stopped by its timeout keeps what it made.
 
 Run::
 
@@ -50,7 +52,7 @@ from floodfusion.live_rules import (
     check_date,
 )
 
-__all__ = ["MAX_ATTEMPTS", "MAX_MAPS_PER_RUN", "MapJob", "main", "run"]
+__all__ = ["MAX_ATTEMPTS", "MAX_MAPS_PER_RUN", "MapFailedError", "MapJob", "main", "run"]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -116,6 +118,17 @@ def _activation_jobs(summary: ActivationSummary, kind: str, until: datetime, pas
     return jobs
 
 
+def _try_fetch(code: str, fetch: Fetch) -> Mapping[str, Any] | None:
+    """The record, or None (logged) if it cannot be fetched now; ``LookupError`` (not public) propagates."""
+    try:
+        return fetch(code)
+    except LookupError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - one unreachable record must not stop the run
+        LOGGER.warning("%s not fetched this run: %s: %s", code, type(exc).__name__, str(exc)[:200])
+        return None
+
+
 def _showcase(codes: Sequence[str], index: Mapping[str, Any], fetch: Fetch, passes_of: PassesOf, *, enabled: bool,
               now: datetime) -> dict[str, tuple[list[MapJob], bool]]:
     """``{code: (jobs, window_over)}`` for the showcase codes not yet complete."""
@@ -124,7 +137,14 @@ def _showcase(codes: Sequence[str], index: Mapping[str, Any], fetch: Fetch, pass
         check_code(code, enabled=enabled)                  # before any request
         if code in index["complete"]:
             continue
-        summary = allowed_fields(fetch(code), enabled=enabled)
+        try:
+            record = _try_fetch(code, fetch)
+        except LookupError as exc:
+            LOGGER.warning("showcase code %s is not public: %s", code, exc)
+            continue
+        if record is None:
+            continue
+        summary = allowed_fields(record, enabled=enabled)
         end = _day_end(summary.event_date + timedelta(days=SHOWCASE_DAYS))
         out[code] = (_activation_jobs(summary, "showcase", min(end, now), passes_of, enabled=enabled), now > end)
     return out
@@ -140,6 +160,48 @@ def _flood(record: Mapping[str, Any], *, enabled: bool) -> ActivationSummary | N
         return None
 
 
+def _pending(index: dict[str, Any], fetch: Fetch, *, enabled: bool, now: datetime) -> dict[str, ActivationSummary]:
+    """Codes skipped while a later one was public, asked for again until public or ``LIVE_DAYS`` old."""
+    found = {}
+    for code, first_missed in list(index["pending_codes"].items()):
+        try:
+            record = _try_fetch(check_code(code, enabled=enabled), fetch)
+        except LookupError:
+            if now - datetime.fromisoformat(first_missed) > timedelta(days=LIVE_DAYS):
+                index["pending_codes"].pop(code)
+            continue
+        if record is not None:
+            index["pending_codes"].pop(code)
+            summary = _flood(record, enabled=enabled)
+            found.update({code: summary} if summary else {})
+    return found
+
+
+def _discover(index: dict[str, Any], fetch: Fetch, *, enabled: bool, now: datetime,
+              stop_after: int) -> dict[str, ActivationSummary]:
+    """Codes after ``last_code`` until ``stop_after`` in a row are not public; gaps before a public one are pending."""
+    found, missed = {}, []
+    n = int(index["last_code"]) + 1
+    while len(missed) < stop_after:
+        code = check_code(f"EMSR{n}", enabled=enabled)
+        try:
+            record = _try_fetch(code, fetch)
+        except LookupError:
+            missed.append(code)
+            n += 1
+            continue
+        if record is None:                                  # unreachable: scan again from here next run
+            break
+        index["last_code"] = n
+        for gap in missed:
+            index["pending_codes"].setdefault(gap, now.isoformat())
+        missed = []
+        summary = _flood(record, enabled=enabled)
+        found.update({code: summary} if summary else {})
+        n += 1
+    return found
+
+
 def _live(index: dict[str, Any], fetch: Fetch, passes_of: PassesOf, *, enabled: bool, now: datetime,
           stop_after: int) -> dict[str, tuple[list[MapJob], bool]]:
     """New and watched activations; nothing at all is requested while blind floods are off."""
@@ -147,20 +209,15 @@ def _live(index: dict[str, Any], fetch: Fetch, passes_of: PassesOf, *, enabled: 
         return {}
     summaries = {}
     for code in list(index["watching"]):
-        summary = _flood(fetch(check_code(code, enabled=enabled)), enabled=enabled)
-        summaries.update({code: summary} if summary else {})
-    n, gap = int(index["last_code"]) + 1, 0
-    while gap < stop_after:
-        code = check_code(f"EMSR{n}", enabled=enabled)
         try:
-            record = fetch(code)
-        except LookupError:
-            gap += 1
-        else:
-            gap, index["last_code"] = 0, n
-            summary = _flood(record, enabled=enabled)
-            summaries.update({code: summary} if summary else {})
-        n += 1
+            record = _try_fetch(check_code(code, enabled=enabled), fetch)
+        except LookupError as exc:
+            LOGGER.warning("watched code %s is not public any more: %s", code, exc)
+            continue
+        summary = _flood(record, enabled=enabled) if record is not None else None
+        summaries.update({code: summary} if summary else {})
+    summaries.update(_pending(index, fetch, enabled=enabled, now=now))
+    summaries.update(_discover(index, fetch, enabled=enabled, now=now, stop_after=stop_after))
     out = {}
     for code, summary in summaries.items():
         end = _day_end(summary.event_date + timedelta(days=LIVE_DAYS))
@@ -180,10 +237,15 @@ def _manual(bbox: Sequence[float], when: date, passes_of: PassesOf, *, enabled: 
             for p in _allowed(passes_of(box, _day(when), _day_end(when)), enabled=enabled)]
 
 
+class MapFailedError(RuntimeError):
+    """Every tile of a map failed (for example, the catalogue was unreachable): the map is tried again."""
+
+
 def _load_index(root: Path) -> dict[str, Any]:
     path = root / INDEX
     index = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
-    return {"maps": [], "complete": [], "watching": {}, "failures": {}, "last_code": BLIND_FIRST_CODE - 1, **index}
+    return {"maps": [], "complete": [], "watching": {}, "failures": {}, "abandoned": [], "empty": [],
+            "pending_codes": {}, "last_code": BLIND_FIRST_CODE - 1, **index}
 
 
 def _publish(job: MapJob, summary: Mapping[str, Any], work: Path, data_root: Path, now: datetime) -> dict[str, Any]:
@@ -195,7 +257,8 @@ def _publish(job: MapJob, summary: Mapping[str, Any], work: Path, data_root: Pat
             if source.is_file():
                 (target / tile_id).mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(source, target / tile_id / name)
-                files += [f"maps/{job.map_id}/{tile_id}/{name}"] if name == "flood.geojson" else []
+                if name == "flood.geojson":
+                    files.append(f"maps/{job.map_id}/{tile_id}/{name}")
     target.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(work / "summary.json", target / "summary.json")
     tiles = summary.get("tiles", {}).values()
@@ -209,11 +272,41 @@ def _publish(job: MapJob, summary: Mapping[str, Any], work: Path, data_root: Pat
             "skipped_tiles": len(summary.get("skipped", {})), "files": files}
 
 
+def _checked(summary: Mapping[str, Any]) -> Mapping[str, Any]:
+    if not summary.get("tiles") and any(str(v).startswith("failed:") for v in summary.get("skipped", {}).values()):
+        raise MapFailedError(f"no tile mapped: {next(iter(summary['skipped'].values()))[:200]}")
+    return summary
+
+
+def _attempt(job: MapJob, index: dict[str, Any], mapper: Callable[[MapJob, Path], Mapping[str, Any]], work: Path,
+             data_root: Path, now: datetime, save: Callable[[], None]) -> None:
+    """One map. The attempt is counted and saved before it starts, so a killed job still counts it."""
+    attempts = index["failures"].get(job.map_id, 0) + 1
+    index["failures"][job.map_id] = attempts
+    save()
+    try:
+        summary = _checked(mapper(job, work))
+    except Exception as exc:  # noqa: BLE001 - one map must not stop the others; it is tried again
+        LOGGER.warning("%s failed (attempt %d of %d): %s: %s", job.map_id, attempts, MAX_ATTEMPTS,
+                       type(exc).__name__, str(exc)[:300])
+        if attempts >= MAX_ATTEMPTS:
+            index["failures"].pop(job.map_id)
+            index["abandoned"].append(job.map_id)
+        save()
+        return
+    index["failures"].pop(job.map_id)
+    if summary["tiles"]:
+        index["maps"].append(_publish(job, summary, work, data_root, now))
+    else:                                                   # no usable pass on any tile: nothing to show
+        index["empty"].append(job.map_id)
+    save()
+
+
 def run(data_root: Path, work_root: Path, *, config: Path = LIVE_CONFIG, fetch: Fetch, passes_of: PassesOf,
         mapper: Callable[[MapJob, Path], Mapping[str, Any]], now: datetime | None = None,
         manual: tuple[Sequence[float], date] | None = None, stop_after: int = STOP_AFTER_NON_PUBLIC,
         max_maps: int = MAX_MAPS_PER_RUN) -> dict[str, Any]:
-    """One watcher run; returns the updated index (also written to ``data_root/index.json``)."""
+    """One watcher run; returns the updated index, saved to ``data_root/index.json`` after every map."""
     import yaml
 
     from floodfusion.data.records import atomic_write_bytes
@@ -223,34 +316,30 @@ def run(data_root: Path, work_root: Path, *, config: Path = LIVE_CONFIG, fetch: 
     showcase = [str(c) for c in (yaml.safe_load(Path(config).read_text(encoding="utf-8")) or {}).get("showcase", [])]
     data_root, work_root = Path(data_root), Path(work_root)
     index = _load_index(data_root)
+
+    def save() -> None:
+        index.update(blind_floods=enabled, updated_at=now.isoformat())
+        data_root.mkdir(parents=True, exist_ok=True)
+        atomic_write_bytes(data_root / INDEX, json.dumps(index, indent=1, sort_keys=True).encode("utf-8"))
+
+    def unfinished(jobs: Sequence[MapJob]) -> list[MapJob]:
+        settled = {m["id"] for m in index["maps"]} | set(index["empty"]) | set(index["abandoned"])
+        return [j for j in jobs if j.map_id not in settled]
+
     groups = {}
     if manual is not None:
         groups["manual"] = (_manual(*manual, passes_of, enabled=enabled), False)
     groups.update(_showcase(showcase, index, fetch, passes_of, enabled=enabled, now=now))
     groups.update(_live(index, fetch, passes_of, enabled=enabled, now=now, stop_after=stop_after))
-    done = {m["id"] for m in index["maps"]}
     budget = max_maps
     for code, (jobs, window_over) in groups.items():
-        pending = [j for j in jobs if j.map_id not in done and index["failures"].get(j.map_id, 0) < MAX_ATTEMPTS]
-        for job in pending[:budget]:
-            work = work_root / job.map_id
-            try:
-                summary = mapper(job, work)
-            except Exception as exc:  # noqa: BLE001 - one map must not stop the others; it is tried again
-                index["failures"][job.map_id] = index["failures"].get(job.map_id, 0) + 1
-                LOGGER.warning("%s failed (attempt %d): %s: %s", job.map_id, index["failures"][job.map_id],
-                               type(exc).__name__, str(exc)[:300])
-                continue
-            index["maps"].append(_publish(job, summary, work, data_root, now))
-            done.add(job.map_id)
-        budget -= min(budget, len(pending))
-        left = [j for j in jobs if j.map_id not in done and index["failures"].get(j.map_id, 0) < MAX_ATTEMPTS]
-        if code != "manual" and window_over and not left and code not in index["complete"]:
+        for job in unfinished(jobs)[:budget]:
+            budget -= 1
+            _attempt(job, index, mapper, work_root / job.map_id, data_root, now, save)
+        if code != "manual" and window_over and not unfinished(jobs) and code not in index["complete"]:
             index["complete"].append(code)
             index["watching"].pop(code, None)
-    index.update(blind_floods=enabled, updated_at=now.isoformat())
-    data_root.mkdir(parents=True, exist_ok=True)
-    atomic_write_bytes(data_root / INDEX, json.dumps(index, indent=1, sort_keys=True).encode("utf-8"))
+    save()
     return index
 
 

@@ -144,3 +144,17 @@ def test_map_area_can_pin_the_pass(tmp_path: Path, monkeypatch) -> None:
                   orbit_state="ascending", reference_before=date(2023, 5, 1))
     [event] = events
     assert (event.relative_orbit, event.orbit_state, event.reference_before) == (117, "ascending", date(2023, 5, 1))
+
+
+def test_flood_polygons_are_simplified_within_a_pixel_and_keep_their_area() -> None:
+    from rasterio.transform import from_origin
+
+    rng = np.random.default_rng(0)
+    prob = (rng.random((200, 200)) > 0.35).astype(np.float32)     # a ragged, pixel-edged flood
+    prob = np.where(np.add.outer(np.arange(200), np.arange(200)) < 220, prob, 0.0)
+    transform = from_origin(500_000, 5_000_000, 10, 10)
+    collection = live.flood_polygons(prob, tau=0.25, transform=transform, epsg=32632)
+    vertices = sum(len(ring) for f in collection["features"] for ring in f["geometry"]["coordinates"])
+    pixels = int((prob > 0.25).sum())
+    assert sum(f["properties"]["area_km2"] for f in collection["features"]) == pytest.approx(pixels * 1e-4, rel=1e-6)
+    assert vertices < 2 * pixels                                     # a pixel-edged outline has about 4 per pixel

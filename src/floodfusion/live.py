@@ -140,7 +140,7 @@ def _build_sidecars(event_dir: Path, names: Sequence[str], client: Any) -> None:
 
 
 def flood_polygons(prob: np.ndarray, *, tau: float, transform: Any, epsg: int) -> dict[str, Any]:
-    """The pixels mapped as flood (``prob > tau``) as a GeoJSON FeatureCollection in longitude/latitude."""
+    """The pixels mapped as flood (``prob > tau``) as GeoJSON in longitude/latitude, simplified within a pixel."""
     import shapely
     from pyproj import Transformer
     from rasterio.features import shapes
@@ -149,9 +149,12 @@ def flood_polygons(prob: np.ndarray, *, tau: float, transform: Any, epsg: int) -
     mask = np.isfinite(prob) & (np.nan_to_num(prob, nan=0.0) > tau)
     to_lonlat = Transformer.from_crs(epsg, 4326, always_xy=True).transform
     features = []
+    pixel = abs(float(transform.a))
     for geometry, _ in shapes(mask.astype(np.uint8), mask=mask, transform=transform):
         polygon = shape(geometry)
-        lonlat = shapely.transform(polygon, to_lonlat, interleaved=False)
+        # Within a pixel of the mapped pixels' outline, far fewer vertices; the area stays the pixels' own.
+        outline = polygon.simplify(pixel, preserve_topology=True)
+        lonlat = shapely.transform(outline, to_lonlat, interleaved=False)
         features.append({"type": "Feature", "geometry": mapping(lonlat),
                          "properties": {"area_km2": round(polygon.area / 1e6, 6)}})
     return {"type": "FeatureCollection", "features": features}
