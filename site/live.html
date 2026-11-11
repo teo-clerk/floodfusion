@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>floodfusion Live</title>
-  <meta name="description" content="floodfusion Live: flood maps from Sentinel-1 radar, made by the frozen v1.2 model on a schedule, with no Copernicus product read and no blind flood shown before v1.3 is frozen.">
+  <meta name="description" content="floodfusion Live: flood maps from Sentinel-1 radar, made by the frozen v1.2 model on a schedule, with no Copernicus product read and no blind flood shown until the author switches them on.">
   <meta name="color-scheme" content="light dark">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b6e99'/%3E%3Cpath d='M4 20c4-4 8 4 12 0s8 4 12 0v8H4z' fill='%23fff'/%3E%3C/svg%3E">
@@ -91,10 +91,11 @@
       <p class="kicker">3 · Blind floods</p>
       <h2>Why the newest floods are not here yet</h2>
       <p class="section-lede">Copernicus flood activations from EMSR899 on are the blind test: the frozen models
-        score them, sealed, until 20 activations in 15 clusters are scored or 31 December 2027. A second model,
-        v1.3, is being trained now. Until it is frozen, this page shows no blind flood, so that no output on one can
-        reach its development. Afterwards they appear here as the model's map alone, with no Copernicus outline and no
-        score.</p>
+        score them, sealed, until 20 activations in 15 clusters are scored or 31 December 2027. While a second model
+        was in development, this page could show no blind flood, so that no output on one could reach it. That
+        development has ended: fine-tuning on Copernicus's own labels scored lower than the frozen model, so there is
+        no v1.3 model. Blind floods appear here once the author switches them on, as the model's map alone, with no
+        Copernicus outline and no score.</p>
       <p class="callout" id="blind-status"></p>
     </div>
   </section>

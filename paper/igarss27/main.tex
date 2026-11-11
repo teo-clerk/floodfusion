@@ -1,6 +1,7 @@
 % floodfusion -- IGARSS 2027 full paper (4 pages), DRAFT.  Build: see paper/igarss27/README.md.
 % Every number is taken from a committed report under reports/; its source is named in a comment beside it.
-% "% TODO(r3)" marks the ladder's rung 3, filled from reports/v13_ladder.json once the queue has finished.
+% Rung 3 is filled from reports/v13_ladder.{md,json} (2026-11-11: not adopted, no v1.3 model).
+% "TODO(status)" marks what is filled at submission: the blind test's ledger counts.
 % The official IGARSS 2027 template comes with the submission portal's paper kit; this uses IEEEtran (conference).
 \documentclass[conference]{IEEEtran}
 \usepackage[T1]{fontenc}
@@ -33,9 +34,9 @@ macro IoU when trained on radar-drawn flood labels and 0.258 on labels drawn mos
 reaches 0.417 at its cost-derived threshold and 0.468 at each flood's best threshold in hindsight, while a
 cross-fitted recalibration gains only 0.002. We then measure the reference itself: two CEMS delineations of the same
 area at most 24\,h apart agree at 0.520 macro IoU over 34 activations, and per activation the model's score tracks
-that self-agreement (Spearman $\rho = 0.51$, exploratory). Fine-tuning on CEMS's own labels, selected by a
-preregistered rule, \todo{TODO(r3)}. The frozen model is under a preregistered, sealed blind test and maps new
-floods automatically.
+that self-agreement (Spearman $\rho = 0.51$, exploratory). Fine-tuning on CEMS's own labels lowers the score from
+0.421 to 0.380, better on only 15 of 38 activations and lower without a threshold too, so a rule fixed in advance
+adopts no new model. The frozen model is under a preregistered, sealed blind test and maps new floods automatically.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -55,7 +56,7 @@ We separate three candidate limits: the \emph{training labels}, the \emph{decisi
 (ii) to our knowledge, the first measurement of how well two CEMS delineations of the same flood agree, and how
 model scores relate to it;
 (iii) an adaptation ladder, recalibration then fine-tuning on CEMS labels, with an adoption rule fixed before any
-result; and
+result, which adopted neither; and
 (iv) an open model frozen for a preregistered, sealed blind test on activations no model had seen, with a live
 service that maps new floods from the frozen weights.
 
@@ -95,11 +96,13 @@ unchanged. Floods also change in 24\,h, so this is a lower bound on the referenc
 
 \textbf{The adaptation ladder.} Activations are grouped by 100\,km single linkage (34 groups) and split into five
 folds. R1 is the zero-shot model at \tstar. R2 refits only the threshold, as the argmin of $3\,\mathrm{FN} +
-\mathrm{FP}$ on the other folds. R3 fine-tunes the model on the other folds' CEMS chips (30,834 in all), with a
-learning rate chosen on an inner split. A rung is adopted only if it gains at least 0.005 macro IoU over the one
-below \emph{and} is better on more than half of the 38 activations. Both rules were committed before any rung was
-computed.
-% src: reports/protocol_v1_3.md §2.1, §3; reports/v1_3_deviations.md
+\mathrm{FP}$ on the other folds. R3 fine-tunes the model, with its loss and schedule, on the CEMS chips of three
+other folds, including products drawn on optical images, and stops early on the fourth (30,834 chips in all); its
+learning rate, $10^{-5}$, was chosen from three on an inner split. A rung is adopted only if it gains at least 0.005
+macro IoU over the one below \emph{and} is better on more than half of the 38 activations. Both rules were committed
+before any rung was computed.
+% src: reports/protocol_v1_3.md §2.1 (folds: test i, validate i+1, train the rest; 30,834 chips), §3;
+% src: reports/v1_3_deviations.md (every stratum for training); reports/v13_tuning.json (1e-05 of 1e-05, 3e-05, 1e-04)
 
 \section{Results}
 \subsection{Labels move the score most}
@@ -136,30 +139,48 @@ delineations of the same area at most 24\,h apart (x). Dashed: equal agreement. 
 \label{fig:ceiling}
 \end{figure}
 
-\subsection{Fine-tuning on Copernicus's own labels}
-\todo{TODO(r3): R3's macro IoU over the 38 activations, its gain over the adopted rung, the number of activations it
-improves, and the rule's verdict; the per-cluster table; whether a v1.3 model was frozen.}
-% src: reports/v13_ladder.md, reports/v13_ladder.json
+\subsection{Fine-tuning on Copernicus's own labels does not help}
+Fine-tuned on CEMS labels, R3 reaches 0.380 macro IoU against R1's 0.421 (seed 42): $-0.041$, better on 15 of the
+38 activations and on 12 of 30 clusters. It is not adopted, so there is no v1.3 model and its blind-test hypothesis
+is not run. The loss is not a threshold effect: at each activation's best threshold in hindsight R3 reaches 0.457
+against 0.468, and its average precision falls from 0.606 to 0.573. Per activation (Fig.~\ref{fig:ladder}) the
+change ranges from $+0.13$ to $-0.34$ (median $-0.01$): fine-tuning helps some floods and breaks a few. One reading,
+not tested here, is that labels which agree with themselves at 0.52 are too inconsistent between floods to
+transfer from a few dozen of them.
+% src: reports/v13_ladder.md (R1 0.421, R3 0.380, -0.041, 15 of 38; clusters 12 of 30; AP 0.606/0.573; oracle
+% src: 0.468/0.457; v1.3's model: none); paper/igarss27/figures/ladder_r3.json; range and median from
+% src: reports/v13_ladder.json (r3 - r1: EMSR841 +0.131, EMSR771 -0.336, median -0.014)
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/ladder_r3.png}
+\caption{Per activation, cross-validated: the zero-shot model (R1, x) against the same model fine-tuned on the
+other folds' CEMS labels (R3, y), both at \tstar. Dashed: no change. Seed 42.}
+\label{fig:ladder}
+\end{figure}
 
 \section{The blind test and the live service}
 The models were frozen (tag \texttt{v1.2.0-freeze}, checkpoints pinned by sha256) before any flood of the blind
 set, every CEMS flood activation from EMSR899 on, was scored. Scores are sealed in a hash-chained ledger until 20
 activations in 15 clusters are scored, or 31 December 2027. Three hypotheses, set against GFM, the fair TerraMind and
-the previous model, form a Holm family; a later, separate hypothesis H8 enters a v1.3 model only if the ladder
-adopts one. \todo{TODO(status): the ledger's counts at submission.}
-% src: reports/protocol_v1_2.md (§2.2, sealing, stopping rule, Holm family); reports/protocol_v1_3.md §4
+the previous model, form a Holm family. A later, separate hypothesis would have entered a v1.3 model; the ladder
+adopted none, so the blind test keeps its three. \todo{TODO(status): the ledger's counts at submission.}
+% src: reports/protocol_v1_2.md (§2.2, sealing, stopping rule, Holm family); reports/protocol_v1_3.md §3, §4
+% src: reports/v13_ladder.md (v1.3's model: none; H8 is not run)
 
 The frozen weights also run a live service. Every six hours a scheduled job maps each new Sentinel-1 pass over
 flood areas from the activation's outline alone, never reading a CEMS product. It rebuilds the benchmark's inputs:
-on a replayed benchmark tile all 14 input bands were identical, and a CPU run gave the stored GPU run's IoU. Blind
-floods appear there, map only, after the v1.3 decision.
+on a replayed benchmark tile all 14 input bands were identical, and a CPU run gave the stored GPU run's IoU. Now
+that the ladder has decided, blind floods may appear there as the model's map alone, with no Copernicus outline and
+no score.
 % src: reports/live_replay.md; reports/protocol_v1_3.md §6; reports/v1_3_deviations.md (2026-11-11)
 
 \section{Conclusion}
 Against Copernicus EMS, Sentinel-1 flood segmentation is limited first by its training labels, then by a threshold
 that varies between floods and cannot be refit from other floods, and finally by a reference that agrees with
-itself at about 0.52. Scores near 0.42 should be read against that ceiling, not against 1. \todo{TODO(r3): one
-sentence on fine-tuning.} Code, reports, the frozen weights and the blind test's ledger are public.
+itself at about 0.52. Scores near 0.42 should be read against that ceiling, not against 1. Fine-tuning on the
+reference's own labels did not close the gap: under a rule fixed in advance it lost 0.041 and was not adopted.
+Code, reports, the frozen weights and the blind test's ledger are public.
 
 \section*{Acknowledgment}
 Contains modified Copernicus Sentinel data and Copernicus Emergency Management Service information (2023--26),
