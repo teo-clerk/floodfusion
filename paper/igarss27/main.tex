@@ -1,0 +1,172 @@
+% floodfusion -- IGARSS 2027 full paper (4 pages), DRAFT.  Build: see paper/igarss27/README.md.
+% Every number is taken from a committed report under reports/; its source is named in a comment beside it.
+% "% TODO(r3)" marks the ladder's rung 3, filled from reports/v13_ladder.json once the queue has finished.
+% The official IGARSS 2027 template comes with the submission portal's paper kit; this uses IEEEtran (conference).
+\documentclass[conference]{IEEEtran}
+\usepackage[T1]{fontenc}
+\usepackage{newtxtext,newtxmath}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage[hidelinks]{hyperref}   % the shared references.bib uses \href
+\newcommand{\tstar}{\ensuremath{\tau^{*}}}
+\newcommand{\todo}[1]{\textcolor{red}{[#1]}}
+
+\begin{document}
+
+\title{How Close Is Sentinel-1 Flood Segmentation to Its Reference?\\
+Labels, Threshold and the Self-Agreement of Copernicus EMS Maps}
+
+\author{\IEEEauthorblockN{Teo Clerici Jurado}
+\IEEEauthorblockA{BSc in AI \& Data Science, H-FARM College / University of Chichester\\
+Code, data cards and reports: \url{https://github.com/teo-clerk/floodfusion}}}
+
+\maketitle
+
+\begin{abstract}
+Deep flood segmentation from Sentinel-1 is usually reported on benchmarks whose labels were drawn on optical images,
+while the reference that emergency services use is the Copernicus Emergency Management Service (CEMS) rapid mapping.
+We score models zero-shot against the CEMS delineations of 38 flood activations of 2023--26 drawn on radar
+satellites, and ask what limits the agreement. Training labels move the score most: the same network reaches 0.397
+macro IoU when trained on radar-drawn flood labels and 0.258 on labels drawn mostly on optical images. Our best model
+reaches 0.417 at its cost-derived threshold and 0.468 at each flood's best threshold in hindsight, while a
+cross-fitted recalibration gains only 0.002. We then measure the reference itself: two CEMS delineations of the same
+area at most 24\,h apart agree at 0.520 macro IoU over 34 activations, and per activation the model's score tracks
+that self-agreement (Spearman $\rho = 0.51$, exploratory). Fine-tuning on CEMS's own labels, selected by a
+preregistered rule, \todo{TODO(r3)}. The frozen model is under a preregistered, sealed blind test and maps new
+floods automatically.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Flood mapping, Sentinel-1, SAR, Copernicus EMS, deep learning, evaluation, reference data.
+\end{IEEEkeywords}
+
+\section{Introduction}
+Flood maps from synthetic aperture radar are the first product after a flood: Sentinel-1 sees through cloud and at
+night. Deep segmentation models are usually trained and evaluated on Sen1Floods11~\cite{bonafilia2020sen1floods11},
+whose hand labels were drawn mostly on Sentinel-2. An analyst in an emergency, however, compares against the CEMS
+rapid-mapping delineations~\cite{cems2026rapidmapping}, drawn by photo-interpreters on the images available, often
+radar. How well do models agree with that reference, and what limits the agreement?
+
+We separate three candidate limits: the \emph{training labels}, the \emph{decision threshold}, and the
+\emph{reference itself}. The contributions are:
+(i) a zero-shot benchmark on 38 radar-drawn CEMS activations of 2023--26;
+(ii) to our knowledge, the first measurement of how well two CEMS delineations of the same flood agree, and how
+model scores relate to it;
+(iii) an adaptation ladder, recalibration then fine-tuning on CEMS labels, with an adoption rule fixed before any
+result; and
+(iv) an open model frozen for a preregistered, sealed blind test on activations no model had seen, with a live
+service that maps new floods from the frozen weights.
+
+\section{Data}
+\textbf{Inputs.} Sentinel-1 RTC backscatter (VV, VH) from Microsoft Planetary Computer~\cite{planetarycomputer2022}
+for the post-event pass and a same-orbit pre-event reference; a seasonal reference, the median backscatter of the
+same orbit around the same date a year earlier; Copernicus DEM terrain; ESA WorldCover~\cite{zanaga2022worldcover}
+flags; and Sentinel-2 L2A where it is clear.
+% src: reports/protocol_v1_2.md; MODEL_CARD.md ("v1.2's model"); DATA_CARD.md
+
+\textbf{Training labels.} Kuro Siwo~\cite{bountos2024kurosiwo} flood labels, drawn on radar, plus the GEOID-Flood
+events~\cite{chiriaco2026geoid} before the benchmark that Kuro Siwo lacks: 7,006 chips from 138 floods in 81 groups
+of floods within 100\,km. Sen1Floods11 serves only as a comparison of label sources.
+% src: reports/v1_2_deviations.md (pooled training set row); MODEL_CARD.md
+
+\textbf{Benchmark.} Every CEMS flood activation EMSR656--898 (2023--26) whose delineation can be paired with a
+Sentinel-1 pass within 24\,h, by a rule committed before scoring. The primary stratum holds the products drawn on
+radar satellites: 38 activations with reference flood in their scored region (EMSR664, our case study, excluded).
+Pixels outside the CEMS area of interest, in radar shadow or layover are not scored.
+% src: reports/protocol_v1_1.md §2.3; reports/v12_cems_rebuilt.md (K = 38)
+
+\section{Methods}
+\textbf{Model.} A U-Net whose SAR and terrain encoder is fused with an optical encoder by per-pixel cross-attention,
+with the seasonal reference and an availability flag as extra SAR channels; windows without usable optical use a
+separate calibration. Logits are temperature-scaled on held-out location groups. The decision threshold
+$\tstar = 0.25$ follows from a stated cost ratio: a missed flood pixel costs three false alarms.
+% src: MODEL_CARD.md (v1.2's model); reports/protocol_v1_2.md (tau*, cost ratio 3)
+
+\textbf{Metric.} IoU of the flood class per activation, pooled over its tiles, averaged over activations (macro).
+
+\textbf{The reference ceiling.} For every area of interest of the seen activations with two consecutive delivered
+delineations whose source images are at most 24\,h apart (the benchmark's own pairing window), both are rasterised
+on a 10\,m grid over the region both observed, and their IoU is computed. Pairs are averaged within activations,
+then across. A sensitivity row drops pairs in which the later product repeats more than 5\,\% of the earlier flood
+unchanged. Floods also change in 24\,h, so this is a lower bound on the reference's precision, not a noise estimate.
+% src: reports/protocol_v1_3.md §2.3, §5; reports/v1_3_deviations.md (ceiling set, sensitivity row)
+
+\textbf{The adaptation ladder.} Activations are grouped by 100\,km single linkage (34 groups) and split into five
+folds. R1 is the zero-shot model at \tstar. R2 refits only the threshold, as the argmin of $3\,\mathrm{FN} +
+\mathrm{FP}$ on the other folds. R3 fine-tunes the model on the other folds' CEMS chips (30,834 in all), with a
+learning rate chosen on an inner split. A rung is adopted only if it gains at least 0.005 macro IoU over the one
+below \emph{and} is better on more than half of the 38 activations. Both rules were committed before any rung was
+computed.
+% src: reports/protocol_v1_3.md §2.1, §3; reports/v1_3_deviations.md
+
+\section{Results}
+\subsection{Labels move the score most}
+On the 38 activations, the same fusion network scores 0.397 trained on Kuro Siwo's radar-drawn flood labels, 0.338
+on the water labels of the same chips, and 0.258 on Sen1Floods11, below a physics baseline of thresholds on
+backscatter change (0.371). Across architectures trained on the same labels, scores differ by about 0.01.
+% src: reports/cems_benchmark.md (rows: Fusion S1F11 0.258; Kuro Siwo flood 0.397; water 0.338; physics 0.371)
+% src: reports/v12_cems_rebuilt.md (v1.2 0.417, fair TerraMind 0.405, v1.1 best 0.407)
+
+\subsection{The threshold leaves about 0.05, and it cannot be learned}
+Our model (v1.2) reaches 0.417 macro IoU at \tstar, against 0.405 for TerraMind-base~\cite{jakubik2025terramind}
+fine-tuned on the same labels and 0.321 for the Copernicus Global Flood Monitoring ensemble~\cite{salamon2021gfm} on
+the 34 activations it covers (0.419 for v1.2 there). At each activation's best threshold in hindsight it would reach
+0.468. Yet R2, the cross-fitted cost-optimal threshold, gains only +0.002 and is better on 26 of 38 activations:
+not adopted. The best threshold varies between floods, not between our training set and CEMS.
+% src: reports/v12_cems_rebuilt.md (0.417, 0.405, 0.468; GFM 0.321 vs 0.419 on 34); reports/v12_cems_seen_tests.md
+% src: reports/v13_ladder_r2.md (R1 0.421, R2 0.423, +0.002, 26 of 38; seed 42)
+
+\subsection{Copernicus agrees with itself at 0.52}
+Over 79 product pairs in 34 activations, two CEMS delineations of the same area at most 24\,h apart agree at 0.520
+macro IoU (median pair 0.498); 0.515 between two radar-drawn products, and 0.509 in the sensitivity row. Models at
+0.42 are therefore near the level at which the reference agrees with itself. Per activation (Fig.~\ref{fig:ceiling}),
+the model scores below the reference's self-agreement in 20 of 27 activations, and the two are associated
+(Spearman $\rho = 0.51$). This analysis was chosen after both were known; floods that are hard for an analyst may
+simply be hard for a model too.
+% src: reports/reference_ceiling.md (79 pairs, 34 activations, 0.520, 0.498, radar-radar 0.515, sensitivity 0.509)
+% src: paper/igarss27/figures/ceiling_scatter.json (n 27, rho 0.509, p 0.0067, below 20)
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/ceiling_scatter.pdf}
+\caption{Per seen activation: the v1.2 model's IoU at \tstar{} against CEMS (y) and the IoU between two CEMS
+delineations of the same area at most 24\,h apart (x). Dashed: equal agreement. Exploratory.}
+\label{fig:ceiling}
+\end{figure}
+
+\subsection{Fine-tuning on Copernicus's own labels}
+\todo{TODO(r3): R3's macro IoU over the 38 activations, its gain over the adopted rung, the number of activations it
+improves, and the rule's verdict; the per-cluster table; whether a v1.3 model was frozen.}
+% src: reports/v13_ladder.md, reports/v13_ladder.json
+
+\section{The blind test and the live service}
+The models were frozen (tag \texttt{v1.2.0-freeze}, checkpoints pinned by sha256) before any flood of the blind
+set, every CEMS flood activation from EMSR899 on, was scored. Scores are sealed in a hash-chained ledger until 20
+activations in 15 clusters are scored, or 31 December 2027. Three hypotheses, set against GFM, the fair TerraMind and
+the previous model, form a Holm family; a later, separate hypothesis H8 enters a v1.3 model only if the ladder
+adopts one. \todo{TODO(status): the ledger's counts at submission.}
+% src: reports/protocol_v1_2.md (§2.2, sealing, stopping rule, Holm family); reports/protocol_v1_3.md §4
+
+The frozen weights also run a live service. Every six hours a scheduled job maps each new Sentinel-1 pass over
+flood areas from the activation's outline alone, never reading a CEMS product. It rebuilds the benchmark's inputs:
+on a replayed benchmark tile all 14 input bands were identical, and a CPU run gave the stored GPU run's IoU. Blind
+floods appear there, map only, after the v1.3 decision.
+% src: reports/live_replay.md; reports/protocol_v1_3.md §6; reports/v1_3_deviations.md (2026-11-11)
+
+\section{Conclusion}
+Against Copernicus EMS, Sentinel-1 flood segmentation is limited first by its training labels, then by a threshold
+that varies between floods and cannot be refit from other floods, and finally by a reference that agrees with
+itself at about 0.52. Scores near 0.42 should be read against that ceiling, not against 1. \todo{TODO(r3): one
+sentence on fine-tuning.} Code, reports, the frozen weights and the blind test's ledger are public.
+
+\section*{Acknowledgment}
+Contains modified Copernicus Sentinel data and Copernicus Emergency Management Service information (2023--26),
+\textcopyright{} European Union. The code and text were developed with AI assistance (Claude Code); the design
+decisions, verification and results were reviewed by the author.
+
+\bibliographystyle{IEEEtran}
+\bibliography{../references}
+
+\end{document}
