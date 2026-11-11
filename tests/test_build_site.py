@@ -489,3 +489,11 @@ def test_the_live_page_ships_each_map_s_stac_item(tmp_path):
 def test_a_live_map_without_a_pass_time_is_refused(tmp_path):
     with pytest.raises(ValueError, match="pass time"):
         _script().live_data(_live_root(tmp_path, [{**_entry("a"), "pass_time": None}]))
+
+
+def test_the_live_page_gets_the_imaged_tiles_and_refuses_malformed_ones(tmp_path):
+    entry = {**_entry("a"), "tile_bboxes": [[12.0, 44.2, 12.05, 44.25]]}
+    assert _script().live_data(_live_root(tmp_path, [entry]))["maps"][0]["tile_bboxes"] == [[12.0, 44.2, 12.05, 44.25]]
+    bad = {**_entry("b"), "tile_bboxes": [["12", 44.2, 12.05]]}
+    with pytest.raises(ValueError, match="tile"):
+        _script().live_data(_live_root(tmp_path / "bad", [bad]))

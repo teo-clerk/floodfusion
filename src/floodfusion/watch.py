@@ -269,7 +269,8 @@ def _publish(job: MapJob, summary: Mapping[str, Any], work: Path, data_root: Pat
             "delay_hours": round((now - job.pass_.time).total_seconds() / 3600, 1),
             "flood_km2": round(sum(t["flood_km2"] for t in tiles), 4),
             "valid_km2": round(sum(t["valid_km2"] for t in tiles), 4), "tiles": len(summary.get("tiles", {})),
-            "skipped_tiles": len(summary.get("skipped", {})), "files": files}
+            "skipped_tiles": len(summary.get("skipped", {})), "files": files,
+            "tile_bboxes": [list(t["bbox"]) for _, t in sorted(summary.get("tiles", {}).items()) if "bbox" in t]}
 
 
 def _checked(summary: Mapping[str, Any]) -> Mapping[str, Any]:

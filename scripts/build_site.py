@@ -530,7 +530,8 @@ def hero_panels(hero: Path, out_dir: Path) -> list[Path]:
 BLIND_FIRST_CODE = 899
 BLIND_LAST_PASS_DATE = "2026-07-17"   # a later pass's optical window (±2 days) reaches 20 July 2026
 _LIVE_FIELDS = ("id", "kind", "code", "name", "aoi", "aoi_name", "bbox", "event_date", "pass_time", "orbit",
-                "orbit_state", "mapped_at", "delay_hours", "flood_km2", "valid_km2", "tiles", "skipped_tiles", "files")
+                "orbit_state", "mapped_at", "delay_hours", "flood_km2", "valid_km2", "tiles", "skipped_tiles", "files",
+                "tile_bboxes")
 _LIVE_CODE = re.compile(r"EMSR(\d{3,4})")
 _LIVE_ID = re.compile(r"[A-Za-z0-9_]{1,80}")
 _LIVE_SWITCH = re.compile(r"^blind_floods:\s*(true|false)\s*(?:#.*)?$", re.MULTILINE)
@@ -590,6 +591,10 @@ def live_data(live_root: Path, *, out: Path | None = None, root: Path = ROOT) ->
             raise ValueError(f"live map {entry['id']} has no pass time")
         if _is_blind_flood(entry) and not blind_on:
             raise ValueError(f"live map {entry['id']} is a blind flood, and blind floods are off")
+        boxes = entry["tile_bboxes"] or []
+        if not all(isinstance(b, list) and len(b) == 4 and all(isinstance(v, int | float) for v in b) for b in boxes):
+            raise ValueError(f"live map {entry['id']}: malformed tile boxes")
+        entry["tile_bboxes"] = boxes
         polygons = [str(name) for name in entry["files"] or []]
         for name in polygons:
             if not name.endswith("/flood.geojson"):

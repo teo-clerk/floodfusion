@@ -106,9 +106,16 @@
         tiles.push(img);
       }
     }
-    const [x0, y0] = project(west, north), [x1, y1] = project(east, south);
+    const box = ([w, sth, e, n], cls) => {
+      const [a, b] = project(w, n), [c, d] = project(e, sth);
+      return s("rect", { class: cls, x: a, y: b, width: (c - a).toFixed(1), height: (d - b).toFixed(1) });
+    };
+    // The tiles this pass imaged are lit; the rest of the area was not seen, which is not the same as dry.
     const svg = s("svg", { viewBox: `0 0 ${width} ${height}`, "aria-hidden": "true" },
-      s("rect", { class: "aoi-box", x: x0, y: y0, width: (x1 - x0).toFixed(1), height: (y1 - y0).toFixed(1) }));
+      s("defs", {}, s("mask", { id: "unseen" }, s("rect", { x: 0, y: 0, width, height, fill: "white" }),
+        ...(entry.tile_bboxes || []).map((b) => box(b, "tile-cut")))),
+      s("rect", { class: "unseen", x: 0, y: 0, width, height, mask: "url(#unseen)" }),
+      box(entry.bbox, "aoi-box"));
     view.replaceChildren(...tiles, svg);
     view.setAttribute("aria-label", `Flood mapped in ${entry.aoi_name || entry.name} on ${utc(entry.pass_time)}`);
     const token = (current = {});
@@ -129,15 +136,14 @@
         : utc(entry.mapped_at)],
       ["Tiles", entry.skipped_tiles ? `${entry.tiles} mapped, ${entry.skipped_tiles} without a usable pass` : `${entry.tiles}`],
     ];
-    const many = entry.files.length > 1;
-    const links = [
-      ...entry.files.map((url, i) => h("a", { href: url, download: "" }, `flood polygons${many ? ` ${i + 1}` : ""}`)),
-      ...(entry.items || []).map((url, i) => h("a", { href: url }, `STAC item${many ? ` ${i + 1}` : ""}`)),
-    ];
+    // One link per tile, named by the tile (t<row>_<column>), in two rows instead of one long list.
+    const tileLinks = (urls, extra) => urls.map((url, i) => [i ? " · " : "",
+      h("a", { href: url, ...extra }, (url.match(/\/(t\d+_\d+)\//) || [null, `${i + 1}`])[1])]);
+    const downloads = [["Flood polygons", tileLinks(entry.files, { download: "" })],
+                       ["STAC items", tileLinks(entry.items || [], {})]].filter(([, links]) => links.length);
     byId("map-details").replaceChildren(
       ...rows.flatMap(([k, v]) => [h("dt", {}, k), h("dd", {}, v)]),
-      h("dt", {}, "Downloads"),
-      h("dd", {}, ...links.flatMap((a, i) => [i ? " · " : "", a])));
+      ...downloads.flatMap(([k, links]) => [h("dt", {}, k), h("dd", { class: "tile-links" }, ...links.flat())]));
   }
 
   function select(entry, button) {
@@ -152,7 +158,8 @@
       const button = h("button", { type: "button", "aria-pressed": "false" },
         h("span", { class: "map-title" }, m.aoi_name ? `${m.aoi_name}` : "Manual map"),
         h("span", { class: "map-meta" }, `${m.code || ""} ${utc(m.pass_time)}`.trim()),
-        h("span", { class: "map-meta" }, km2(m.flood_km2), " · ", h("span", { class: "badge" }, KIND[m.kind] || m.kind)));
+        h("span", { class: "map-meta" }, `${km2(m.flood_km2)} · ${m.tiles} of ${m.tiles + m.skipped_tiles} tiles imaged`),
+        h("span", { class: "badge" }, KIND[m.kind] || m.kind));
       button.addEventListener("click", () => select(m, button));
       return button;
     });

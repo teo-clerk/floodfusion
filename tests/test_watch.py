@@ -257,3 +257,15 @@ def test_aois_without_a_number_get_distinct_ids(tmp_path: Path) -> None:
     fake = Fake(records={"EMSR664": record}, passes=PASSES[:1])
     index = _run(tmp_path, fake, _config(tmp_path, showcase=("EMSR664",)))
     assert [m["id"] for m in index["maps"]] == ["EMSR664_AOI01_20230517T0516_095", "EMSR664_AOI02_20230517T0516_095"]
+
+
+def test_a_published_map_records_the_tiles_its_pass_imaged(tmp_path: Path) -> None:
+    class WithBoxes(Fake):
+        def mapper(self, job, out):
+            summary = super().mapper(job, out)
+            summary["tiles"]["t00_00"]["bbox"] = [12.0, 44.2, 12.05, 44.25]
+            return summary
+
+    index = _run(tmp_path, WithBoxes(records={"EMSR664": FORLI}, passes=PASSES[:1]),
+                 _config(tmp_path, showcase=("EMSR664",)))
+    assert index["maps"][0]["tile_bboxes"] == [[12.0, 44.2, 12.05, 44.25]]

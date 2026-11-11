@@ -447,6 +447,10 @@ select { font: inherit; color: var(--text); background: var(--surface); border: 
 .map-view svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .flood-poly { fill: color-mix(in srgb, var(--c-v12) 62%, transparent); stroke: var(--c-v12); stroke-width: 0.6; fill-rule: evenodd; }
 .aoi-box { fill: none; stroke: var(--text); stroke-width: 1.5; stroke-dasharray: 6 4; }
+.unseen { fill: var(--surface-2); opacity: 0.62; }
+.tile-cut { fill: black; }
+.map-list .badge { justify-self: start; }
+.tile-links a { font-variant-numeric: tabular-nums; }
 .map-details { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 14px 0 0; font-size: 0.93rem; }
 .map-details dt { color: var(--muted); }
 .map-details dd { margin: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
