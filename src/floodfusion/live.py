@@ -141,17 +141,18 @@ def _build_sidecars(event_dir: Path, names: Sequence[str], client: Any) -> None:
 
 def flood_polygons(prob: np.ndarray, *, tau: float, transform: Any, epsg: int) -> dict[str, Any]:
     """The pixels mapped as flood (``prob > tau``) as a GeoJSON FeatureCollection in longitude/latitude."""
+    import shapely
     from pyproj import Transformer
     from rasterio.features import shapes
     from shapely.geometry import mapping, shape
-    from shapely.ops import transform as reproject
 
     mask = np.isfinite(prob) & (np.nan_to_num(prob, nan=0.0) > tau)
     to_lonlat = Transformer.from_crs(epsg, 4326, always_xy=True).transform
     features = []
     for geometry, _ in shapes(mask.astype(np.uint8), mask=mask, transform=transform):
         polygon = shape(geometry)
-        features.append({"type": "Feature", "geometry": mapping(reproject(to_lonlat, polygon)),
+        lonlat = shapely.transform(polygon, to_lonlat, interleaved=False)
+        features.append({"type": "Feature", "geometry": mapping(lonlat),
                          "properties": {"area_km2": round(polygon.area / 1e6, 6)}})
     return {"type": "FeatureCollection", "features": features}
 
@@ -199,7 +200,11 @@ def map_area(bbox: Sequence[float], when: date, out: Path, *, predictor: Any, na
     """Map ``bbox`` on the Sentinel-1 pass of ``when``; write ``out/summary.json`` and return it.
 
     ``relative_orbit`` and ``orbit_state`` pin the pass; ``reference_before`` makes the pre-event reference predate it.
+    A date that could show a blind flood is refused while blind floods are off (:mod:`floodfusion.live_rules`).
     """
+    from floodfusion.live_rules import blind_floods_enabled, check_date
+
+    check_date(when, enabled=blind_floods_enabled(), optical_window_days=OPTICAL_WINDOW_DAYS)
     tiles = tiles_for(check_bbox(bbox))
     if len(tiles) > MAX_TILES:
         raise ValueError(f"the box needs {len(tiles)} tiles (more than {MAX_TILES}): map a smaller box")

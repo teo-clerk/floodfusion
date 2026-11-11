@@ -61,6 +61,7 @@ TORCH_FREE_MODULES = (
     # v1.3 (added 2026-11-10 under the approved v1.3 plan: new torch-free modules join this list)
     "floodfusion.ladder",
     "floodfusion.live",
+    "floodfusion.live_rules",
     "floodfusion.weights",
 )
 
