@@ -23,7 +23,7 @@ from typing import Any
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
-SITE_FILES = ("index.html", "style.css", "app.js", "arena.html", "arena.js")
+SITE_FILES = ("index.html", "style.css", "app.js", "arena.html", "arena.js", "live.html", "live.js")
 FIGURES = ("gate_map.png",)
 HERO_PANELS = ("forli_vv.png", "forli_fusion.png", "forli_cems.png")
 EVENT_PREFIX = "S1F11_"
@@ -522,8 +522,59 @@ def hero_panels(hero: Path, out_dir: Path) -> list[Path]:
     return written
 
 
-def build(out: Path, root: Path = ROOT) -> Path:
-    """Write the page, its data and its figures into ``out``; return the page's path."""
+# --- floodfusion Live (v1.3) ------------------------------------------------------------------------------------
+
+#: The blind set and its first event date (``floodfusion.live_rules``; this script runs without the package, and a
+#: test checks that the two agree). While blind floods are off, the page refuses to show any of them.
+BLIND_FIRST_CODE = 899
+BLIND_LAST_PASS_DATE = "2026-07-17"   # a later pass's optical window (±2 days) reaches 20 July 2026
+_LIVE_FIELDS = ("id", "kind", "code", "name", "aoi", "aoi_name", "bbox", "event_date", "pass_time", "orbit",
+                "orbit_state", "mapped_at", "delay_hours", "flood_km2", "valid_km2", "tiles", "skipped_tiles", "files")
+_LIVE_CODE = re.compile(r"EMSR(\d{3,4})")
+_LIVE_ID = re.compile(r"[A-Za-z0-9_]{1,80}")
+
+
+def _is_blind_flood(entry: dict[str, Any]) -> bool:
+    match = _LIVE_CODE.fullmatch(str(entry.get("code") or ""))
+    return bool(match and int(match.group(1)) >= BLIND_FIRST_CODE) or str(entry["pass_time"])[:10] > BLIND_LAST_PASS_DATE
+
+
+def _live_file(entry: dict[str, Any], name: str) -> str:
+    parts = Path(name).parts
+    if parts[:2] != ("maps", entry["id"]) or ".." in parts or not name.endswith(".geojson"):
+        raise ValueError(f"live map {entry['id']}: {name[:120]!r} is outside its map folder")
+    return name
+
+
+def live_data(live_root: Path, *, out: Path | None = None) -> dict[str, Any]:
+    """The live page's data from the watcher's ``index.json``; with ``out``, its flood polygons are copied there."""
+    index_path = Path(live_root) / "index.json"
+    if not index_path.is_file():
+        return {"maps": [], "updated_at": None, "blind_floods": False}
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    blind_on = index.get("blind_floods") is True
+    maps = []
+    for raw in index.get("maps", []):
+        entry = {key: raw.get(key) for key in _LIVE_FIELDS}
+        if not _LIVE_ID.fullmatch(str(entry["id"])):
+            raise ValueError(f"live map id {str(entry['id'])[:80]!r} is not a plain name")
+        if _is_blind_flood(entry) and not blind_on:
+            raise ValueError(f"live map {entry['id']} is a blind flood, and blind floods are off")
+        files = [_live_file(entry, name) for name in entry["files"] or []]
+        if out is not None:
+            for name in files:
+                (out / "live" / name).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(Path(live_root) / name, out / "live" / name)
+        maps.append({**entry, "files": [f"live/{name}" for name in files]})
+    maps.sort(key=lambda m: m["pass_time"], reverse=True)
+    return {"maps": maps, "updated_at": index.get("updated_at"), "blind_floods": blind_on}
+
+
+def build(out: Path, root: Path = ROOT, live_root: Path | None = None) -> Path:
+    """Write the page, its data and its figures into ``out``; return the page's path.
+
+    ``live_root`` is the live watcher's published folder (the ``live-data`` branch), by default ``live-data/``.
+    """
     data = site_data(root)
     assets = out / "assets"
     assets.mkdir(parents=True, exist_ok=True)
@@ -540,14 +591,18 @@ def build(out: Path, root: Path = ROOT) -> Path:
             shutil.copy2(root / layer["src"], assets / Path(layer["src"]).name)
     payload = json.dumps(arena, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
     (out / "arena-data.js").write_text(f"window.FLOODFUSION_ARENA = {payload};\n", encoding="utf-8")
+    live = live_data(root / "live-data" if live_root is None else live_root, out=out)
+    payload = json.dumps(live, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+    (out / "live-data.js").write_text(f"window.FLOODFUSION_LIVE = {payload};\n", encoding="utf-8")
     return out / "index.html"
 
 
 def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--out", type=Path, default=ROOT / "_site", help="output folder (default: _site/)")
+    parser.add_argument("--live", type=Path, default=None, help="the live maps' folder (default: live-data/)")
     args = parser.parse_args(argv)
-    print(f"wrote {build(args.out)}")
+    print(f"wrote {build(args.out, live_root=args.live)}")
 
 
 if __name__ == "__main__":

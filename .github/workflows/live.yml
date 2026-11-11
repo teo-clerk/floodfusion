@@ -1,0 +1,99 @@
+# floodfusion Live: every 6 hours, the next flood maps (floodfusion.watch), published on the live-data branch and then
+# on the site's live page. It needs two repository variables: LIVE_WEIGHTS_REPO and LIVE_WEIGHTS_REVISION, the
+# frozen weights on Hugging Face Hub at a pinned commit; each file is checked against reports/v12_freeze.json.
+# Without them it does nothing. Blind floods (codes from EMSR899 on) stay off until configs/live.yaml switches them
+# on (reports/protocol_v1_3.md section 6): until then it maps only the showcase's seen floods and manual requests.
+name: live
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      bbox:
+        description: "A manual map: west south east north, in degrees (empty: the scheduled run)"
+        required: false
+        default: ""
+      date:
+        description: "The manual map's pass date, YYYY-MM-DD"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live
+  cancel-in-progress: false
+
+jobs:
+  map:
+    if: github.event.repository.visibility == 'public' && vars.LIVE_WEIGHTS_REPO != '' && vars.LIVE_WEIGHTS_REVISION != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    permissions:
+      contents: write   # the push to live-data, in the publish step only
+      actions: write    # dispatching the Pages build
+    env:
+      RUN: runs/v12/final/all/all/row21_fusion_context_seasonal/seed42
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: uv sync --frozen
+      - name: The frozen weights, each file checked against the freeze manifest
+        env:
+          REPO: ${{ vars.LIVE_WEIGHTS_REPO }}
+          REVISION: ${{ vars.LIVE_WEIGHTS_REVISION }}
+        run: uv run --frozen --no-sync python -m floodfusion.weights fetch --repo "$REPO" --revision "$REVISION" --run "$RUN" --dest .
+      - name: The maps published so far
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --heads origin live-data > /dev/null; then
+            git fetch --depth=1 origin live-data
+            git worktree add --detach live-data FETCH_HEAD
+          else
+            git worktree add --orphan -b live-data live-data
+          fi
+      - name: Map
+        env:
+          BBOX: ${{ inputs.bbox }}
+          DATE: ${{ inputs.date }}
+        run: |
+          set -euo pipefail
+          args=()
+          if [ -n "${BBOX:-}" ]; then
+            read -r -a box <<< "$BBOX"
+            args+=(--bbox "${box[@]}" --date "$DATE")
+          fi
+          CUDA_VISIBLE_DEVICES= uv run --frozen --no-sync python -m floodfusion.watch run --data live-data --work work \
+            --run "$RUN" "${args[@]}"
+      - name: Publish the new maps
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cd live-data
+          git add -A
+          if git diff --cached --quiet; then echo "nothing new to publish"; exit 0; fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "live: maps of $(date -u +%Y-%m-%dT%H:%MZ)"
+          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" push origin HEAD:refs/heads/live-data
+          echo "PUBLISHED=1" >> "$GITHUB_ENV"
+      - name: Rebuild the site with them
+        if: env.PUBLISHED == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --ref main --repo "$GITHUB_REPOSITORY"
+      - name: The COG layers, kept 90 days
+        if: always() && hashFiles('work/**/*.tif') != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: live-maps-${{ github.run_id }}
+          path: work/*/maps/
+          retention-days: 90

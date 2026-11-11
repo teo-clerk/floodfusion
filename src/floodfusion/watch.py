@@ -56,7 +56,8 @@ LOGGER = logging.getLogger(__name__)
 
 INDEX = "index.json"
 MAX_AOIS = 4
-MAX_MAPS_PER_RUN = 6
+#: Measured on 2026-11-11: about a minute per mapped tile on 4 CPU threads, and an AOI can hold 20+ tiles.
+MAX_MAPS_PER_RUN = 2
 MAX_ATTEMPTS = 3
 SHOWCASE_DAYS = 3
 LIVE_DAYS = 30
