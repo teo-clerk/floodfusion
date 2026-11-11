@@ -1,0 +1,19 @@
+{
+ "grid": [
+  1e-05,
+  3e-05,
+  0.0001
+ ],
+ "rows": {
+  "row21_fusion_context_seasonal": {
+   "run_name": "row21_fusion_context_seasonal",
+   "results": {
+    "1e-05": 0.4239544780793047,
+    "3e-05": 0.42304066834362164,
+    "0.0001": 0.4239364228083618
+   },
+   "chosen": 1e-05,
+   "init_from": "runs/v12/final/all/all/row21_fusion_context_seasonal/seed42"
+  }
+ }
+}
