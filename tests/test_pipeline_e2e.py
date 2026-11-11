@@ -218,3 +218,38 @@ def test_product_geotiff(pipeline, trained) -> None:
         prob = src.read(1)
     finite = prob[np.isfinite(prob)]
     assert finite.size and finite.min() >= 0.0 and finite.max() <= 1.0
+
+
+def test_a_live_map_of_a_stack_writes_its_package_and_polygons(pipeline, trained, tmp_path, monkeypatch) -> None:
+    """floodfusion Live end to end on CPU (v1.3, 2026-11-11): the run loaded from its files, then predict, package
+    and polygons. Only the ingest is replaced: it copies a synthetic event instead of reading Planetary Computer."""
+    import shutil
+    from datetime import date
+    from types import SimpleNamespace
+
+    from floodfusion import live
+    from floodfusion.evaluate import evaluate_run
+
+    _, data_root, _, _ = pipeline
+    run_dir, _ = trained
+    if not (run_dir / "eval_test.json").is_file():       # when this test runs alone
+        evaluate_run(run_dir, device="cpu", figures=False)
+    sar_only = run_dir.parent.parent / "row11_fusion_eval_sar_only" / "seed42"
+    if not (sar_only / "eval_test.json").is_file():
+        evaluate_run(run_dir, device="cpu", force_sar_only=True, out_dir=sar_only, figures=False)
+    source = sorted((data_root / "events").glob("*/stack.tif"))[0].parent
+    monkeypatch.setattr(live, "ingest_event", lambda event, out, cfg, *, sources: shutil.copytree(
+        source, out / "events" / event.event_id))
+    monkeypatch.setattr(live, "tiles_for", lambda bbox: [("t00_00", bbox)])
+    predictor = live.load_predictor(run_dir, device=torch.device("cpu"))
+    summary = live.map_area((12.0, 44.2, 12.1, 44.3), date(2023, 5, 17), tmp_path, predictor=predictor, name="synth",
+                            cfg=predictor.cfg, sources=SimpleNamespace(client=None), device=torch.device("cpu"))
+    tile = summary["tiles"]["t00_00"]
+    assert tile["valid_km2"] > 0 and 0 <= tile["flood_km2"] <= tile["valid_km2"]
+    written = {p.name for p in (tmp_path / "maps" / "t00_00").iterdir()}
+    assert {"likelihood.tif", "observed_flood.tif", "item.json", "flood.geojson"} <= written
+    polygons = json.loads((tmp_path / "maps" / "t00_00" / "flood.geojson").read_text())
+    lons = [x for f in polygons["features"] for ring in f["geometry"]["coordinates"] for x, _ in ring]
+    assert all(-180 <= x <= 180 for x in lons)
+    assert sum(f["properties"]["area_km2"] for f in polygons["features"]) == pytest.approx(tile["flood_km2"], rel=1e-3)
+    assert json.loads((tmp_path / "summary.json").read_text())["tiles"]["t00_00"] == tile

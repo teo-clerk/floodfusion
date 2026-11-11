@@ -68,3 +68,10 @@ def test_fetch_refuses_an_unpinned_revision_a_bad_repo_or_an_escaping_path(tmp_p
 def test_sha256sums_lists_every_file_for_the_upload(tmp_path: Path) -> None:
     files = {"a/run.json": _sha(b"{}"), "a/best.pt": _sha(b"w")}
     assert weights.sha256sums(files) == f"{files['a/best.pt']}  a/best.pt\n{files['a/run.json']}  a/run.json\n"
+
+
+def test_the_sums_command_prints_the_frozen_hashes(capsys) -> None:
+    assert weights.main(["sums", "--manifest", str(ROOT / "reports" / "v12_freeze.json"), "--run", RUN]) == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert len(lines) == 4 and all(len(line.split("  ")[0]) == 64 for line in lines)
+    assert lines[0].endswith(f"{RUN}/best.pt")

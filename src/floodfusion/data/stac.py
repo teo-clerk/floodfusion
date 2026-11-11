@@ -69,7 +69,9 @@ __all__ = [
     "InMemoryCatalogue",
     "MatchedScenes",
     "NoMatchingPairError",
+    "Pass",
     "group_by_time",
+    "list_passes",
     "load_matched_scenes",
     "open_catalogue",
     "profile_for",
@@ -375,6 +377,24 @@ def _group_acquisitions(items: Iterable[dict[str, Any]]) -> list[list[dict[str, 
                 continue
         groups.append([item])
     return groups
+
+
+@dataclass(frozen=True)
+class Pass:
+    """One Sentinel-1 acquisition: its first frame's time, relative orbit and orbit state."""
+
+    time: datetime
+    relative_orbit: int
+    orbit_state: str
+
+
+def list_passes(client: _Searchable, bbox: Sequence[float], start: datetime, end: datetime, *,
+                profile: CatalogueProfile) -> list[Pass]:
+    """The usable Sentinel-1 IW VV+VH acquisitions over ``bbox`` from ``start`` to ``end``, oldest first."""
+    items = [i for i in _search(client, profile.s1_collection, bbox, _interval(start, end)) if _is_usable_s1(i, profile)]
+    return [Pass(time=_datetime_of(group[0]), relative_orbit=int(group[0]["properties"]["sat:relative_orbit"]),
+                 orbit_state=str(group[0]["properties"]["sat:orbit_state"]).lower())
+            for group in _group_acquisitions(items)]
 
 
 def _s2_dedupe_key(item: Mapping[str, Any]) -> tuple[str, str]:

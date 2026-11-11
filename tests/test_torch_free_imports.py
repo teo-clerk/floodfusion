@@ -62,6 +62,7 @@ TORCH_FREE_MODULES = (
     "floodfusion.ladder",
     "floodfusion.live",
     "floodfusion.live_rules",
+    "floodfusion.watch",
     "floodfusion.weights",
 )
 

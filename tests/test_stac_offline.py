@@ -244,3 +244,25 @@ def test_the_live_client_wrapper_retries_rate_limits_and_delegates_the_rest() ->
     client = RateLimitedClient(Throttled(), sleep=waits.append)
     assert client.search(collections=["x"]) == [{"id": "a", "properties": {}}]
     assert waits == [30.0] and client.title == "catalogue"
+
+
+class TestListPasses:
+    """``list_passes``: the Sentinel-1 acquisitions over a box, for the live watcher (v1.3, 2026-11-11)."""
+
+    def test_frames_of_one_pass_are_one_acquisition_and_unusable_items_are_left_out(self) -> None:
+        from datetime import UTC
+
+        from floodfusion.data.stac import Pass, list_passes
+
+        cat = InMemoryCatalogue.from_dicts([
+            _s1("a1", "2023-05-17T05:16:10Z", orbit=95, state="descending"),
+            _s1("a2", "2023-05-17T05:16:35Z", orbit=95, state="descending"),        # the next frame of that pass
+            _s1("b", "2023-05-18T17:05:00Z", orbit=117),
+            _s1("ew", "2023-05-18T09:00:00Z", **{"sar:instrument_mode": "EW"}),
+            _s1("vv", "2023-05-18T10:00:00Z", **{"sar:polarizations": ["VV"]}),
+            _s1("late", "2023-05-25T17:05:00Z"),
+        ])
+        passes = list_passes(cat, (10.0, 45.0, 10.5, 45.5), datetime(2023, 5, 16, tzinfo=UTC),
+                             datetime(2023, 5, 19, tzinfo=UTC), profile=profile_for(PC))
+        assert passes == [Pass(datetime(2023, 5, 17, 5, 16, 10, tzinfo=UTC), 95, "descending"),
+                          Pass(datetime(2023, 5, 18, 17, 5, tzinfo=UTC), 117, "ascending")]
