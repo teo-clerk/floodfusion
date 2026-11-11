@@ -1,0 +1,3 @@
+# v1.3 equal tuning budget (floodfusion.tuning): row21_fusion_context_seasonal's learning rate, chosen on fold 0's inner split.
+train:
+  learning_rate: 1.0e-05
