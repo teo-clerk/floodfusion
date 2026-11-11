@@ -68,6 +68,8 @@ floodfusion-baseline = "floodfusion.baseline_runner:main"
 floodfusion-train = "floodfusion.train:main"
 floodfusion-eval = "floodfusion.evaluate:main"
 floodfusion-predict = "floodfusion.predict:main"
+floodfusion-live = "floodfusion.live:main"
+floodfusion-weights = "floodfusion.weights:main"
 floodfusion-ablation = "floodfusion.ablation:main"
 floodfusion-vram = "floodfusion.utils.vram:main"
 

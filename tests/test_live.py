@@ -158,3 +158,14 @@ def test_flood_polygons_are_simplified_within_a_pixel_and_keep_their_area() -> N
     pixels = int((prob > 0.25).sum())
     assert sum(f["properties"]["area_km2"] for f in collection["features"]) == pytest.approx(pixels * 1e-4, rel=1e-6)
     assert vertices < 2 * pixels                                     # a pixel-edged outline has about 4 per pixel
+
+
+def test_every_command_line_entry_point_resolves() -> None:
+    import importlib
+    import tomllib
+
+    scripts = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["scripts"]
+    assert {"floodfusion-live", "floodfusion-weights"} <= set(scripts)
+    for target in scripts.values():
+        module, _, name = target.partition(":")
+        assert callable(getattr(importlib.import_module(module), name)), target
