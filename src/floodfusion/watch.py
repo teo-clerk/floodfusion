@@ -210,7 +210,8 @@ def _publish(job: MapJob, summary: Mapping[str, Any], work: Path, data_root: Pat
 
 def run(data_root: Path, work_root: Path, *, config: Path = LIVE_CONFIG, fetch: Fetch, passes_of: PassesOf,
         mapper: Callable[[MapJob, Path], Mapping[str, Any]], now: datetime | None = None,
-        manual: tuple[Sequence[float], date] | None = None, stop_after: int = STOP_AFTER_NON_PUBLIC) -> dict[str, Any]:
+        manual: tuple[Sequence[float], date] | None = None, stop_after: int = STOP_AFTER_NON_PUBLIC,
+        max_maps: int = MAX_MAPS_PER_RUN) -> dict[str, Any]:
     """One watcher run; returns the updated index (also written to ``data_root/index.json``)."""
     import yaml
 
@@ -227,7 +228,7 @@ def run(data_root: Path, work_root: Path, *, config: Path = LIVE_CONFIG, fetch: 
     groups.update(_showcase(showcase, index, fetch, passes_of, enabled=enabled, now=now))
     groups.update(_live(index, fetch, passes_of, enabled=enabled, now=now, stop_after=stop_after))
     done = {m["id"] for m in index["maps"]}
-    budget = MAX_MAPS_PER_RUN
+    budget = max_maps
     for code, (jobs, window_over) in groups.items():
         pending = [j for j in jobs if j.map_id not in done and index["failures"].get(j.map_id, 0) < MAX_ATTEMPTS]
         for job in pending[:budget]:
@@ -262,6 +263,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     one.add_argument("--run", type=Path, default=None, help="a frozen run folder (default: floodfusion.live's)")
     one.add_argument("--bbox", type=float, nargs=4, default=None, metavar=("WEST", "SOUTH", "EAST", "NORTH"))
     one.add_argument("--date", type=date.fromisoformat, default=None, help="with --bbox: a manual map's date")
+    one.add_argument("--max-maps", type=int, default=MAX_MAPS_PER_RUN, help="maps made in this run, at most")
     args = parser.parse_args(argv)
     if (args.bbox is None) != (args.date is None):
         parser.error("--bbox and --date go together")
@@ -286,7 +288,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     index = run(args.data, args.work, config=args.config, fetch=fetch_activation,
                 passes_of=lambda bbox, start, end: list_passes(sources.client, bbox, start, end, profile=profile),
-                mapper=mapper, manual=(args.bbox, args.date) if args.bbox else None)
+                mapper=mapper, manual=(args.bbox, args.date) if args.bbox else None, max_maps=args.max_maps)
     LOGGER.info("%d maps published; blind floods %s", len(index["maps"]), "on" if index["blind_floods"] else "off")
     return 0
 

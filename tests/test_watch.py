@@ -154,3 +154,16 @@ def test_the_runs_per_call_are_capped(tmp_path: Path) -> None:
 def test_the_command_needs_a_bbox_and_a_date_together() -> None:
     with pytest.raises(SystemExit):
         watch.main(["run", "--data", "d", "--work", "w", "--bbox", "12.0", "44.2", "12.1", "44.3"])
+
+
+def test_a_run_can_be_capped_below_the_default(tmp_path: Path) -> None:
+    fake = Fake(records={"EMSR664": FORLI})
+    index = _run(tmp_path, fake, _config(tmp_path, showcase=("EMSR664",)), max_maps=1)
+    assert len(fake.mapped) == 1 and len(index["maps"]) == 1
+
+
+def test_the_committed_showcase_is_seen_activations_only() -> None:
+    import yaml
+
+    showcase = yaml.safe_load((Path(__file__).resolve().parents[1] / "configs" / "live.yaml").read_text())["showcase"]
+    assert showcase and all(live_rules.check_code(code, enabled=False) for code in showcase)
