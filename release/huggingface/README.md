@@ -42,12 +42,16 @@ that `reports/v12_freeze.json` pins at the tag `v1.2.0-freeze`.
 
 ```bash
 git clone https://github.com/teo-clerk/floodfusion && cd floodfusion && uv sync --frozen
-# the weights, each file checked against the freeze manifest (a pinned commit of this repository)
-uv run --frozen python -m floodfusion.weights fetch --repo <this repository> --revision <commit> \
+# the weights, each file checked against the freeze manifest, at the commit that added them to this repository
+uv run --frozen python -m floodfusion.weights fetch --repo teo-clerk/floodfusion \
+    --revision faed3bb78668cf25052211a7e834f34652a4cdf6 \
     --run runs/v12/final/all/all/row21_fusion_context_seasonal/seed42 --dest .
 # a flood map of any place and date (CPU is enough): COG layers, a STAC item and flood polygons per tile
 uv run --frozen python -m floodfusion.live map --bbox 11.8 44.15 12.2 44.3 --date 2023-05-17 --out maps/forli
 ```
+
+The `weights` and `live` commands reach the repository's `main` branch with release v1.3.0; until then they are on
+the branch `feat/v1.3-live` (`git checkout feat/v1.3-live` after cloning).
 
 The map command reads Sentinel-1 RTC, the Copernicus DEM, JRC surface water and ESA WorldCover from Microsoft Planetary
 Computer, and Sentinel-2 where it is clear. The live map rebuilds the benchmark's input stack bit for bit: on one
