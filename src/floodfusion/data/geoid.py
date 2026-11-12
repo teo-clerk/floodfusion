@@ -70,7 +70,8 @@ LOGGER = logging.getLogger(__name__)
 REVISION = "868407460bf3db492f50730a57585916baa71dc6"
 _REPO = "links-ads/geoid-flood"
 _HOST = "huggingface.co"
-#: Downloads redirect once, to Hugging Face's CDN (us.aws.cdn.hf.co on 2026-10-13).
+#: Downloads redirect once: a large file to Hugging Face's CDN (us.aws.cdn.hf.co on 2026-10-13), a small one to a
+#: relative path on the Hub itself (2026-11-12; :func:`floodfusion.data.http.hub_redirect`).
 _CDN_SUFFIX = ".hf.co"
 #: The files used, with their sha256 at :data:`REVISION` (its ``SHA256SUMS``).
 FILES = {
@@ -109,10 +110,11 @@ def _url(path: str) -> str:
 
 
 def _http_get(url: str) -> bytes:
-    from floodfusion.data.http import capped_get, check_https_url
+    from floodfusion.data.http import capped_get, check_https_url, hub_redirect
 
     return capped_get(url, check=lambda u: check_https_url(u, hosts=(_HOST,)), cap=_MAX_FILE_BYTES, retries=3,
-                      timeout_s=600.0, redirect_check=lambda u: check_https_url(u, suffixes=(_CDN_SUFFIX,)))
+                      timeout_s=600.0,
+                      redirect_check=lambda loc: hub_redirect(url, loc, host=_HOST, cdn_suffix=_CDN_SUFFIX))
 
 
 def _extract_labels(blob: bytes, raw_root: Path) -> int:

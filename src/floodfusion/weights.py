@@ -31,7 +31,8 @@ LOGGER = logging.getLogger(__name__)
 
 MANIFEST = Path("reports/v12_freeze.json")
 _HOST = "huggingface.co"
-#: Downloads redirect once, to Hugging Face's CDN (as for GEOID-Flood, ``floodfusion.data.geoid``).
+#: Downloads redirect once: a large file to Hugging Face's CDN, a small one to a relative path on the Hub itself
+#: (:func:`floodfusion.data.http.hub_redirect`, as for GEOID-Flood).
 _CDN_SUFFIX = ".hf.co"
 #: The largest frozen file is the fair TerraMind's checkpoint (428 MB).
 _MAX_FILE_BYTES = 640 * 1024 * 1024
@@ -72,10 +73,11 @@ def _check(repo: str, revision: str, path: str) -> PurePosixPath:
 
 
 def _http_get(url: str) -> bytes:
-    from floodfusion.data.http import capped_get, check_https_url
+    from floodfusion.data.http import capped_get, check_https_url, hub_redirect
 
     return capped_get(url, check=lambda u: check_https_url(u, hosts=(_HOST,)), cap=_MAX_FILE_BYTES, retries=3,
-                      timeout_s=600.0, redirect_check=lambda u: check_https_url(u, suffixes=(_CDN_SUFFIX,)))
+                      timeout_s=600.0,
+                      redirect_check=lambda loc: hub_redirect(url, loc, host=_HOST, cdn_suffix=_CDN_SUFFIX))
 
 
 def _sha256_file(path: Path) -> str:

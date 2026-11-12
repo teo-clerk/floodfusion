@@ -155,3 +155,31 @@ def test_load_aois_needs_labels_on_disk_and_a_post_time(tmp_path: Path) -> None:
     (raw / "shard_index.json.gz").write_bytes(gzip.compress(json.dumps(index).encode()))
     aois = geoid.load_aois(raw, ["EMSR151", "EMSR160"])
     assert [(a.event, a.aoi, len(a.tiles)) for a in aois] == [("EMSR151", 1, 1)]   # EMSR160: no post time
+
+
+def test_the_download_follows_the_hubs_relative_redirect(monkeypatch) -> None:
+    # Hugging Face redirects small files to a relative path on its own host (seen 2026-11-12), large ones to its CDN.
+    import requests
+
+    class Response:
+        def __init__(self, status: int, body: bytes = b"", location: str = "") -> None:
+            self.status_code, self.body, self.headers = status, body, {"Location": location}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc) -> None:
+            return None
+
+        def iter_content(self, chunk_size: int):
+            yield self.body
+
+    seen: list[str] = []
+
+    def fake(url, **kw):
+        seen.append(url)
+        return Response(307, location="/api/resolve-cache/datasets/x") if len(seen) == 1 else Response(200, b"ok")
+
+    monkeypatch.setattr(requests, "get", fake)
+    assert geoid._http_get(geoid._url("README.md")) == b"ok"
+    assert seen[1] == "https://huggingface.co/api/resolve-cache/datasets/x"

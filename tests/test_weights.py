@@ -75,3 +75,37 @@ def test_the_sums_command_prints_the_frozen_hashes(capsys) -> None:
     lines = capsys.readouterr().out.splitlines()
     assert len(lines) == 4 and all(len(line.split("  ")[0]) == 64 for line in lines)
     assert lines[0].endswith(f"{RUN}/best.pt")
+
+
+class _Response:
+    def __init__(self, status: int, body: bytes = b"", location: str = "") -> None:
+        self.status_code, self.body, self.headers = status, body, {"Location": location}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc) -> None:
+        return None
+
+    def iter_content(self, chunk_size: int):
+        yield self.body
+
+
+@pytest.mark.parametrize(("location", "hop"), [
+    ("/api/resolve-cache/models/o/r/x.json", "https://huggingface.co/api/resolve-cache/models/o/r/x.json"),
+    ("https://us.aws.cdn.hf.co/xet-bridge-us/abc", "https://us.aws.cdn.hf.co/xet-bridge-us/abc"),
+])
+def test_the_download_follows_the_hubs_redirect_for_small_and_large_files(monkeypatch, location, hop) -> None:
+    # 2026-11-12: the first public fetch of the weights failed on the relative redirect Hugging Face gives small files.
+    import requests
+
+    seen: list[str] = []
+
+    def fake(url, **kw):
+        seen.append(url)
+        return _Response(307, location=location) if len(seen) == 1 else _Response(200, b"{}")
+
+    monkeypatch.setattr(requests, "get", fake)
+    url = f"https://huggingface.co/o/r/resolve/{REV}/x.json"
+    assert weights._http_get(url) == b"{}"
+    assert seen == [url, hop]
