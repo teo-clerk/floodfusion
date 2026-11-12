@@ -21,6 +21,10 @@ Sentinel-1 radar, with optical used only where it is clear. These are the weight
 pre-registered blind test on Copernicus Emergency Management Service floods, three seeds, byte for byte the files
 that `reports/v12_freeze.json` pins at the tag `v1.2.0-freeze`.
 
+**Still floodfusion's current model.** Version 1.3 (November 2026) tested fine-tuning these weights on Copernicus
+EMS's own flood labels. Under an adoption rule fixed in advance, the fine-tuned model scored lower (0.380 against
+0.421 macro IoU, cross-validated over 38 activations) and was not adopted, so there are no v1.3 weights.
+
 - **Network (row 21):** SAR–optical cross-attention fusion with terrain and a seasonal Sentinel-1 reference: the
   median backscatter of the same orbit around the same date a year earlier, and the change from it. 72.7 MB per
   seed.
