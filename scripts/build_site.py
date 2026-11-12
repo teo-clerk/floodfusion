@@ -526,7 +526,7 @@ def hero_panels(hero: Path, out_dir: Path) -> list[Path]:
 
 #: The blind set and its first event date (``floodfusion.live_rules``; this script runs without the package, and a
 #: test checks that the two agree). While blind floods are off, the page refuses to show any of them. The switch is
-#: read from this repository's ``configs/live.yaml``, never from the published data.
+#: read from this repository's ``configs/live/service.yaml``, never from the published data.
 BLIND_FIRST_CODE = 899
 BLIND_LAST_PASS_DATE = "2026-07-17"   # a later pass's optical window (±2 days) reaches 20 July 2026
 _LIVE_FIELDS = ("id", "kind", "code", "name", "aoi", "aoi_name", "bbox", "event_date", "pass_time", "orbit",
@@ -541,8 +541,8 @@ _LIVE_MAX_TOTAL_BYTES = 400 * 1024 * 1024
 
 
 def blind_floods_on(root: Path = ROOT) -> bool:
-    """The committed switch in ``configs/live.yaml`` (missing: off)."""
-    path = root / "configs" / "live.yaml"
+    """The committed switch in ``configs/live/service.yaml`` (missing: off)."""
+    path = root / "configs" / "live" / "service.yaml"
     found = _LIVE_SWITCH.findall(path.read_text(encoding="utf-8")) if path.is_file() else []
     if len(found) > 1:
         raise ValueError(f"{path}: blind_floods is set {len(found)} times")

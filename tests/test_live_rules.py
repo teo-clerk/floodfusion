@@ -25,7 +25,12 @@ RECORD = {
 
 
 def test_the_committed_switch_is_off() -> None:
-    assert live_rules.blind_floods_enabled(ROOT / "configs" / "live.yaml") is False
+    # 2026-11-12: the switch moved from configs/live.yaml to live_rules.LIVE_CONFIG (configs/live/service.yaml), since
+    # tests/test_config_loading.py loads every top-level configs/*.yaml as an experiment config. The check is the
+    # same; it now also requires the file, because a missing switch reads as off (the old path passed vacuously).
+    path = ROOT / live_rules.LIVE_CONFIG
+    assert path.is_file()
+    assert live_rules.blind_floods_enabled(path) is False
 
 
 def test_a_missing_switch_is_off_and_a_malformed_one_is_refused(tmp_path: Path) -> None:

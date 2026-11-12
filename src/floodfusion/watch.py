@@ -2,7 +2,7 @@ r"""floodfusion Live's watcher: which flood maps to make next, and the index the
 
 Each run (GitHub Actions, every 6 hours, ``.github/workflows/live.yml``):
 
-1. **Showcase:** the seen activations listed in ``configs/live.yaml`` (EMSR656–898), each AOI mapped on every
+1. **Showcase:** the seen activations listed in ``configs/live/service.yaml`` (EMSR656–898), each AOI mapped on every
    Sentinel-1 pass from its event date to 3 days after. A code whose window has passed and whose maps are all made is
    *complete* and its record is not requested again.
 2. **New activations,** only once blind floods are switched on: codes after the last one seen are requested until

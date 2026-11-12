@@ -165,7 +165,8 @@ def test_a_run_can_be_capped_below_the_default(tmp_path: Path) -> None:
 def test_the_committed_showcase_is_seen_activations_only() -> None:
     import yaml
 
-    showcase = yaml.safe_load((Path(__file__).resolve().parents[1] / "configs" / "live.yaml").read_text())["showcase"]
+    # 2026-11-12: the file moved to live_rules.LIVE_CONFIG (configs/live/service.yaml); the check is unchanged.
+    showcase = yaml.safe_load((Path(__file__).resolve().parents[1] / live_rules.LIVE_CONFIG).read_text())["showcase"]
     assert showcase and all(live_rules.check_code(code, enabled=False) for code in showcase)
 
 

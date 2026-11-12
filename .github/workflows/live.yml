@@ -1,7 +1,7 @@
 # floodfusion Live: every 6 hours, the next flood maps (floodfusion.watch), published on the live-data branch and then
 # on the site's live page. It needs two repository variables: LIVE_WEIGHTS_REPO and LIVE_WEIGHTS_REVISION, the
 # frozen weights on Hugging Face Hub at a pinned commit; each file is checked against reports/v12_freeze.json.
-# Without them it does nothing. Blind floods (codes from EMSR899 on) stay off until configs/live.yaml switches them
+# Without them it does nothing. Blind floods (codes from EMSR899 on) stay off until configs/live/service.yaml switches them
 # on (reports/protocol_v1_3.md section 6): until then it maps only the showcase's seen floods and manual requests.
 name: live
 
@@ -28,7 +28,7 @@ concurrency:
 
 jobs:
   map:
-    # Only main's own workflow and configs/live.yaml: a manual run from another branch could carry another switch.
+    # Only main's own workflow and configs/live/service.yaml: a manual run from another branch could carry another switch.
     if: >-
       github.event.repository.visibility == 'public' && github.ref == 'refs/heads/main' &&
       vars.LIVE_WEIGHTS_REPO != '' && vars.LIVE_WEIGHTS_REVISION != ''

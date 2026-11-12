@@ -2,7 +2,7 @@
 
 The rule, fixed in ``reports/v1_3_deviations.md`` (2026-11-11) before this code:
 
-- **Codes:** while ``blind_floods`` in ``configs/live.yaml`` is off, every activation code from EMSR899 on is refused
+- **Codes:** while ``blind_floods`` in ``configs/live/service.yaml`` is off, every activation code from EMSR899 on is refused
   before its record is requested (:func:`check_code`).
 - **Dates:** a map refuses a pass date whose optical window (±2 days) reaches 20 July 2026, the first event date of
   the blind set (:func:`check_date`), since it could show a blind flood.
@@ -29,7 +29,7 @@ __all__ = ["BLIND_EVENTS_START", "BLIND_FIRST_CODE", "LIVE_CONFIG", "ActivationS
 BLIND_FIRST_CODE = 899
 #: Its first event date (``reports/protocol_v1_2.md``, Corrections).
 BLIND_EVENTS_START = date(2026, 7, 20)
-LIVE_CONFIG = Path("configs/live.yaml")
+LIVE_CONFIG = Path("configs/live/service.yaml")
 #: As in the benchmark (``floodfusion.cems_benchmark.OPTICAL_WINDOW_DAYS``): optical within ±2 days of the pass.
 _OPTICAL_WINDOW_DAYS = 2
 _CODE = re.compile(r"EMSR([0-9]{3,4})", re.ASCII)
