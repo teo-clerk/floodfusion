@@ -406,6 +406,25 @@ def test_the_live_page_refuses_a_blind_flood_while_blind_floods_are_off(tmp_path
         _script().live_data(late)
 
 
+@pytest.mark.parametrize("code", ["emsr926", " EMSR926", "EMSR926 "])
+def test_a_blind_code_in_another_spelling_is_still_refused(tmp_path, code):
+    with pytest.raises(ValueError, match="blind"):
+        _script().live_data(_live_root(tmp_path, [_entry("x", code=code)]))
+
+
+@pytest.mark.parametrize("code", ["LSR664", "EMSR", "EMSR664; x"])
+def test_a_code_that_is_not_a_cems_code_is_refused(tmp_path, code):
+    with pytest.raises(ValueError, match="not a CEMS activation code"):
+        _script().live_data(_live_root(tmp_path, [_entry("x", code=code)]))
+
+
+@pytest.mark.parametrize("pass_time", ["18 July 2026", "2026/09/01", "late"])
+def test_a_pass_time_that_is_not_iso_is_refused_not_compared_as_text(tmp_path, pass_time):
+    # "18 July 2026" sorts before "2026-07-17" as text, so a string comparison would let it through.
+    with pytest.raises(ValueError, match="pass time"):
+        _script().live_data(_live_root(tmp_path, [_entry("y", code=None, kind="manual", pass_time=pass_time)]))
+
+
 def test_the_live_page_refuses_a_file_outside_its_map(tmp_path):
     entry = {**_entry("a"), "files": ["../../etc/passwd"]}
     with pytest.raises(ValueError, match="outside"):

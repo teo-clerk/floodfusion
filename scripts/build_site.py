@@ -17,6 +17,7 @@ import re
 import shutil
 import tomllib
 from collections.abc import Sequence
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -550,8 +551,20 @@ def blind_floods_on(root: Path = ROOT) -> bool:
 
 
 def _is_blind_flood(entry: dict[str, Any]) -> bool:
-    match = _LIVE_CODE.fullmatch(str(entry.get("code") or ""))
-    return bool(match and int(match.group(1)) >= BLIND_FIRST_CODE) or entry["pass_time"][:10] > BLIND_LAST_PASS_DATE
+    """Whether a published map could show a blind flood. It fails closed: a code that is not a CEMS code, or a pass
+    time that is not ISO 8601, is refused rather than read as seen (``"18 July 2026"`` sorts before ``"2026-07-17"``)."""
+    code = entry.get("code")
+    if code not in (None, ""):
+        match = _LIVE_CODE.fullmatch(str(code).strip().upper())
+        if match is None:
+            raise ValueError(f"live map {entry['id']}: {str(code)[:40]!r} is not a CEMS activation code")
+        if int(match.group(1)) >= BLIND_FIRST_CODE:
+            return True
+    try:
+        passed = datetime.fromisoformat(entry["pass_time"]).date()
+    except ValueError as err:
+        raise ValueError(f"live map {entry['id']}: its pass time {entry['pass_time'][:40]!r} is not ISO 8601") from err
+    return passed > date.fromisoformat(BLIND_LAST_PASS_DATE)
 
 
 def _live_file(entry: dict[str, Any], name: str, live_root: Path) -> Path:

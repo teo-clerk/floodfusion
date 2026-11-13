@@ -3,6 +3,8 @@
 # frozen weights on Hugging Face Hub at a pinned commit; each file is checked against reports/v12_freeze.json.
 # Without them it does nothing. Blind floods (codes from EMSR899 on) stay off until configs/live/service.yaml switches them
 # on (reports/protocol_v1_3.md section 6): until then it maps only the showcase's seen floods and manual requests.
+# Two jobs, so that nothing that installs or runs the model holds a token that can write: "map" reads only and hands
+# the updated live-data tree on as an artifact; "publish" pushes it and starts the Pages build, and runs no project code.
 name: live
 
 on:
@@ -35,8 +37,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 150
     permissions:
-      contents: write   # the push to live-data, in the publish step only
-      actions: write    # dispatching the Pages build
+      contents: read
+    outputs:
+      changed: ${{ steps.changes.outputs.changed }}
     env:
       RUN: runs/v12/final/all/all/row21_fusion_context_seasonal/seed42
     steps:
@@ -81,11 +84,60 @@ jobs:
           fi
           CUDA_VISIBLE_DEVICES= uv run --frozen --no-sync python -m floodfusion.watch run --data live-data --work work \
             --run "$RUN" "${args[@]}"
+      - name: Anything new?
+        id: changes
+        run: |
+          set -euo pipefail
+          cd live-data
+          git add -A
+          if git diff --cached --quiet; then echo "changed=false" >> "$GITHUB_OUTPUT"; else echo "changed=true" >> "$GITHUB_OUTPUT"; fi
+      - name: The updated live-data tree, for the publish job
+        if: steps.changes.outputs.changed == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: live-data-${{ github.run_id }}
+          path: live-data/
+          retention-days: 1
+      - name: The COG layers, kept 90 days
+        if: always() && hashFiles('work/**/*.tif') != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: live-maps-${{ github.run_id }}
+          path: work/*/maps/
+          retention-days: 90
+
+  publish:
+    needs: map
+    if: needs.map.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write   # the push to live-data
+      actions: write    # dispatching the Pages build
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: The maps published so far
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --heads origin live-data > /dev/null; then
+            git fetch --depth=1 origin live-data
+            git worktree add --detach live-data FETCH_HEAD
+          else
+            git worktree add --orphan -b live-data live-data
+          fi
+      - name: This run's maps
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: live-data-${{ github.run_id }}
+          path: new-live-data
       - name: Publish the new maps
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          rsync -a --delete --exclude .git new-live-data/ live-data/
           cd live-data
           git add -A
           if git diff --cached --quiet; then echo "nothing new to publish"; exit 0; fi
@@ -99,10 +151,3 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run pages.yml --ref main --repo "$GITHUB_REPOSITORY"
-      - name: The COG layers, kept 90 days
-        if: always() && hashFiles('work/**/*.tif') != ''
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
-        with:
-          name: live-maps-${{ github.run_id }}
-          path: work/*/maps/
-          retention-days: 90

@@ -44,6 +44,9 @@ floods known, so every v1.3 result is exploratory. v1.2's freeze, ledger and hyp
 ### Fixed
 - Hugging Face downloads (the weights and GEOID-Flood) follow the Hub's relative redirect for small files, still at
   most one validated hop, to `huggingface.co` itself or an `*.hf.co` CDN host.
+- Security review before the release: the live workflow runs the model in a read-only job and pushes from a separate
+  job that runs no project code; the site builder refuses a live map whose code is not a CEMS code or whose pass time
+  is not an ISO date, instead of comparing the date as text.
 - README and DATA_CARD: the CEMS maps are drawn on commercial images, not all on 1–3 m ones (34 of the 75
   radar-drawn pairs on very-high-resolution VHR2-class images, 41 on coarser HR+-class images).
 - README: training runs, not every report, record the git SHA.

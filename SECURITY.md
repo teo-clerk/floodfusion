@@ -63,9 +63,13 @@ pins each bypass a security review demonstrated):
 - **The live workflow** (`.github/workflows/live.yml`) runs on a schedule, or on a manual dispatch by someone with write
   access, and only from `main` of the public repository. The weights' repository and commit come from repository
   variables. A manual map's box and date reach the script through environment variables, never pasted into it, and
-  must match a strict pattern before they reach the code, which validates them again. The checkout keeps no
-  credentials: only the last two steps use the job's token, to push the `live-data` branch and to start the Pages
-  build. Blind floods stay refused until `configs/live/service.yaml` switches them on, and
+  must match a strict pattern before they reach the code, which validates them again. Two jobs separate the work
+  from the write access: `map`, which installs the locked environment and runs the model, holds a read-only token and
+  hands the updated `live-data` tree on as an artifact; `publish` runs no project code, and only it can push the
+  `live-data` branch and start the Pages build. Neither checkout keeps credentials.
+- **The live page's data** is treated as untrusted when the site is built (`scripts/build_site.py`): each map's files
+  must be plain, size-capped JSON inside that map's folder, no symlink is followed, and while blind floods are off a
+  map whose code is blind, whose code is not a CEMS code, or whose pass time is not an ISO date stops the build. Blind floods stay refused until `configs/live/service.yaml` switches them on, and
   `tests/test_live_rules.py` checks that the committed switch is off.
 - **Secrets.** None are needed. Signed Planetary Computer URLs are redacted from logs, error
   messages and tracebacks, including urllib3's `url: /path?…` form.
