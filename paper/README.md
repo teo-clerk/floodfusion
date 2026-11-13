@@ -14,7 +14,7 @@
   ceiling and the ladder, which `paper_v13.tex` reuses). Both print every number they plot, and the second also
   saves them as JSON beside its figures.
 - `TODO(status)` comments in `paper_v13.tex` mark what is updated at submission: the ledger's counts, the live
-  switch, the test counts at the release merge, and any independent archive.
+  switch, and any independent archive.
 
 **The extended abstract.** `abstract_v12.tex` condenses the v1.2 paper onto one page, with the same preamble and
 layout. Every number in it appears in `paper_v12.tex`, and its `% src:` comments name the paper section each comes

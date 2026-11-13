@@ -4,8 +4,8 @@
 % Every number is taken from a committed report under reports/; the source is named in a comment beside it.
 % Differences marked "derived" are subtractions of two sourced numbers. Figures: paper/make_figures.py (v1.2's) and
 % paper/igarss27/make_figures.py (the ceiling and the ladder), whose JSON files hold every number they plot.
-% "TODO(status)" marks what is updated at submission: the ledger's counts, the live switch, the test counts at the
-% v1.3.0 merge, and any independent archive (Zenodo, Software Heritage).
+% "TODO(status)" marks what is updated at submission: the ledger's counts, the live switch, and any independent
+% archive (Zenodo, Software Heritage).
 \documentclass[10pt,twocolumn,a4paper]{article}
 
 \usepackage[T1]{fontenc}
@@ -1243,7 +1243,7 @@ author's direction, the agent:
     rules, which the author approved;
   \item implemented the specification and the later releases: the data pipeline, the models, the scorers, the
     blind-test runner, the Arena page and the live service;
-  \item extended the test suite from the 281 specified test functions to 973;
+  \item extended the test suite from the 281 specified test functions to 976;
   \item ran structured review passes with separate agent instances: code, Python, machine-learning engineering and
     security. Their findings were fixed or, where a fix would have changed models already cross-validated,
     disclosed; findings that touched a rule were logged before the result they could affect. The review of the
@@ -1262,7 +1262,7 @@ v1.1's first amendment was written after the Stage A diagnostics of the v1.0 mod
     of its configuration, manifest and splits. The table builders refuse runs made from different code, mixed data
     sets or mixed test sets.
   \item \textbf{Environment and tests.} The environment is locked with uv. Continuous integration runs the linter and
-    the offline test suite on Python 3.11 and 3.12. At this release, 1,225 offline tests pass and 6 are skipped, with
+    the offline test suite on Python 3.11 and 3.12. At this release, 1,238 offline tests pass and 2 are skipped, with
     82.7\pp{} combined statement and branch coverage of the package; tests that need live services are excluded by
     default.
   \item \textbf{The blind test.} Its models, calibrations, thresholds and specification are pinned by SHA-256 at the
@@ -1270,9 +1270,9 @@ v1.1's first amendment was written after the Stage A diagnostics of the v1.0 mod
   \item \textbf{Compute.} Every experiment ran on one laptop GPU (NVIDIA RTX 4060 Laptop, 8\,GB), one job at a time;
     v1.3's ladder took 9.2 GPU-hours. The live service runs on CPU.
 \end{itemize}
-% src: README.md (Reproduce; table builders); test run at commit 1c7bae1 (feat/v1.3-live): 1225 passed, 6 skipped,
-% 6 deselected, coverage 82.7 %; test functions: grep -c 'def test_' over tests/ (867 at v1.2.0, 973 at 1c7bae1).
-% TODO(status): re-run at the v1.3.0 merge (the four golden tests skipped here need runs/, absent in this worktree).
+% src: README.md (Reproduce; table builders); test run at commit b6f77cd, the v1.3.0 release candidate, in the
+% worktree that holds runs/ (so the golden tests ran): 1238 passed, 2 skipped, 6 deselected, coverage 82.68 %;
+% test functions: grep -c 'def test_' over tests/ (867 at v1.2.0, 976 at b6f77cd).
 
 % =====================================================================================================================
 \section{Conclusion}
