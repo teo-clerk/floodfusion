@@ -110,14 +110,15 @@ class EventConfig:
     """One flood event to ingest (``configs/events/*.yaml``).
 
     Paths are resolved relative to the YAML file. ``label_where`` keeps only features whose
-    attribute matches, e.g. ``{"event_type": ["5-Flood"]}`` for CEMS ``observedEventA``.
+    attribute matches, e.g. ``{"event_type": ["5-Flood"]}`` for CEMS ``observedEventA``. Without ``label_path``
+    (floodfusion Live: a new flood has no reference map yet) the label band is empty.
     """
 
     event_id: str
     bbox: tuple[float, float, float, float]
     flood_start: date
     flood_end: date
-    label_path: Path
+    label_path: Path | None = None
     label_layer: str | None = None
     label_where: Mapping[str, tuple[Any, ...]] = field(default_factory=dict)
     aoi_path: Path | None = None
@@ -167,7 +168,7 @@ def load_event_config(path: Path | str) -> EventConfig:
     unknown = sorted(set(raw) - known)
     if unknown:
         raise ValueError(f"{path}: unknown event keys {unknown}; known: {sorted(known)}")
-    missing = sorted({"event_id", "bbox", "flood_start", "flood_end", "label_path"} - set(raw))
+    missing = sorted({"event_id", "bbox", "flood_start", "flood_end"} - set(raw))
     if missing:
         raise ValueError(f"{path}: missing required event keys {missing}")
     values = dict(raw)
@@ -268,8 +269,11 @@ def _reference_layers(sources: IngestSources, event: EventConfig, grid: Analysis
     worldcover = items_in_bbox(sources.client, "esa-worldcover", event.bbox)
     latest = max((str(i["properties"].get("start_datetime", "")) for i in worldcover), default="")
     landcover = read_worldcover([i for i in worldcover if str(i["properties"].get("start_datetime", "")) == latest], grid)
-    # Flood = observed water AND NOT permanent water (docs/05 section 3.3).
-    label = rasterise_vector(event.label_path, grid, layer=event.label_layer, where=event.label_where) & ~permanent
+    # Flood = observed water AND NOT permanent water (docs/05 section 3.3). No reference map: an empty label.
+    if event.label_path is None:
+        label = np.zeros((grid.height, grid.width), dtype=bool)
+    else:
+        label = rasterise_vector(event.label_path, grid, layer=event.label_layer, where=event.label_where) & ~permanent
     return GridReference(label=label.astype(np.float64), inside_aoi=inside_aoi, permanent=permanent, landcover=landcover)
 
 

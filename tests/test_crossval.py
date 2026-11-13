@@ -344,3 +344,18 @@ def test_variants_get_one_seed_and_train_only_in_cross_validation() -> None:
     assert seeds_for(9, [42, 43, 44], "full") == [42, 43, 44]
     assert all(seeds_for(r, [42, 43, 44], "full") == [42] for r in CV_ONLY_ROWS)
     assert seeds_for(4, [42, 43, 44], "affordable") == [42]
+
+
+def test_init_source_names_the_matching_run_of_the_start_root(tmp_path: Path) -> None:
+    """v1.3's fine-tuning (``crossval run --init-from-root``): each run starts from <root>/<run name>/seed<seed>."""
+    import argparse
+
+    from floodfusion.crossval import init_source
+
+    assert init_source(argparse.Namespace(init_from_root=None), "row21_x", 42) is None
+    args = argparse.Namespace(init_from_root=tmp_path)
+    with pytest.raises(FileNotFoundError, match="seed43"):
+        init_source(args, "row21_x", 43)
+    (tmp_path / "row21_x" / "seed42").mkdir(parents=True)
+    (tmp_path / "row21_x" / "seed42" / "best.pt").write_bytes(b"")
+    assert init_source(args, "row21_x", 42) == tmp_path / "row21_x" / "seed42"

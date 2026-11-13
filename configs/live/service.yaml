@@ -1,0 +1,8 @@
+# floodfusion Live (reports/protocol_v1_3.md §6; reports/v1_3_deviations.md, 2026-11-11).
+# blind_floods: false refuses activation codes from EMSR899 on and maps whose dates reach 20 July 2026.
+# It is switched on only by a commit made after v1.3.0-freeze (or after the ladder decides that there is no v1.3
+# model), on the author's go; that commit also edits tests/test_live_rules.py::test_the_committed_switch_is_off.
+blind_floods: false
+# Seen activations (EMSR656-898) mapped on every pass of their first three days, up to 4 AOIs each: Forli, Italy
+# (May 2023, the case study); Storm Boris, Poland and Czechia (September 2024); Valencia, Spain (October 2024).
+showcase: [EMSR664, EMSR756, EMSR773]

@@ -23,6 +23,12 @@ What a run does, in order (``docs/08`` section 7):
    clipping; validate every epoch on per-basin confusion matrices; checkpoint on the best
    validation macro-over-basin IoU; stop early on validation only.
 
+**Starting from another run** (``--init-from <run folder>``, v1.3's fine-tuning, ``reports/protocol_v1_3.md`` §3).
+The run starts from that finished run's ``best.pt`` instead of a fresh initialisation, and keeps that run's
+normalisation statistics (:func:`adopt_init`): the network was trained on inputs scaled that way. ``run.json``
+records the source run, its checkpoint's sha256 and epoch under ``init_from``. It is a command-line option, not a
+configuration field, so no configuration hash of an earlier run changes.
+
 References
 ----------
 ``docs/08_training_recipe_and_vram.md`` sections 5, 7.
@@ -74,8 +80,10 @@ __all__ = [
     "EVAL_CONTEXT_PX",
     "EmptySplitError",
     "TrainingData",
+    "adopt_init",
     "chip_set_sha256",
     "fit",
+    "init_weights",
     "load_training_data",
     "main",
     "model_inputs",
@@ -155,6 +163,56 @@ def load_training_data(cfg: ExperimentConfig, data_root: Path | str) -> Training
                         manifest_provenance=meta.get("provenance", {}), split_path=split_path,
                         split_strategy=split.strategy, norm_stats_path=norm_path,
                         split_sha256=hashlib.sha256(split_path.read_bytes()).hexdigest())
+
+
+# ---------------------------------------------------------------------------
+# Starting from another run (v1.3)
+# ---------------------------------------------------------------------------
+def _finished_source(run_dir: Path) -> dict[str, Any]:
+    from floodfusion.runs import load_run_record
+
+    record = load_run_record(run_dir)
+    if record.get("status") != "finished":
+        raise ValueError(f"{run_dir}: run status is {record.get('status')!r}, not 'finished'; cannot start from it")
+    return record
+
+
+def adopt_init(data: TrainingData, source_run: Path) -> TrainingData:
+    """``data`` with the source run's normalisation statistics, for a run that starts from its weights.
+
+    The network must be the source's (same model configuration): its weights are loaded strictly.
+    """
+    from floodfusion.config import config_from_dict
+
+    record = _finished_source(Path(source_run))
+    source = config_from_dict(record["config"])
+    if source.model != data.cfg.model:
+        raise ValueError(f"{source_run} trained a different network ({source.model.architecture}); "
+                         "a run can only start from a run of its own model configuration")
+    return replace(data, cfg=replace(data.cfg, norm=source.norm), norm_stats_path=Path(record["norm_stats_file"]))
+
+
+def init_weights(model: nn.Module, source_run: Path, *, device: torch.device) -> dict[str, Any]:
+    """Load the source run's ``best.pt`` into ``model`` (strictly); return what ``run.json`` records of it."""
+    import hashlib
+
+    record = _finished_source(Path(source_run))
+    checkpoint = Path(source_run) / "best.pt"
+    state = torch.load(checkpoint, map_location=device, weights_only=True)  # never unpickle arbitrary code
+    if state.get("config_sha256") != record["config_sha256"]:
+        raise ValueError(f"{checkpoint} was written by a different configuration than its run.json")
+    model.load_state_dict(state["model"])
+    LOGGER.info("starting from %s (epoch %d, val macro IoU %.4f)", checkpoint, state["epoch"], state["val_macro_iou"])
+    return {"run": str(source_run), "epoch": int(state["epoch"]),
+            "checkpoint_sha256": hashlib.sha256(checkpoint.read_bytes()).hexdigest()}
+
+
+def _check_init(data: TrainingData, source_run: Path) -> None:
+    """Refuse a start from ``source_run`` unless ``data`` carries its normalisation (:func:`adopt_init`)."""
+    from floodfusion.config import config_from_dict
+
+    if config_from_dict(_finished_source(Path(source_run))["config"]).norm != data.cfg.norm:
+        raise ValueError(f"the data's normalisation is not {source_run}'s: pass the data through adopt_init first")
 
 
 # ---------------------------------------------------------------------------
@@ -523,13 +581,21 @@ def fit(
     device: torch.device,
     resume: Path | None = None,
     provenance: Mapping[str, Any] | None = None,
+    init_from: Path | None = None,
 ) -> dict[str, Any]:
-    """Train ``data.cfg`` (one configuration, one seed); returns the final ``run.json``."""
+    """Train ``data.cfg`` (one configuration, one seed); returns the final ``run.json``.
+
+    ``init_from`` starts from that finished run's weights; ``data`` must carry its normalisation (:func:`adopt_init`).
+    """
     cfg = data.cfg
+    if init_from is not None:
+        _check_init(data, init_from)
     seed_everything(cfg.train.seed, deterministic=cfg.train.deterministic)
     configure_torch(cfg, device)
     run_dir.mkdir(parents=True, exist_ok=True)
     model = build_model(cfg.model).to(device)
+    if init_from is not None:
+        provenance = {**(provenance or {}), "init_from": init_weights(model, init_from, device=device)}
     if cfg.train.grad_checkpointing:
         model.enable_gradient_checkpointing(True)
     if cfg.train.channels_last:
@@ -595,6 +661,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--data-root", type=Path, required=True)
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--resume", type=Path, default=None, help="a last.pt to continue from")
+    parser.add_argument("--init-from", type=Path, default=None,
+                        help="a finished run folder: start from its best.pt and its normalisation statistics")
     parser.add_argument("--overlay", type=Path, action="append", default=[])
     parser.add_argument("--set", dest="overrides", action="append", default=[], help="a.b=value override")
     parser.add_argument("--runs-root", type=Path, default=Path("runs"))
@@ -611,8 +679,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise SystemExit(f"chip_source={cfg.data.chip_source!r} may substitute simulated pixels; "
                          "pass --allow-synthetic to accept that")
     data = load_training_data(cfg, args.data_root)
+    if args.init_from is not None:
+        data = adopt_init(data, args.init_from)
     run_dir = args.run_dir or run_dir_for(args.runs_root, cfg.name, cfg.train.seed)
-    fit(data, run_dir, device=resolve_device(args.device), resume=args.resume, provenance={
+    fit(data, run_dir, device=resolve_device(args.device), resume=args.resume, init_from=args.init_from, provenance={
         "config_path": str(args.config), "overlays": [str(o) for o in args.overlay],
         "overrides": overrides, "data_root": str(args.data_root),
     })

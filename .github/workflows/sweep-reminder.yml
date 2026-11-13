@@ -1,0 +1,54 @@
+# A weekly reminder to run the v1.2 blind-test sweep (reports/protocol_v1_2.md). It reads nothing but the committed
+# ledger on blind/v1.2: no activation record, product or map, so it queries no blind flood. The sweep itself stays a
+# manual step on the author's machine (no timer there), so this only opens an issue when no ledger row is 7+ days new.
+name: sweep reminder
+
+on:
+  schedule:
+    - cron: "0 8 * * 1"   # Mondays, 08:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: sweep-reminder
+  cancel-in-progress: false
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: blind/v1.2
+          sparse-checkout: reports/prospective/ledger.jsonl
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: Open an issue when the newest ledger row is a week old
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          last=$(python3 -c 'import json; rows = [json.loads(l) for l in open("reports/prospective/ledger.jsonl") if l.strip()]; print(max(r["at"] for r in rows))')
+          age=$(( ($(date +%s) - $(date -d "$last" +%s)) / 86400 ))
+          echo "newest ledger row: $last ($age days ago)"
+          [ "$age" -ge 7 ] || exit 0
+          title="Blind-test sweep due"
+          open=$(gh issue list --repo "$REPO" --state open --search "\"$title\" in:title" --json number --jq 'length')
+          if [ "$open" -gt 0 ]; then echo "an open reminder exists"; exit 0; fi
+          gh issue create --repo "$REPO" --title "$title" --body "The newest row of the blind-test ledger (\`reports/prospective/ledger.jsonl\` on \`blind/v1.2\`) is from ${last%%T*}, ${age} days ago.
+
+          Run a sweep from the freeze worktree, then commit and push the ledger:
+
+          \`\`\`
+          cd ../01_FLOOD_v12_freeze && make v12-watch
+          \`\`\`
+
+          While a v1.3 GPU queue is running, use the waiting form instead, which takes the GPU between two jobs:
+          \`flock /tmp/floodfusion-gpu.lock uv run --frozen python -m floodfusion.prospective sweep\`.
+
+          A sweep that finds nothing new writes no row: if you swept this week, close this issue."

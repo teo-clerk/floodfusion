@@ -25,10 +25,10 @@ import re
 import time
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
-__all__ = ["HTTPStatusError", "TransientHTTPError", "capped_get", "check_https_url", "check_local_path", "redact",
-           "redacted_traceback"]
+__all__ = ["HTTPStatusError", "TransientHTTPError", "capped_get", "check_https_url", "check_local_path", "hub_redirect",
+           "redact", "redacted_traceback"]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -82,6 +82,18 @@ def check_https_url(url: str, *, hosts: Sequence[str] = (), suffixes: Sequence[s
         if not parsed.path.startswith(tuple(path_prefixes)):
             raise ValueError(f"refusing URL outside the allowed paths: https://{host}{parsed.path[:60]}")
     return text
+
+
+def hub_redirect(url: str, location: str, *, host: str, cdn_suffix: str) -> str:
+    """The checked target of a Hugging Face download's one redirect (``location``, from a GET of ``url``).
+
+    The Hub sends a small file to a relative path on ``host`` itself (seen 2026-11-12) and a large one to its CDN under
+    ``cdn_suffix``. A relative ``location`` is resolved against ``url``; the target must then be plain ``https`` to
+    ``host`` or a host ending in ``cdn_suffix``. An empty ``location`` is refused (it would resolve to ``url`` again).
+    """
+    if not location:
+        raise ValueError(f"refusing a redirect without a Location header from {redact(url)[:100]}")
+    return check_https_url(urljoin(url, location), hosts=(host,), suffixes=(cdn_suffix,))
 
 
 def refuse_redirect(url: str, *, check: Callable[[str], str], timeout_s: float = 30.0) -> str:

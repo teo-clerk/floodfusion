@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>floodfusion Live</title>
+  <meta name="description" content="floodfusion Live: flood maps from Sentinel-1 radar, made by the frozen v1.2 model on a schedule, with no Copernicus product read and no blind flood shown until the author switches them on.">
+  <meta name="color-scheme" content="light dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b6e99'/%3E%3Cpath d='M4 20c4-4 8 4 12 0s8 4 12 0v8H4z' fill='%23fff'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="live">
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <a class="brand" href="index.html">flood<span>fusion</span></a>
+    <nav class="topnav" aria-label="Sections">
+      <a href="#maps">Maps</a>
+      <a href="#how">How it works</a>
+      <a href="#blind">Blind floods</a>
+      <a href="index.html">Explainer</a>
+      <a href="arena.html">Arena</a>
+    </nav>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="theme-toggle" type="button" aria-label="Switch between light and dark theme">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/></svg>
+      </button>
+      <a class="btn btn-small" href="https://github.com/teo-clerk/floodfusion">GitHub</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <p class="wrap notice" id="no-data" hidden>The live page's data is missing. Build it with
+    <code>uv run python scripts/build_site.py</code> and open <code>_site/live.html</code>.</p>
+
+  <section class="hero arena-hero" id="top">
+    <div class="wrap">
+      <p class="eyebrow">floodfusion · Live</p>
+      <h1>Flood maps from Sentinel-1, made by a frozen model, by themselves</h1>
+      <p class="lede">Every six hours a scheduled job asks which floods need a map, finds the Sentinel-1 radar passes
+        over them, and maps each one with the model frozen for the blind test: the same weights, byte for byte, and
+        the same threshold. The job reads no Copernicus product, and no map here has been checked against one.</p>
+      <div class="stats" id="live-stats"></div>
+    </div>
+  </section>
+
+  <section class="section" id="maps">
+    <div class="wrap">
+      <p class="kicker">1 · Maps</p>
+      <h2>The maps so far</h2>
+      <p class="section-lede">Pick a map: the flood the model found on that pass (magenta), inside the area it was
+        asked to map (dashed). One radar pass rarely images a whole area: the part it did not image is greyed out,
+        because "not seen" is not "dry". The polygons and STAC items can be downloaded per tile; the full COG layers
+        stay with the job that made them.</p>
+      <p class="notice" id="no-maps" hidden>No map has been published yet: the watcher's first run publishes here.</p>
+      <div class="panel live-grid" id="live-panel">
+        <ul class="map-list" id="map-list" aria-label="Maps"></ul>
+        <div class="map-side">
+          <div class="map-view" id="map-view" role="img" aria-label="The selected flood map"></div>
+          <p class="footnote" id="map-note"></p>
+          <dl class="map-details" id="map-details"></dl>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt" id="how">
+    <div class="wrap">
+      <p class="kicker">2 · How it works</p>
+      <h2>One command, any place and date</h2>
+      <ol class="test-list">
+        <li><strong>What to map.</strong> A list of seen Copernicus floods to show, and, once blind floods are switched
+          on, every new Copernicus flood activation, watched for 30 days. Of an activation the job reads only its code,
+          name, category, date and the outlines of its areas.</li>
+        <li><strong>Which passes.</strong> The Sentinel-1 passes over each area, from Microsoft Planetary Computer.</li>
+        <li><strong>The inputs,</strong> rebuilt exactly as for the benchmark: the post-event pass, its same-orbit
+          reference, the seasonal reference a year earlier, terrain, and Sentinel-2 where it is clear. On a replayed
+          benchmark tile all 14 input bands were identical.</li>
+        <li><strong>The map,</strong> on CPU, with the frozen weights downloaded from Hugging Face Hub and checked
+          file by file against the freeze manifest.</li>
+      </ol>
+      <pre class="code-block"><code>uv run --frozen python -m floodfusion.live map --bbox 11.8 44.15 12.2 44.3 --date 2023-05-17 --out maps/forli</code></pre>
+    </div>
+  </section>
+
+  <section class="section" id="blind">
+    <div class="wrap">
+      <p class="kicker">3 · Blind floods</p>
+      <h2>Why the newest floods are not here yet</h2>
+      <p class="section-lede">Copernicus flood activations from EMSR899 on are the blind test: the frozen models
+        score them, sealed, until 20 activations in 15 clusters are scored or 31 December 2027. While a second model
+        was in development, this page could show no blind flood, so that no output on one could reach it. That
+        development has ended: fine-tuning on Copernicus's own labels scored lower than the frozen model, so there is
+        no v1.3 model. Blind floods appear here once the author switches them on, as the model's map alone, with no
+        Copernicus outline and no score.</p>
+      <p class="callout" id="blind-status"></p>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    <p>floodfusion · MIT licence (code), CC BY 4.0 (weights) ·
+      <a href="https://github.com/teo-clerk/floodfusion">github.com/teo-clerk/floodfusion</a> ·
+      <a href="index.html">the explainer</a> · <a href="arena.html">the Arena</a></p>
+    <p class="muted">Map tiles © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>,
+      loaded from tile.openstreetmap.org when a map is shown. Contains modified Copernicus Sentinel data (2015–2026),
+      accessed through Microsoft Planetary Computer; Sentinel-1 RTC processed by Catalyst (CC BY 4.0). Copernicus DEM
+      © DLR e.V. 2010–2014 and © Airbus Defence and Space GmbH 2014–2018, provided under COPERNICUS by the European
+      Union and ESA. ESA WorldCover 2021, CC BY 4.0. Trained on Kuro Siwo (Bountos et al., NeurIPS 2024, CC BY 4.0)
+      and GEOID-Flood (Chiriaco et al., 2026, CC BY 4.0). Activation names and areas: Copernicus Emergency Management
+      Service, © European Union. Developed with AI assistance (Claude Code); the design decisions, verification and
+      results were reviewed by the author.</p>
+  </div>
+</footer>
+
+<script src="live-data.js"></script>
+<script src="live.js"></script>
+</body>
+</html>

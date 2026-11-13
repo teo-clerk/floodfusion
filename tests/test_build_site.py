@@ -358,3 +358,161 @@ def test_erratum_2_reports_its_measured_effect_once_the_rebuilt_stacks_are_score
     assert dem["resolved"] and dem["status"] == "Measured on the rebuilt stacks"
     assert "+0.002 to +0.010" in dem["result"] and "at most 0.0000" in dem["result"]
     assert "-0.033" in dem["result"] and "13/38" in dem["result"] and "holds" in dem["result"]
+
+
+# --- floodfusion Live's page (v1.3, 2026-11-11) ------------------------------------------------------------------
+
+def _live_root(tmp_path, maps, *, blind=False):
+    root = tmp_path / "live-data"
+    for entry in maps:
+        tile = root / "maps" / entry["id"] / "t00_00"
+        tile.mkdir(parents=True)
+        (tile / "flood.geojson").write_text('{"type": "FeatureCollection", "features": []}', encoding="utf-8")
+    (root / "index.json").write_text(json.dumps({"maps": maps, "blind_floods": blind, "complete": [], "failures": {"x": 1},
+                                                 "updated_at": "2026-11-11T06:00:00+00:00", "last_code": 898}))
+    return root
+
+
+def _entry(map_id, code="EMSR664", pass_time="2023-05-17T05:16:00+00:00", kind="showcase"):
+    return {"id": map_id, "kind": kind, "code": code, "name": "Flood in Italy", "aoi": 1, "aoi_name": "Forlì",
+            "bbox": [12.0, 44.2, 12.1, 44.3], "pass_time": pass_time, "mapped_at": "2026-11-11T06:00:00+00:00",
+            "delay_hours": 30000.0, "flood_km2": 1.5, "valid_km2": 40.0, "tiles": 1, "skipped_tiles": 0,
+            "files": [f"maps/{map_id}/t00_00/flood.geojson"], "event_date": "2023-05-16", "orbit": 95,
+            "orbit_state": "descending"}
+
+
+def test_the_live_page_waits_for_its_first_maps(tmp_path):
+    data = _script().live_data(tmp_path / "absent")
+    assert data == {"maps": [], "updated_at": None, "blind_floods": False}
+
+
+def test_the_live_page_lists_the_newest_pass_first_and_copies_only_its_polygons(tmp_path):
+    root = _live_root(tmp_path, [_entry("a", pass_time="2023-05-17T05:16:00+00:00"),
+                                 _entry("b", pass_time="2023-05-18T17:05:00+00:00")])
+    out = tmp_path / "site"
+    data = _script().live_data(root, out=out)
+    assert [m["id"] for m in data["maps"]] == ["b", "a"] and "failures" not in data
+    assert data["updated_at"] == "2026-11-11T06:00:00+00:00"
+    assert (out / "live" / "maps" / "a" / "t00_00" / "flood.geojson").is_file()
+    assert data["maps"][0]["files"] == ["live/maps/b/t00_00/flood.geojson"]
+
+
+def test_the_live_page_refuses_a_blind_flood_while_blind_floods_are_off(tmp_path):
+    root = _live_root(tmp_path, [_entry("x", code="EMSR926")])
+    with pytest.raises(ValueError, match="blind"):
+        _script().live_data(root)
+    late = _live_root(tmp_path / "late", [_entry("y", code=None, kind="manual", pass_time="2026-09-01T05:00:00+00:00")])
+    with pytest.raises(ValueError, match="blind"):
+        _script().live_data(late)
+
+
+@pytest.mark.parametrize("code", ["emsr926", " EMSR926", "EMSR926 "])
+def test_a_blind_code_in_another_spelling_is_still_refused(tmp_path, code):
+    with pytest.raises(ValueError, match="blind"):
+        _script().live_data(_live_root(tmp_path, [_entry("x", code=code)]))
+
+
+@pytest.mark.parametrize("code", ["LSR664", "EMSR", "EMSR664; x"])
+def test_a_code_that_is_not_a_cems_code_is_refused(tmp_path, code):
+    with pytest.raises(ValueError, match="not a CEMS activation code"):
+        _script().live_data(_live_root(tmp_path, [_entry("x", code=code)]))
+
+
+@pytest.mark.parametrize("pass_time", ["18 July 2026", "2026/09/01", "late"])
+def test_a_pass_time_that_is_not_iso_is_refused_not_compared_as_text(tmp_path, pass_time):
+    # "18 July 2026" sorts before "2026-07-17" as text, so a string comparison would let it through.
+    with pytest.raises(ValueError, match="pass time"):
+        _script().live_data(_live_root(tmp_path, [_entry("y", code=None, kind="manual", pass_time=pass_time)]))
+
+
+def test_the_live_page_refuses_a_file_outside_its_map(tmp_path):
+    entry = {**_entry("a"), "files": ["../../etc/passwd"]}
+    with pytest.raises(ValueError, match="outside"):
+        _script().live_data(_live_root(tmp_path, [entry]), out=tmp_path / "site")
+
+
+def test_the_live_page_and_its_script_agree(tmp_path):
+    out = tmp_path / "site"
+    _script().build(out, live_root=_live_root(tmp_path, [_entry("a")]))
+    html = (out / "live.html").read_text(encoding="utf-8")
+    script = (out / "live.js").read_text(encoding="utf-8")
+    ids = set(re.findall(r'\bid="([^"]+)"', html))
+    for wanted in re.findall(r'byId\("([^"]+)"\)', script):
+        assert wanted in ids, f"live.js looks up #{wanted}, which live.html does not define"
+    for anchor in re.findall(r'href="#([^"]+)"', html):
+        assert anchor in ids, f"live.html links to #{anchor}, which does not exist"
+    assert (out / "live-data.js").read_text(encoding="utf-8").startswith("window.FLOODFUSION_LIVE = {")
+
+
+def test_only_the_live_page_may_fetch_and_only_from_itself_and_one_tile_host(tmp_path):
+    out = tmp_path / "site"
+    _script().build(out)
+    csp = {}
+    for page in ("index.html", "arena.html", "live.html"):
+        meta = re.search(r'http-equiv="Content-Security-Policy" content="([^"]+)"', (out / page).read_text())
+        csp[page] = dict(part.strip().split(" ", 1) for part in meta.group(1).split(";"))
+    assert csp["index.html"]["connect-src"] == csp["arena.html"]["connect-src"] == "'none'"
+    assert csp["live.html"]["connect-src"] == "'self'" and csp["live.html"]["script-src"] == "'self'"
+    assert csp["live.html"]["img-src"] == "'self' data: https://tile.openstreetmap.org"
+
+
+def test_the_live_page_and_the_live_service_share_the_blind_rule():
+    from datetime import date, timedelta
+
+    from floodfusion import live_rules
+
+    module = _script()
+    assert module.BLIND_FIRST_CODE == live_rules.BLIND_FIRST_CODE
+    last = date.fromisoformat(module.BLIND_LAST_PASS_DATE)
+    assert live_rules.check_date(last, enabled=False) == last
+    with pytest.raises(live_rules.BlindFloodRefusedError):
+        live_rules.check_date(last + timedelta(days=1), enabled=False)
+
+
+# --- after the security and code reviews of 2026-11-11 -------------------------------------------------------------
+
+def test_the_live_page_takes_the_blind_switch_from_the_repository_not_from_the_data(tmp_path):
+    root = _live_root(tmp_path, [_entry("x", code="EMSR926")], blind=True)   # the data claims the switch is on
+    with pytest.raises(ValueError, match="blind"):
+        _script().live_data(root)
+    assert _script().live_data(_live_root(tmp_path / "ok", [_entry("a")], blind=True))["blind_floods"] is False
+
+
+def test_the_live_page_refuses_a_symlinked_file(tmp_path):
+    root = _live_root(tmp_path, [_entry("a")])
+    secret = tmp_path / "secret"
+    secret.write_text("token")
+    target = root / "maps" / "a" / "t00_00" / "flood.geojson"
+    target.unlink()
+    target.symlink_to(secret)
+    with pytest.raises(ValueError, match="not a plain file"):
+        _script().live_data(root, out=tmp_path / "site")
+    assert not (tmp_path / "site" / "live" / "maps" / "a" / "t00_00" / "flood.geojson").exists()
+
+
+def test_the_live_page_refuses_a_file_that_is_not_geojson(tmp_path):
+    root = _live_root(tmp_path, [_entry("a")])
+    (root / "maps" / "a" / "t00_00" / "flood.geojson").write_text("not json")
+    with pytest.raises(ValueError, match="JSON"):
+        _script().live_data(root, out=tmp_path / "site")
+
+
+def test_the_live_page_ships_each_map_s_stac_item(tmp_path):
+    root = _live_root(tmp_path, [_entry("a")])
+    (root / "maps" / "a" / "t00_00" / "item.json").write_text('{"type": "Feature"}')
+    data = _script().live_data(root, out=tmp_path / "site")
+    assert data["maps"][0]["items"] == ["live/maps/a/t00_00/item.json"]
+    assert (tmp_path / "site" / "live" / "maps" / "a" / "t00_00" / "item.json").is_file()
+
+
+def test_a_live_map_without_a_pass_time_is_refused(tmp_path):
+    with pytest.raises(ValueError, match="pass time"):
+        _script().live_data(_live_root(tmp_path, [{**_entry("a"), "pass_time": None}]))
+
+
+def test_the_live_page_gets_the_imaged_tiles_and_refuses_malformed_ones(tmp_path):
+    entry = {**_entry("a"), "tile_bboxes": [[12.0, 44.2, 12.05, 44.25]]}
+    assert _script().live_data(_live_root(tmp_path, [entry]))["maps"][0]["tile_bboxes"] == [[12.0, 44.2, 12.05, 44.25]]
+    bad = {**_entry("b"), "tile_bboxes": [["12", 44.2, 12.05]]}
+    with pytest.raises(ValueError, match="tile"):
+        _script().live_data(_live_root(tmp_path / "bad", [bad]))

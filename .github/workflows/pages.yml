@@ -1,6 +1,7 @@
 name: pages
 
-# Publishes the interactive explainer (site/, with every number read from reports/) to GitHub Pages.
+# Publishes the interactive explainer (site/, with every number read from reports/) to GitHub Pages, with the
+# live page's maps from the live-data branch; live.yml dispatches it after each run that publishes maps.
 # It runs on the public repository only, after Pages is enabled with "GitHub Actions" as its source.
 on:
   push:
@@ -28,9 +29,17 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false   # the live-data branch is data: no token on disk while it is read
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
         with:
           python-version: "3.12"
+      - name: The live maps, if any (the live-data branch, written by .github/workflows/live.yml)
+        run: |
+          if git ls-remote --exit-code --heads origin live-data > /dev/null; then
+            git fetch --depth=1 origin live-data
+            git worktree add --detach live-data FETCH_HEAD
+          fi
       - name: Build the site from the committed reports
         # Only NumPy and Pillow are needed, at uv.lock's versions for Python 3.12; the full environment is not.
         run: uv run --no-project --with numpy==2.5.3 --with pillow==12.3.0 python scripts/build_site.py --out _site

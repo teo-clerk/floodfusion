@@ -18,17 +18,26 @@ pins each bypass a security review demonstrated):
   Cloud Storage bucket path; the CEMS client only to `rapidmapping.emergency.copernicus.eu` and,
   through at most one validated redirect, its S3 bucket. v1.2 adds, each with its own allow-list:
   - **GFM:** `stac.eodc.eu`, including every STAC "next" link, and `data.eodc.eu` for its COGs.
-  - **GEOID-Flood:** `huggingface.co` at a pinned revision, then at most one validated redirect to an `*.hf.co` CDN
-    host.
+  - **GEOID-Flood:** `huggingface.co` at a pinned revision, then at most one validated redirect, to `huggingface.co`
+    itself (the Hub's relative redirect for small files) or to an `*.hf.co` CDN host.
   - **AlphaEarth:** `data.source.coop`, under `/tge-labs/aef/v1/annual/` only. Paths with dot segments, empty
     segments or encoded dots or slashes are refused, so the prefix cannot be climbed out of. The file index
     (`data/aef_raw/aef_index.parquet`) is read as trusted local input.
+
+  v1.3 adds:
+  - **The frozen weights** (`weights.py`): `huggingface.co` at a revision that must be a full commit hash (40 hex
+    digits), then at most one validated redirect, as for GEOID-Flood. A file is kept only if its sha256 equals the one
+    the freeze manifest (`reports/v12_freeze.json`) pins.
+  - **The live map** (`live.py`) reads the benchmark's own Planetary Computer sources. From the CEMS API, the live
+    service reads only an activation's code, name, category, event date and AOI extents (`live_rules.py`).
+  - **The live page** (`site/live.html`) may load images from itself and `tile.openstreetmap.org` only, and connects
+    only to its own origin.
 - **Local paths given to GDAL are plain paths.** `/vsi*` in any case, driver or scheme prefixes
   (`GTIFF_DIR:`, `file:` other than `file:///abs`) and inline XML are refused, and GeoTIFFs are
   opened with the `GTiff` driver only — a downloaded `.tif` holding VRT XML cannot reference
   other files or URLs.
 - **Bounded transfers.** Every download made through `requests` is size-capped and time-limited;
-  redirects are not followed except the one CEMS hop and the one Hugging Face CDN hop, each validated;
+  redirects are not followed except the one CEMS hop and the one Hugging Face hop, each validated;
   transient failures are retried with backoff, permanent ones are not.
 - **GDAL's own HTTP reads** (`/vsicurl`, used for the GFM and AlphaEarth COGs) are time-limited, not
   size-capped, and GDAL follows redirects by itself. Before GDAL opens a remote file, a `HEAD` request
@@ -51,6 +60,17 @@ pins each bypass a security review demonstrated):
 
   The reveal refuses on any break. "Sealed" means *committed*, not hidden: whoever runs the test can read the sealed
   files. What the ledger and its git history prove is that they were not changed after the fact.
+- **The live workflow** (`.github/workflows/live.yml`) runs on a schedule, or on a manual dispatch by someone with write
+  access, and only from `main` of the public repository. The weights' repository and commit come from repository
+  variables. A manual map's box and date reach the script through environment variables, never pasted into it, and
+  must match a strict pattern before they reach the code, which validates them again. Two jobs separate the work
+  from the write access: `map`, which installs the locked environment and runs the model, holds a read-only token and
+  hands the updated `live-data` tree on as an artifact; `publish` runs no project code, and only it can push the
+  `live-data` branch and start the Pages build. Neither checkout keeps credentials.
+- **The live page's data** is treated as untrusted when the site is built (`scripts/build_site.py`): each map's files
+  must be plain, size-capped JSON inside that map's folder, no symlink is followed, and while blind floods are off a
+  map whose code is blind, whose code is not a CEMS code, or whose pass time is not an ISO date stops the build. Blind floods stay refused until `configs/live/service.yaml` switches them on, and
+  `tests/test_live_rules.py` checks that the committed switch is off.
 - **Secrets.** None are needed. Signed Planetary Computer URLs are redacted from logs, error
   messages and tracebacks, including urllib3's `url: /path?…` form.
 - **Supply chain.** CI actions and Docker base images are pinned by digest; Dependabot proposes

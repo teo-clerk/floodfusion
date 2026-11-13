@@ -138,3 +138,50 @@ def test_each_family_trains_once_per_rate_and_hands_over_its_best(tmp_path: Path
     stale.write_text(json.dumps({**json.loads(stale.read_text()), "config_sha256": "an older setting"}))
     with pytest.raises(ValueError, match="another setting"):
         tuning.main(argv)
+
+
+def test_v13_tunes_its_own_grid_from_a_start_run_under_its_own_tag(tmp_path: Path, monkeypatch) -> None:
+    """Protocol v1.3 §3: grid 1e-5, 3e-5, 1e-4; each rate starts from row 21's run; reports under v13_*."""
+    from floodfusion import train
+    from floodfusion.config import config_sha256, config_to_dict
+
+    root = _pool(tmp_path)
+    monkeypatch.chdir(Path(__file__).parents[1])
+    overlays = [Path("configs/overlays/kurosiwo.yaml")]
+    start = tmp_path / "v12" / "row09_fusion_crossattn" / "seed42"
+    start.mkdir(parents=True)
+    (start / "run.json").write_text(json.dumps({
+        "status": "finished", "config_sha256": "x", "norm_stats_file": "data/pool_v12/chips/cv/all__all.norm_stats.json",
+        "config": config_to_dict(load_config(Path("configs/row09_fusion_crossattn.yaml"), overlays=overlays))}))
+    calls = []
+    score = {1e-5: 0.50, 3e-5: 0.52, 1e-4: 0.52}
+    real_load = train.load_training_data
+
+    def fake_main(argv):
+        run_dir, source = Path(argv[argv.index("--run-dir") + 1]), Path(argv[argv.index("--init-from") + 1])
+        sets = [argv[i + 1] for i, a in enumerate(argv) if a == "--set"]
+        rate = float(next(a for a in sets if a.startswith("train.learning_rate=")).split("=")[1])
+        calls.append((rate, source))
+        cfg = load_config(Path(argv[argv.index("--config") + 1]), overlays=overlays,
+                          overrides=[*sets, f"train.seed={argv[argv.index('--seed') + 1]}"])
+        data = train.adopt_init(real_load(cfg, Path(argv[argv.index("--data-root") + 1])), source)
+        run_dir.mkdir(parents=True)
+        (run_dir / "run.json").write_text(json.dumps({
+            "status": "finished", "best_val_macro_iou": score[rate],
+            "config_sha256": config_sha256(config_to_dict(data.cfg)), "split_sha256": data.split_sha256}))
+        return 0
+
+    monkeypatch.setattr(train, "main", fake_main)
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    assert tuning.main(["--data-root", str(root), "--rows", "9", "--overlay", str(overlays[0]),
+                        "--runs-root", str(tmp_path / "runs"), "--reports", str(reports),
+                        "--grid", "1e-5", "3e-5", "1e-4", "--init-from-root", str(tmp_path / "v12"),
+                        "--tag", "v13"]) == 0
+    assert calls == [(1e-5, start), (3e-5, start), (1e-4, start)]
+    summary = json.loads((reports / "v13_tuning.json").read_text())
+    assert summary["grid"] == [1e-5, 3e-5, 1e-4]
+    assert summary["rows"]["row09_fusion_crossattn"]["chosen"] == 3e-5          # an exact tie: the earlier rate
+    text = (reports / "v13_lr_row09_fusion_crossattn.yaml").read_text()
+    assert text.startswith("# v1.3 equal tuning budget") and "3.0e-05" in text
+    assert not (reports / "v12_tuning.json").exists()

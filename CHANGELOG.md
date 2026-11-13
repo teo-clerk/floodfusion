@@ -4,7 +4,37 @@ All notable changes; the format follows [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-11
+
+How good can a Sentinel-1 model get against Copernicus EMS, and the frozen model in service. The protocol
+(`reports/protocol_v1_3.md`) was committed before any v1.3 number; it was written with v1.2's results on the seen
+floods known, so every v1.3 result is exploratory. v1.2's freeze, ledger and hypotheses are unchanged.
+
 ### Added
+- **The reference ceiling** (`scripts/reference_ceiling.py`, `reports/reference_ceiling.{md,json}`): two CEMS
+  delineations of the same AOI, made at most 24 h apart, agree at 0.520 macro IoU over 79 pairs in 34 seen
+  activations (0.509 without the pairs that repeat earlier polygons).
+- **The adaptation ladder** (`floodfusion.ladder`, `scripts/v13_queue.sh`, `train --init-from`, the CEMS benchmark as
+  a pooled training root; `reports/v13_ladder.{md,json}`). Cross-validated over the 38 seen activations: a threshold
+  refitted on the other folds gains +0.002 and fine-tuning on their CEMS labels −0.041 (0.380 against 0.421).
+  Neither met the adoption rule, so there is no v1.3 model and H8 is not run.
+- **Published weights:** row 21's three frozen seeds on Hugging Face Hub (`teo-clerk/floodfusion`, CC BY 4.0), with
+  a model card and `SHA256SUMS` (`release/huggingface/`). `floodfusion.weights` (and the `floodfusion-weights` entry
+  point) downloads them at a pinned commit and keeps a file only if it matches the freeze manifest.
+- **floodfusion Live:**
+  - `floodfusion.live map` (and `floodfusion-live`): a flood map of any place and date from a frozen run, on CPU, as
+    COG layers, a STAC item and flood polygons per tile. An event without a reference map now ingests with an empty
+    label band.
+  - `floodfusion.watch` and `.github/workflows/live.yml`: every six hours, the next maps, published on the
+    `live-data` branch and on `site/live.html`.
+  - The blind-flood rule (`floodfusion.live_rules`, switch in `configs/live/service.yaml`, off), enforced by
+    `tests/test_live_rules.py`: while off, no code from EMSR899 on is requested and no pass date from 18 July 2026
+    on is mapped.
+  - `reports/live_replay.md`: on one replayed benchmark tile the live stack's 14 input bands equal the benchmark's.
+- `.github/workflows/sweep-reminder.yml`: a weekly issue when the blind-test ledger has no row from the last week.
+- `paper/paper_v13.tex`, the v1.3 preprint, and `paper/igarss27/`, the IGARSS 2027 draft, with their figures.
+- `reports/v1_3_deviations.md`, and in `reports/v1_2_deviations.md` the blind-test sweep lapse (14 October to
+  11 November 2026), disclosed before the next sweep.
 - `paper/`: the v1.2 preprint, *Labels, Thresholds and a Blind Test* (LaTeX source, figures, the script that draws
   them from `reports/`, and the compiled PDF), linked from the top of the README.
 - `paper/abstract_v12.tex`: a one-page extended abstract of the paper (source only; its PDF is not committed).
@@ -12,6 +42,11 @@ All notable changes; the format follows [Keep a Changelog](https://keepachangelo
   the blind flood EMSR933: its product list and the products' statuses, but no map, Sentinel-1 pass, sidecar or score.
 
 ### Fixed
+- Hugging Face downloads (the weights and GEOID-Flood) follow the Hub's relative redirect for small files, still at
+  most one validated hop, to `huggingface.co` itself or an `*.hf.co` CDN host.
+- Security review before the release: the live workflow runs the model in a read-only job and pushes from a separate
+  job that runs no project code; the site builder refuses a live map whose code is not a CEMS code or whose pass time
+  is not an ISO date, instead of comparing the date as text.
 - README and DATA_CARD: the CEMS maps are drawn on commercial images, not all on 1–3 m ones (34 of the 75
   radar-drawn pairs on very-high-resolution VHR2-class images, 41 on coarser HR+-class images).
 - README: training runs, not every report, record the git SHA.

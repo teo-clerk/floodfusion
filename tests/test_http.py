@@ -4,7 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from floodfusion.data.http import TransientHTTPError, capped_get, check_https_url, check_local_path, redact
+from floodfusion.data.http import (
+    TransientHTTPError,
+    capped_get,
+    check_https_url,
+    check_local_path,
+    hub_redirect,
+    redact,
+)
 from floodfusion.data.sources import check_href
 
 PC_BLOB = "https://sentinel1euwest.blob.core.windows.net/s1-grd/a.xml"
@@ -107,6 +114,53 @@ class TestCappedGet:
         with pytest.raises(OSError, match="404") as info:
             capped_get(self.URL, check=self._check, cap=10, retries=5, sleep=lambda s: None)
         assert not isinstance(info.value, TransientHTTPError) and len(calls) == 1
+
+
+HUB = {"host": "huggingface.co", "cdn_suffix": ".hf.co"}
+
+
+class TestHubRedirect:
+    """A Hugging Face download redirects once: a small file to a relative path on huggingface.co itself (seen on
+    2026-11-12, when the live service's first public fetch failed on it), a large one to the CDN under .hf.co."""
+
+    URL = "https://huggingface.co/o/r/resolve/" + "a" * 40 + "/x.json"
+
+    def test_a_relative_redirect_stays_on_the_hub(self) -> None:
+        assert (hub_redirect(self.URL, "/api/resolve-cache/models/o/r/x.json", **HUB)
+                == "https://huggingface.co/api/resolve-cache/models/o/r/x.json")
+
+    def test_a_redirect_to_the_cdn_is_followed(self) -> None:
+        cdn = "https://us.aws.cdn.hf.co/xet-bridge-us/abc?X-Amz-Signature=1"
+        assert hub_redirect(self.URL, cdn, **HUB) == cdn
+
+    @pytest.mark.parametrize("location", [
+        "",                                           # no Location: would loop back to the same URL
+        "//evil.example/x",                           # scheme-relative: another host
+        "https://evil.example/x",
+        "http://huggingface.co/x",
+        "https://huggingface.co.evil.example/x",
+        "https://huggingface.co@evil.example/x",
+        "https://evil.example/.hf.co",
+        "https://evilhf.co/x",
+    ])
+    def test_any_other_redirect_is_refused(self, location) -> None:
+        with pytest.raises(ValueError, match="refusing"):
+            hub_redirect(self.URL, location, **HUB)
+
+    def test_capped_get_follows_a_relative_redirect_on_the_hub(self, monkeypatch) -> None:
+        import requests
+
+        seen: list[str] = []
+
+        def fake(url, **kw):
+            seen.append(url)
+            return _Response(307, location="/api/resolve-cache/x") if len(seen) == 1 else _Response(200, b"ok")
+
+        monkeypatch.setattr(requests, "get", fake)
+        got = capped_get(self.URL, check=lambda u: check_https_url(u, hosts=("huggingface.co",)), cap=10,
+                         redirect_check=lambda loc: hub_redirect(self.URL, loc, **HUB))
+        assert got == b"ok"
+        assert seen == [self.URL, "https://huggingface.co/api/resolve-cache/x"]
 
 
 @pytest.mark.parametrize("path", [

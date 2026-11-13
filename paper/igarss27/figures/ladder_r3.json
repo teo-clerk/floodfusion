@@ -1,0 +1,89 @@
+{
+ "n": 38,
+ "r3_better": 15,
+ "macro_r1": 0.421,
+ "macro_r3": 0.38,
+ "gain": -0.041,
+ "adopted": false,
+ "change_median": -0.014,
+ "change_max": {
+  "activation": "EMSR841",
+  "change": 0.131
+ },
+ "change_min": {
+  "activation": "EMSR771",
+  "change": -0.336
+ },
+ "folds": {
+  "fold0": {
+   "n": 9,
+   "macro_r1": 0.367,
+   "macro_r3": 0.27,
+   "r3_better": 2
+  },
+  "fold1": {
+   "n": 7,
+   "macro_r1": 0.401,
+   "macro_r3": 0.297,
+   "r3_better": 0
+  },
+  "fold2": {
+   "n": 6,
+   "macro_r1": 0.402,
+   "macro_r3": 0.418,
+   "r3_better": 3
+  },
+  "fold3": {
+   "n": 8,
+   "macro_r1": 0.48,
+   "macro_r3": 0.469,
+   "r3_better": 5
+  },
+  "fold4": {
+   "n": 8,
+   "macro_r1": 0.453,
+   "macro_r3": 0.457,
+   "r3_better": 5
+  }
+ },
+ "activations": [
+  "EMSR657",
+  "EMSR668",
+  "EMSR683",
+  "EMSR705",
+  "EMSR706",
+  "EMSR708",
+  "EMSR711",
+  "EMSR712",
+  "EMSR718",
+  "EMSR722",
+  "EMSR725",
+  "EMSR728",
+  "EMSR755",
+  "EMSR756",
+  "EMSR761",
+  "EMSR763",
+  "EMSR766",
+  "EMSR768",
+  "EMSR771",
+  "EMSR773",
+  "EMSR783",
+  "EMSR788",
+  "EMSR789",
+  "EMSR796",
+  "EMSR797",
+  "EMSR838",
+  "EMSR841",
+  "EMSR844",
+  "EMSR848",
+  "EMSR850",
+  "EMSR854",
+  "EMSR856",
+  "EMSR857",
+  "EMSR861",
+  "EMSR864",
+  "EMSR866",
+  "EMSR868",
+  "EMSR871"
+ ]
+}
