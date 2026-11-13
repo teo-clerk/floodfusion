@@ -36,7 +36,9 @@ cross-fitted recalibration gains only 0.002. We then measure the reference itsel
 area at most 24\,h apart agree at 0.520 macro IoU over 34 activations, and per activation the model's score tracks
 that self-agreement (Spearman $\rho = 0.51$, exploratory). Fine-tuning on CEMS's own labels lowers the score from
 0.421 to 0.380, better on only 15 of 38 activations and lower without a threshold too, so a rule fixed in advance
-adopts no new model. The frozen model is under a preregistered, sealed blind test and maps new floods automatically.
+adopts no new model. The frozen model is under a preregistered, sealed blind test, and its public weights drive a
+flood-mapping service.
+% TODO(status): if blind floods are switched on before submission, "...and maps new floods automatically".
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -168,12 +170,14 @@ adopted none, so the blind test keeps its three. \todo{TODO(status): the ledger'
 % src: reports/protocol_v1_2.md (§2.2, sealing, stopping rule, Holm family); reports/protocol_v1_3.md §3, §4
 % src: reports/v13_ladder.md (v1.3's model: none; H8 is not run)
 
-The frozen weights also run a live service. Every six hours a scheduled job maps each new Sentinel-1 pass over
-flood areas from the activation's outline alone, never reading a CEMS product. It rebuilds the benchmark's inputs:
-on a replayed benchmark tile all 14 input bands were identical, and a CPU run gave the stored GPU run's IoU. Now
-that the ladder has decided, blind floods may appear there as the model's map alone, with no Copernicus outline and
-no score.
-% src: reports/live_replay.md; reports/protocol_v1_3.md §6; reports/v1_3_deviations.md (2026-11-11)
+The frozen weights also run a live service. Every six hours a scheduled job maps Sentinel-1 passes over flood
+areas from the activation's outline alone, never reading a CEMS product. It rebuilds the benchmark's inputs: on a
+replayed benchmark tile all 14 input bands were identical, and a CPU run gave the stored GPU run's IoU. Now that the
+ladder has decided, blind floods may appear there, on the author's go, as the model's map alone, with no Copernicus
+outline and no score; until then the service refuses any date on which a blind flood could be seen.
+% src: reports/live_replay.md; reports/protocol_v1_3.md §6; reports/v1_3_deviations.md (2026-11-11);
+% src: src/floodfusion/watch.py (showcase of seen activations; new activations only once blind floods are on)
+% TODO(status): the switch at submission.
 
 \section{Conclusion}
 Against Copernicus EMS, Sentinel-1 flood segmentation is limited first by its training labels, then by a threshold

@@ -8,7 +8,8 @@ Figure 1 (exploratory, chosen after both inputs were known): for each seen activ
 IoU at tau* against the agreement of two Copernicus EMS delineations of the same area at most 24 h apart.
 
 Figure 2: the ladder's per-activation scores, R1 (zero-shot) against R3 (fine-tuned on Copernicus labels), from
-reports/v13_ladder.json; the count above the diagonal is checked against the report's own verdict.
+reports/v13_ladder.json; the count above the diagonal is checked against the report's own verdict. Its JSON also holds
+the per-activation change's median and extremes and the per-fold means, which the long paper (paper_v13.tex) cites.
 """
 
 from __future__ import annotations
@@ -79,8 +80,8 @@ def fig_ceiling(out: Path) -> dict[str, Any]:
     return summary
 
 
-def ladder_pairs(reports: Path = REPORTS) -> tuple[dict[str, tuple[float, float]], dict[str, Any]]:
-    """``{activation: (R1 IoU, R3 IoU)}`` from the committed ladder report, and the report's R3 verdict."""
+def ladder_pairs(reports: Path = REPORTS) -> tuple[dict[str, tuple[float, float]], dict[str, Any], dict[str, str]]:
+    """``{activation: (R1 IoU, R3 IoU)}`` from the committed ladder report, its R3 verdict, and each activation's fold."""
     ladder = json.loads((reports / "v13_ladder.json").read_text(encoding="utf-8"))
     verdict = ladder["verdicts"]["r3_over_base"]
     if verdict["base"] != "r1":
@@ -88,22 +89,39 @@ def ladder_pairs(reports: Path = REPORTS) -> tuple[dict[str, tuple[float, float]
     pairs = {k: (float(ladder["r1"][k]), float(ladder["r3"][k])) for k in sorted(ladder["r1"])}
     if len(pairs) != verdict["n"]:
         raise ValueError(f"{len(pairs)} activations in r1, but the verdict counts {verdict['n']}")
-    return pairs, verdict
+    return pairs, verdict, {k: ladder["fold_of"][k] for k in pairs}
 
 
-def ladder_stats(pairs: dict[str, tuple[float, float]], verdict: dict[str, Any]) -> dict[str, Any]:
+def _fold_summary(pairs: dict[str, tuple[float, float]], fold_of: dict[str, str]) -> dict[str, dict[str, Any]]:
+    """Per fold (descriptive, for the long paper): its activations' macro R1 and R3, and how many R3 improves."""
+    folds: dict[str, dict[str, Any]] = {}
+    for fold in sorted(set(fold_of.values())):
+        r1, r3 = np.array([pairs[k] for k in pairs if fold_of[k] == fold]).T
+        folds[fold] = {"n": len(r1), "macro_r1": round(float(r1.mean()), 3), "macro_r3": round(float(r3.mean()), 3),
+                       "r3_better": int((r3 > r1).sum())}
+    return folds
+
+
+def ladder_stats(pairs: dict[str, tuple[float, float]], verdict: dict[str, Any],
+                 fold_of: dict[str, str]) -> dict[str, Any]:
     x, y = np.array(list(pairs.values())).T
     better = int((y > x).sum())
     if better != verdict["better"]:   # the plot must show the report's own count
         raise ValueError(f"{better} activations above the diagonal, but the report says {verdict['better']}")
+    change = {k: r3 - r1 for k, (r1, r3) in pairs.items()}
+    best, worst = max(change, key=change.__getitem__), min(change, key=change.__getitem__)
     return {"n": len(pairs), "r3_better": better, "macro_r1": round(float(x.mean()), 3),
             "macro_r3": round(float(y.mean()), 3), "gain": round(float(y.mean() - x.mean()), 3),
-            "adopted": bool(verdict["adopted"]), "activations": sorted(pairs)}
+            "adopted": bool(verdict["adopted"]),
+            "change_median": round(float(np.median(list(change.values()))), 3),
+            "change_max": {"activation": best, "change": round(change[best], 3)},
+            "change_min": {"activation": worst, "change": round(change[worst], 3)},
+            "folds": _fold_summary(pairs, fold_of), "activations": sorted(pairs)}
 
 
 def fig_ladder(out: Path) -> dict[str, Any]:
-    pairs, verdict = ladder_pairs()
-    summary = ladder_stats(pairs, verdict)
+    pairs, verdict, fold_of = ladder_pairs()
+    summary = ladder_stats(pairs, verdict, fold_of)
     x, y = np.array(list(pairs.values())).T
     fig, ax = plt.subplots(figsize=(COLUMN_IN, 2.5))
     ax.plot([0, 1], [0, 1], color=GREY, lw=0.7, ls="--", zorder=1)   # no change (in the caption)
