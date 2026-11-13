@@ -270,3 +270,42 @@ def test_a_published_map_records_the_tiles_its_pass_imaged(tmp_path: Path) -> No
     index = _run(tmp_path, WithBoxes(records={"EMSR664": FORLI}, passes=PASSES[:1]),
                  _config(tmp_path, showcase=("EMSR664",)))
     assert index["maps"][0]["tile_bboxes"] == [[12.0, 44.2, 12.05, 44.25]]
+
+
+@pytest.mark.parametrize("status", [401, 403])
+def test_a_code_the_api_refuses_counts_as_not_public_and_does_not_stop_discovery(tmp_path: Path, status: int) -> None:
+    # 2026-11-13: the first run with blind floods on stopped its scan at EMSR911, which the CEMS API answers with 403.
+    # The blind runner (prospective.py) already reads 401/403 as "not public"; the watcher read it as "unreachable",
+    # so it would have scanned from EMSR911 again on every run and never reached a later activation.
+    from floodfusion.data.http import HTTPStatusError
+
+    class Refusing(Fake):
+        def fetch(self, code):
+            if code == "EMSR950":
+                self.fetched.append(code)
+                raise HTTPStatusError(f"HTTP {status} for the CEMS API", status)
+            return super().fetch(code)
+
+    flood = {**FORLI, "code": "EMSR951", "eventTime": "2026-11-09T00:00:00"}
+    passes = [Pass(datetime(2026, 11, 10, 5, 0, tzinfo=UTC), 95, "descending")]
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "index.json").write_text(json.dumps({"last_code": 949}))
+    fake = Refusing(records={"EMSR951": flood}, passes=passes)
+    index = _run(tmp_path, fake, _config(tmp_path, blind=True), stop_after=2)
+    assert index["last_code"] == 951 and list(index["pending_codes"]) == ["EMSR950"]
+    assert "EMSR951" in index["watching"]
+
+
+def test_a_code_that_cannot_be_reached_is_scanned_again_next_run(tmp_path: Path) -> None:
+    class Down(Fake):
+        def fetch(self, code):
+            if code == "EMSR950":
+                self.fetched.append(code)
+                raise ConnectionError("rapidmapping.emergency.copernicus.eu timed out")
+            return super().fetch(code)
+
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "index.json").write_text(json.dumps({"last_code": 949}))
+    fake = Down(records={"EMSR951": {**FORLI, "code": "EMSR951", "eventTime": "2026-11-09T00:00:00"}})
+    index = _run(tmp_path, fake, _config(tmp_path, blind=True), stop_after=2)
+    assert fake.fetched == ["EMSR950"] and index["last_code"] == 949 and index["pending_codes"] == {}

@@ -16,6 +16,11 @@ All notable changes; the format follows [Keep a Changelog](https://keepachangelo
   and the repository on Software Heritage (`swh:1:snp:084feda8e19a3768ad891541e25a8e6d74f8421f`); the README,
   `CITATION.cff` and the long paper cite them.
 
+### Fixed
+- **The live watcher no longer stalls on an activation the CEMS API refuses.** It read HTTP 401/403 as
+  "unreachable" and scanned from that code again on every run; the first run with blind floods on stopped at
+  EMSR911 this way. It now reads them as "not public", as the blind runner does, and asks again later.
+
 ## [1.3.0] — 2026-11
 
 How good can a Sentinel-1 model get against Copernicus EMS, and the frozen model in service. The protocol

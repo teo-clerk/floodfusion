@@ -40,6 +40,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any
 
+from floodfusion.data.http import HTTPStatusError
 from floodfusion.data.stac import Pass
 from floodfusion.live_rules import (
     BLIND_FIRST_CODE,
@@ -57,6 +58,8 @@ __all__ = ["MAX_ATTEMPTS", "MAX_MAPS_PER_RUN", "MapFailedError", "MapJob", "main
 LOGGER = logging.getLogger(__name__)
 
 INDEX = "index.json"
+# The CEMS API's answer for an activation it does not publish; the blind runner reads it the same way.
+NOT_PUBLIC_STATUSES = (401, 403)
 MAX_AOIS = 4
 #: Measured on 2026-11-11: about a minute per mapped tile on 4 CPU threads, and an AOI can hold 20+ tiles.
 MAX_MAPS_PER_RUN = 2
@@ -124,6 +127,11 @@ def _try_fetch(code: str, fetch: Fetch) -> Mapping[str, Any] | None:
         return fetch(code)
     except LookupError:
         raise
+    except HTTPStatusError as exc:
+        if exc.status in NOT_PUBLIC_STATUSES:
+            raise LookupError(f"{code} is not public (HTTP {exc.status})") from exc
+        LOGGER.warning("%s not fetched this run: HTTP %s", code, exc.status)
+        return None
     except Exception as exc:  # noqa: BLE001 - one unreachable record must not stop the run
         LOGGER.warning("%s not fetched this run: %s: %s", code, type(exc).__name__, str(exc)[:200])
         return None
