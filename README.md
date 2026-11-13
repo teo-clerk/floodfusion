@@ -9,7 +9,10 @@ input did not detectably.** **Version 1.2** adds a seasonal radar reference ("is
 and season?"). It takes on a TerraMind trained on the same flood labels, and Copernicus's operational flood maps, in
 a blind test on floods no model had seen: Copernicus activations from EMSR899 on (from late July 2026), never looked
 at during development and scored only after the freeze. It also publishes an erratum that withdraws v1.1's TerraMind
-result.
+result. **Version 1.3** measures the yardstick itself: two Copernicus maps of the same flood, made hours apart, agree
+at only **0.52 IoU**, so the models' 0.42 is close to the reference's own consistency. Fine-tuning on Copernicus's
+own labels did not help, under a rule fixed in advance. The frozen model is now public, and **one command maps any
+place and date**.
 
 [![ci](https://github.com/teo-clerk/floodfusion/actions/workflows/ci.yml/badge.svg)](https://github.com/teo-clerk/floodfusion/actions/workflows/ci.yml)
 ![python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
@@ -22,8 +25,13 @@ result.
   limits.
 - **[The Arena](https://teo-clerk.github.io/floodfusion/arena.html)**: every model, a fairly trained TerraMind and
   Copernicus's operational GFM included, on the same Copernicus EMS flood maps, and the blind test's progress.
-- **[The v1.2 paper (PDF)](paper/paper_v12.pdf)**: *Labels, Thresholds and a Blind Test*, a preprint (not peer
-  reviewed) with every number sourced from `reports/`. Its LaTeX source is in [`paper/`](paper/).
+- **[Live maps](https://teo-clerk.github.io/floodfusion/live.html)**: the frozen model's flood maps, made by a
+  scheduled job from Sentinel-1 passes over flood areas, with no Copernicus outline and no score.
+- **[The frozen weights](https://huggingface.co/teo-clerk/floodfusion)** on Hugging Face Hub (CC BY 4.0), byte for
+  byte the files the blind test froze.
+- **The papers**: [v1.2 (PDF)](paper/paper_v12.pdf), *Labels, Thresholds and a Blind Test*; v1.3,
+  [*Labels, Thresholds and the Reference Itself*](paper/paper_v13.tex) (LaTeX source; preprint to follow). Both are
+  preprints, not peer reviewed, with every number sourced from `reports/`. Their sources are in [`paper/`](paper/).
 
 ![EMSR664 Forlì: zero-shot Sentinel-1 flood map vs the Copernicus EMS delineation](assets/forli_hero.png)
 
@@ -31,6 +39,45 @@ result.
 Copernicus EMS's COSMO-SkyMed delineation of 21 May (right).*
 
 ## Results at a glance
+
+### v1.3: how good can a model get against Copernicus, and the model in service
+
+The [protocol](reports/protocol_v1_3.md) was committed before any v1.3 number existed; every rule since is in the
+[deviations log](reports/v1_3_deviations.md). It was written with v1.2's results on these floods known, so all of
+this is exploratory.
+
+- **Copernicus agrees with itself at 0.52.** For every AOI of the seen flood activations with two consecutive
+  delineations made at most 24 h apart, the two maps were compared on the area both observed: **0.520 macro IoU over
+  79 pairs in 34 activations** (median pair 0.498; two radar-drawn maps 0.515). A model at 0.42 is near the level at
+  which the reference agrees with itself, not 0.42 of the way to a perfect map. Per activation, the model's score
+  tracks that agreement (Spearman ρ = 0.51 over 27 activations, chosen after both were known).
+  [Report](reports/reference_ceiling.md).
+- **Training on Copernicus's own labels did not help.** An adaptation ladder on the 38 seen activations, each scored
+  by the fold that held out its 100 km group, with an adoption rule fixed in advance (a gain of at least 0.005 and
+  better on more than half):
+
+  | Rung (seed 42, cross-validated) | Macro IoU at τ* | Better than zero-shot | Verdict |
+  | --- | --- | --- | --- |
+  | R1, zero-shot | 0.421 | — | — |
+  | R2, threshold refitted on the other folds | 0.423 | 26 of 38 | not adopted |
+  | R3, fine-tuned on the other folds' CEMS labels | 0.380 | 15 of 38 | not adopted |
+
+  R3 is lower threshold-free too (AP 0.573 against 0.606). So there is **no v1.3 model**: v1.2's frozen model stays
+  current, and the blind test's later hypothesis H8 is not run. [Ladder](reports/v13_ladder.md).
+- **The frozen model in service.**
+  - **Weights:** row 21's three seeds on [Hugging Face Hub](https://huggingface.co/teo-clerk/floodfusion), checked
+    file by file against the freeze manifest when downloaded.
+  - **A map of any place and date:** `python -m floodfusion.live map --bbox W S E N --date YYYY-MM-DD --out DIR`,
+    on CPU. On a replayed benchmark tile, its 14 input bands equal the benchmark's, pixel for pixel
+    ([replay](reports/live_replay.md)).
+  - **The watcher:** every six hours, a GitHub Actions job maps Sentinel-1 passes over flood areas for the
+    [live page](https://teo-clerk.github.io/floodfusion/live.html). It reads only an activation's code, name,
+    category, date and AOI outlines, never a Copernicus product, and shows no score.
+  - **Blind floods stay off** until the author switches them on (protocol §6): until then the service refuses codes
+    from EMSR899 on and pass dates from 18 July 2026 on, and a test checks that the committed switch is off.
+- **The blind test** keeps running unchanged. Two sweeps so far (14 October, 11 November 2026): one AOI of EMSR933 is
+  scored and sealed, outside the primary stratum (its map was drawn on optical images); no primary-stratum activation
+  is scored yet.
 
 ### v1.2: a fair fight with TerraMind, Copernicus's own flood maps as a yardstick, and a blind test
 
@@ -370,6 +417,20 @@ scripts/v11_queue.sh smoke && scripts/v11_queue.sh all          # every run, CEM
 uv run --frozen python scripts/cems_strata.py    # every CEMS model per stratum and cloud subset (the queue runs it too)
 ```
 
+**v1.3** (about 9 GPU-hours, after v1.2's runs and the rebuilt CEMS stacks):
+
+```bash
+uv run --frozen python scripts/reference_ceiling.py download   # consecutive delineations of the seen activations
+uv run --frozen python scripts/reference_ceiling.py score      # -> reports/reference_ceiling.{md,json}
+uv run --frozen python -m floodfusion.ladder r2                # rungs 1 and 2 from the stored histograms (CPU)
+scripts/v13_queue.sh ladder    # rung 3: learning rate, five fold models, their scores, then reports/v13_ladder.{md,json}
+# a flood map of any place and date, from the published weights (CPU is enough)
+uv run --frozen python -m floodfusion.weights fetch --repo teo-clerk/floodfusion \
+    --revision faed3bb78668cf25052211a7e834f34652a4cdf6 \
+    --run runs/v12/final/all/all/row21_fusion_context_seasonal/seed42 --dest .
+uv run --frozen python -m floodfusion.live map --bbox 11.8 44.15 12.2 44.3 --date 2023-05-17 --out maps/forli
+```
+
 The CEMS census is frozen in `configs/datasets/cems_benchmark.json`. `make cems-data` re-runs it against the live
 CEMS API and overwrites that file, so a reproduction should run only `prepare`. Use `uv run --frozen`: `uv.lock`
 is one of the code paths the table builders check.
@@ -407,6 +468,10 @@ src/floodfusion/
 ├── crossval.py · cv_report.py            leave-one-event-out, grouped k-fold, the published split, the protocol gap
 ├── cems_benchmark.py · cems_scores.py    the CEMS benchmark: census, pairs, the pre-registered tests
 ├── crossfit.py                           calibration across events (cross-fitted thresholds)
+├── prospective.py · blind_analysis.py    the blind test: census, sealing, the hash-chained ledger, the analysis
+├── ladder.py                             v1.3's adaptation ladder and its adoption rule
+├── weights.py · live.py · live_rules.py · watch.py   the published weights, a map of any place and date, the
+│                                         blind-flood rule, the live service's watcher
 ├── ablation.py · reporting.py · stress.py · case_study.py · products.py · predict.py
 configs/           one frozen YAML per ablation row, overlays, comparisons/, event definitions
 tests/             unit, integration and end-to-end tests (markers: slow, gpu, network, data)
@@ -420,8 +485,9 @@ design decision or acceptance check each piece of code implements.
 
 ## Citing
 
-See [`CITATION.cff`](CITATION.cff). Please also cite Sen1Floods11 (Bonafilia et al., 2020) and Kuro Siwo
-(Bountos et al., NeurIPS 2024 Datasets and Benchmarks) if you use their labels.
+See [`CITATION.cff`](CITATION.cff). Please also cite Sen1Floods11 (Bonafilia et al., 2020), Kuro Siwo
+(Bountos et al., NeurIPS 2024 Datasets and Benchmarks) and GEOID-Flood (Chiriaco et al., 2026) if you use their
+labels; the published weights were trained on the last two.
 
 ## Acknowledgements
 
@@ -430,7 +496,9 @@ RTC processed by Catalyst (CC BY 4.0). Contains modified Copernicus Emergency Ma
 Flood Monitoring (GFM) flood maps, © European Union. Copernicus DEM: © DLR e.V.
 2010–2014 and © Airbus Defence and Space GmbH 2014–2018, provided under COPERNICUS by the European Union
 and ESA. JRC Global Surface Water: EC JRC / Google. ESA WorldCover 2021. TerraMind: IBM and ESA.
-Kuro Siwo annotations: Orion AI Lab, CC BY 4.0 (re-downloaded by the user; nothing is redistributed here).
+Kuro Siwo annotations: Orion AI Lab, CC BY 4.0, and GEOID-Flood labels: Chiriaco et al., CC BY 4.0 (both
+re-downloaded by the user; no label is redistributed). The frozen v1.2 weights trained on them are published on
+Hugging Face Hub under CC BY 4.0.
 Developed with AI assistance (Claude Code); the design decisions, verification and results were reviewed
 by the author.
 

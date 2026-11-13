@@ -63,7 +63,7 @@ _skip = [d for d in _os.environ.get("OGR_SKIP", "").replace(" ", ",").split(",")
 if "OGR_VRT" not in _skip:
     _os.environ["OGR_SKIP"] = ",".join([*_skip, "OGR_VRT"])
 
-__version__ = "1.1.0"
+__version__ = "1.3.0"
 
 __all__ = [
     "__version__",

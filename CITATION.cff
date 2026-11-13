@@ -5,7 +5,8 @@ type: software
 authors:
   - family-names: "Clerici Jurado"
     given-names: Teo
-version: 1.2.0
+version: 1.3.0
+date-released: "2026-11-13"
 license: MIT
 repository-code: "https://github.com/teo-clerk/floodfusion"
 keywords:
@@ -56,6 +57,24 @@ references:
     collection-title: "Advances in Neural Information Processing Systems 37 (Datasets and Benchmarks Track)"
     start: 38105
     end: 38121
+  - type: article
+    title: "GEOID-Flood: A Large-Scale Multi-Modal Benchmark Dataset for Flood Segmentation"
+    authors:
+      - family-names: Chiriaco
+        given-names: Gaetano
+      - family-names: Barco
+        given-names: Luca
+      - family-names: Bragagnolo
+        given-names: Andrea
+      - family-names: Rossi
+        given-names: Claudio
+      - family-names: Arnaudo
+        given-names: Edoardo
+    year: 2026
+    journal: "arXiv"
+    identifiers:
+      - type: other
+        value: "arXiv:2608.02315"
   - type: article
     title: "Conformal Risk Control"
     authors:

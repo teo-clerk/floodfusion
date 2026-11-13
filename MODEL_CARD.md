@@ -61,6 +61,32 @@
 - **Its confirmatory test is still to come.** Copernicus flood activations from EMSR899 on are scored by the frozen
   models and sealed until 20 activations in 15 clusters are scored, or 31 December 2027
   (`reports/protocol_v1_2.md`). The checkpoints are pinned by sha256 in `reports/v12_freeze.json`.
+- **Published weights.** The three frozen seeds are on Hugging Face Hub,
+  [`teo-clerk/floodfusion`](https://huggingface.co/teo-clerk/floodfusion), under CC BY 4.0, the licence of their
+  training labels: byte for byte the files `reports/v12_freeze.json` pins. `python -m floodfusion.weights fetch --repo
+  teo-clerk/floodfusion --revision faed3bb78668cf25052211a7e834f34652a4cdf6 --run <run folder> --dest .` keeps a file
+  only if its sha256 matches the manifest.
+
+## v1.3: still v1.2's model
+
+- **Adapting to Copernicus's own labels did not help** (`reports/v13_ladder.md`; the rules in
+  `reports/protocol_v1_3.md` were committed before any result). Cross-validated over the 38 seen CEMS activations,
+  each scored by the fold that held out its 100 km group (seed 42):
+  - zero-shot: 0.421 macro IoU at τ\*;
+  - a threshold refitted on the other folds: 0.423 (+0.002, better on 26 of 38);
+  - fine-tuning on the other folds' CEMS labels: 0.380 (−0.041, better on 15 of 38), lower threshold-free too (AP
+    0.573 against 0.606).
+
+  Neither met the adoption rule (a gain of at least 0.005 and better on more than half), so there is no v1.3 model:
+  these weights stay current, and the blind test's later hypothesis H8 is not run.
+- **How high the score could go** (`reports/reference_ceiling.md`, descriptive). Two CEMS delineations of the same
+  area, made at most 24 h apart, agree at 0.520 macro IoU over 34 seen activations. Read the model's 0.417 against
+  that level, not against 1.
+- **Run it anywhere.** `python -m floodfusion.live map --bbox W S E N --date YYYY-MM-DD --out DIR` maps a box on a
+  Sentinel-1 pass, on CPU, and writes COG layers, a STAC item and flood polygons per tile. On a replayed benchmark tile
+  its 14 input bands equal the benchmark's, pixel for pixel (`reports/live_replay.md`). It reads no Copernicus product
+  and reports no score. While blind floods are switched off (`configs/live/service.yaml`), it refuses pass dates from
+  18 July 2026 on.
 
 ## Intended use
 
@@ -205,4 +231,7 @@ marked "dry" under canopy, in a city, in radar shadow, or outside the acquisitio
 See [`DATA_CARD.md`](DATA_CARD.md). Contains modified Copernicus Sentinel data. Contains modified Copernicus Emergency
 Management Service information (2023–2026): rapid-mapping delineations and Global Flood Monitoring (GFM) flood maps,
 © European Union. Kuro Siwo annotations (training and cross-validation of the v1.1 Kuro Siwo models): Bountos et al.,
-NeurIPS 2024, CC BY 4.0. Sen1Floods11 labels: Bonafilia et al., 2020, no licence declared, never redistributed.
+NeurIPS 2024, CC BY 4.0. GEOID-Flood labels (training of v1.2's model, with Kuro Siwo): Chiriaco et al., 2026, CC BY
+4.0, "contains modified Copernicus Sentinel data and Copernicus EMS information". Sen1Floods11 labels: Bonafilia et
+al., 2020, no licence declared, never redistributed; no weights trained on them are published. The published v1.2
+weights are CC BY 4.0.
