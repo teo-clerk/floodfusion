@@ -73,8 +73,10 @@ this is exploratory.
   - **The watcher:** every six hours, a GitHub Actions job maps Sentinel-1 passes over flood areas for the
     [live page](https://teo-clerk.github.io/floodfusion/live.html). It reads only an activation's code, name,
     category, date and AOI outlines, never a Copernicus product, and shows no score.
-  - **Blind floods stay off** until the author switches them on (protocol §6): until then the service refuses codes
-    from EMSR899 on and pass dates from 18 July 2026 on, and a test checks that the committed switch is off.
+  - **Blind floods are on** since 13 November 2026, on the author's go (protocol §6, once the ladder had decided
+    that there is no v1.3 model): new Copernicus flood activations are mapped as they come, for 30 days after each
+    event, as the model's map alone. The blind test is untouched: its scores are computed only by the frozen runner
+    and stay sealed ([deviations](reports/v1_3_deviations.md)).
 - **The blind test** keeps running unchanged. Two sweeps so far (14 October, 11 November 2026): one AOI of EMSR933 is
   scored and sealed, outside the primary stratum (its map was drawn on optical images); no primary-stratum activation
   is scored yet.

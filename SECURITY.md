@@ -66,11 +66,13 @@ pins each bypass a security review demonstrated):
   must match a strict pattern before they reach the code, which validates them again. Two jobs separate the work
   from the write access: `map`, which installs the locked environment and runs the model, holds a read-only token and
   hands the updated `live-data` tree on as an artifact; `publish` runs no project code, and only it can push the
-  `live-data` branch and start the Pages build. Neither checkout keeps credentials.
+  `live-data` branch and start the Pages build. Neither checkout keeps credentials. Whether blind floods (codes from
+  EMSR899 on) may be requested and shown is read from the committed `configs/live/service.yaml`, never from the
+  published data; it was switched on on 13 November 2026, on the author's go, and `tests/test_live_rules.py` checks
+  the committed value.
 - **The live page's data** is treated as untrusted when the site is built (`scripts/build_site.py`): each map's files
-  must be plain, size-capped JSON inside that map's folder, no symlink is followed, and while blind floods are off a
-  map whose code is blind, whose code is not a CEMS code, or whose pass time is not an ISO date stops the build. Blind floods stay refused until `configs/live/service.yaml` switches them on, and
-  `tests/test_live_rules.py` checks that the committed switch is off.
+  must be plain, size-capped JSON inside that map's folder, and no symlink is followed. A map whose code is not a CEMS
+  code, or whose pass time is not an ISO date, stops the build, and so would a blind flood if the switch were off.
 - **Secrets.** None are needed. Signed Planetary Computer URLs are redacted from logs, error
   messages and tracebacks, including urllib3's `url: /path?…` form.
 - **Supply chain.** CI actions and Docker base images are pinned by digest; Dependabot proposes

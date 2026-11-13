@@ -4,8 +4,7 @@
 % Every number is taken from a committed report under reports/; the source is named in a comment beside it.
 % Differences marked "derived" are subtractions of two sourced numbers. Figures: paper/make_figures.py (v1.2's) and
 % paper/igarss27/make_figures.py (the ceiling and the ladder), whose JSON files hold every number they plot.
-% "TODO(status)" marks what is updated at submission: the ledger's counts, the live switch, and any independent
-% archive (Zenodo, Software Heritage).
+% "TODO(status)" marks what is updated at submission: the ledger's counts and Zenodo's DOIs.
 \documentclass[10pt,twocolumn,a4paper]{article}
 
 \usepackage[T1]{fontenc}
@@ -97,8 +96,8 @@ an adoption rule fixed in advance adopted neither. Because this benchmark had be
 these comparisons are exploratory. The confirmatory test is preregistered: every eligible CEMS flood activation from
 EMSR899 on is scored by models frozen at a git tag, and the hashes of the sealed scores are committed to a
 hash-chained ledger until 20 activations in 15 clusters are scored, or until the end of 2027. The frozen weights are
-public and drive a flood-mapping service, which is barred from the blind floods until the author switches them on.
-We also report two errata in our earlier results.
+public and drive a service that maps new floods from Sentinel-1, showing the model's map with no reference and no
+score. We also report two errata in our earlier results.
 
 \vspace{4pt}
 \noindent\textbf{Keywords:} flood mapping; Sentinel-1; synthetic aperture radar; Copernicus Emergency Management
@@ -157,9 +156,8 @@ Q2 confirmatorily; it is also our answer to Q5. Our contributions are:
   \item An adaptation ladder with an adoption rule fixed in advance. Neither a threshold refitted on other CEMS floods
     ($+0.002$) nor fine-tuning on their labels ($-0.041$) was adopted (Section~\ref{sec:ladder}).
   \item A preregistered blind test on CEMS activations that no model had seen, with hash-committed scores and a power
-    analysis (Section~\ref{sec:blind}), and the frozen model released with a service that maps floods from each
-    Sentinel-1 pass, under rules that keep it away from the blind floods until the author switches them on
-    (Section~\ref{sec:live}).
+    analysis (Section~\ref{sec:blind}), and the frozen model released with a service that maps new floods from each
+    Sentinel-1 pass, under rules that keep the blind test intact (Section~\ref{sec:live}).
   \item Two errata in our own earlier results (Section~\ref{sec:errata}), and an account of the project's provenance
     and of how an AI coding agent was used to build and audit it (Section~\ref{sec:ai}).
 \end{itemize}
@@ -1075,7 +1073,8 @@ The Arena shows only counts and statuses until the stopping rule is met.
 % against reports/v12_freeze.json); src/floodfusion/live.py; src/floodfusion/watch.py (showcase, new activations,
 % MAX_AOIS 4, MAX_MAPS_PER_RUN 2, "about a minute per mapped tile on 4 CPU threads"); .github/workflows/live.yml;
 % reports/live_replay.md; src/floodfusion/live_rules.py; tests/test_live_rules.py; reports/protocol_v1_3.md §6;
-% reports/v1_3_deviations.md (2026-11-11, 2026-11-12); configs/live/service.yaml (blind_floods: false)
+% reports/v1_3_deviations.md (2026-11-11, 2026-11-12, 2026-11-13); reports/v1_2_deviations.md (2026-11-13);
+% configs/live/service.yaml (blind_floods: true since 2026-11-13)
 A model frozen for a blind test can still be used. v1.3 publishes it and runs it on Sentinel-1 passes, under rules
 that keep the blind test intact.
 
@@ -1099,21 +1098,21 @@ therefore not the benchmark's prediction of the same pixels, and the service nev
 
 \textbf{The watcher.} A scheduled job (GitHub Actions, every six hours) chooses the next maps and publishes their
 polygons, STAC items and an index on a data branch, which the project's live page reads. It makes at most two maps
-per run, because a tile takes about a minute on four CPU threads. Until blind floods are switched on, it maps a
-showcase of seen activations, each AOI on every pass from the event date to three days after, and manual requests.
-After the switch it also watches every new flood activation for 30 days and maps each new pass over at most four of
-its AOIs.
+per run, because a tile takes about a minute on four CPU threads. It maps a showcase of seen activations, each AOI on
+every pass from the event date to three days after, and manual requests. It also watches every new flood activation
+for 30 days after its event and maps each new pass over at most four of its AOIs.
 
 \textbf{What it may read and show.} The service reads only an activation's code, name, category, event date and AOI
-extents, never a CEMS product, and the live page shows no Copernicus outline and no score for any flood. For blind
-floods, a rule was logged before the service ran. Until the author switches them on, the service refuses every code
-from EMSR899 on before it requests the record. It also refuses any date whose optical window reaches 20 July 2026, the
-first event date of the blind set, so that a map of an arbitrary box cannot show a blind flood either. Tests enforce
-both rules, and check that the committed switch is off. By v1.3's protocol, the switch may be turned on only after
-the v1.3 freeze, or after the ladder has decided that there is no v1.3 model, and only on the author's go. The ladder
-has decided; at this writing the switch is off. % TODO(status): the switch at submission.
-Showing a blind flood's map cannot change its score: the models are frozen and the scores committed. The rule
-protects later models, whose development must not see blind outputs before they are frozen.
+extents, never a CEMS product, and the live page shows no Copernicus outline and no score for any flood. Blind floods
+were held back by a rule logged before the service ran. While a committed switch was off, the service refused every
+code from EMSR899 on before it requested the record, and any date whose optical window reaches 20 July 2026, the first
+event date of the blind set, so that a map of an arbitrary box could not show a blind flood either; tests enforce
+both. By v1.3's protocol the switch could be turned on only after the v1.3 freeze, or after the ladder had decided
+that there is no v1.3 model, and only on the author's go. The ladder decided on 11 November 2026, and the author
+switched blind floods on on 13 November, logged before the first map of one existed. Showing a blind flood's map
+cannot change its score: the models are frozen, and every blind score is computed only by the blind test's runner and
+committed to its ledger. The rule protected the development of a later model, which must not see blind outputs before
+it is frozen; with no v1.3 model, none is in development.
 
 % =====================================================================================================================
 \section{Discussion}\label{sec:discussion}
@@ -1209,8 +1208,13 @@ rule to each scene is not free.
   \item \textbf{Training data defects.} The v1.1 models were trained on data that carried erratum~2 and were not
     retrained.
   \item \textbf{Timestamps.} Commit dates are set by the author's machine. GitHub first received the protocol and the
-    freeze tag on 15 October 2026, before any blind flood was scored; no independent archive holds them yet.
-    % TODO(status): Zenodo and Software Heritage, if archived before submission.
+    freeze tag on 15 October 2026, before any blind flood was scored. Software Heritage archived the repository,
+    the protocol, the freeze tag and the ledger included, on 13 November 2026
+    (\file{swh:1:snp:084feda8e19a3768ad891541e25a8e6d74f8421f}). That is after the first blind AOI was scored, on
+    11 November, so the archive fixes the freeze's content from then on, not its date.
+    % src: Software Heritage API, origin visit of 2026-11-13T11:10:43Z (status full); the snapshot lists
+    % refs/tags/v1.2.0-freeze -> 66fda2bc (the local tag object) and refs/heads/blind/v1.2 -> d6fed1f.
+    % TODO(status): Zenodo DOIs, if archived before submission.
 \end{itemize}
 
 % =====================================================================================================================

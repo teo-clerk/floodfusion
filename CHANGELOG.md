@@ -4,6 +4,13 @@ All notable changes; the format follows [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+### Changed
+- **Blind floods are on in the live service** (13 November 2026, the author's go; protocol v1.3 §6). New Copernicus
+  flood activations, the blind test's included, are mapped for 30 days after each event and shown as the model's map
+  alone, with no Copernicus outline and no score. Logged before the first such map in `reports/v1_3_deviations.md`
+  and, as a disclosure, in `reports/v1_2_deviations.md`; the blind test itself is unchanged.
+- The model card points at release v1.3.0 and the live page.
+
 ## [1.3.0] — 2026-11
 
 How good can a Sentinel-1 model get against Copernicus EMS, and the frozen model in service. The protocol

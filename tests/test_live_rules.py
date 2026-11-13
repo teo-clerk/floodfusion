@@ -1,8 +1,9 @@
-"""The live service's rule before the blind-flood switch (``reports/v1_3_deviations.md``, 2026-11-11; protocol §6).
+"""The live service's blind-flood rule (``reports/v1_3_deviations.md``, 2026-11-11 and 2026-11-13; protocol §6).
 
-These tests are the rule's enforcement: while the committed switch is off, no blind code is requested and no map may
-reach a blind flood's dates. Switching blind floods on edits ``test_the_committed_switch_is_off``, with a comment
-naming the author's go.
+These tests are the rule's enforcement: while a switch is off, no blind code is requested and no map may reach a
+blind flood's dates. The committed switch was turned on on 2026-11-13, on the author's go, by editing what was
+``test_the_committed_switch_is_off`` (now ``test_the_committed_switch_is_on``); the off-switch behaviour is still
+tested with ``enabled=False``.
 """
 
 from __future__ import annotations
@@ -24,13 +25,16 @@ RECORD = {
 }
 
 
-def test_the_committed_switch_is_off() -> None:
+def test_the_committed_switch_is_on() -> None:
+    # 2026-11-13: the author's go to switch blind floods on (protocol v1.3 §6; reports/v1_3_deviations.md, 2026-11-13),
+    # given after the ladder decided that there is no v1.3 model. This test was test_the_committed_switch_is_off and
+    # asserted False; the go is what changes it to True.
     # 2026-11-12: the switch moved from configs/live.yaml to live_rules.LIVE_CONFIG (configs/live/service.yaml), since
-    # tests/test_config_loading.py loads every top-level configs/*.yaml as an experiment config. The check is the
-    # same; it now also requires the file, because a missing switch reads as off (the old path passed vacuously).
+    # tests/test_config_loading.py loads every top-level configs/*.yaml as an experiment config. It requires the file,
+    # because a missing switch reads as off (the old path passed vacuously).
     path = ROOT / live_rules.LIVE_CONFIG
     assert path.is_file()
-    assert live_rules.blind_floods_enabled(path) is False
+    assert live_rules.blind_floods_enabled(path) is True
 
 
 def test_a_missing_switch_is_off_and_a_malformed_one_is_refused(tmp_path: Path) -> None:
@@ -79,11 +83,29 @@ def test_a_date_whose_optical_window_reaches_the_blind_events_is_refused() -> No
 def test_a_map_refuses_a_blind_date_before_any_tile_is_ingested(tmp_path: Path, monkeypatch) -> None:
     from floodfusion import live
 
+    # 2026-11-13: the committed switch is on (the author's go), so the switch is set off here explicitly; until then
+    # this test read the committed file. The rule tested is unchanged.
+    monkeypatch.setattr(live_rules, "blind_floods_enabled", lambda path=None: False)
     monkeypatch.setattr(live, "tiles_for", lambda bbox: pytest.fail("a tile was planned"))
     with pytest.raises(live_rules.BlindFloodRefusedError):
         live.map_area((12.0, 44.2, 12.1, 44.3), date(2026, 8, 1), tmp_path, predictor=None, name="x", cfg=None,
                       sources=None, device=None)
     assert not any(tmp_path.iterdir())
+
+
+def test_with_the_committed_switch_on_a_map_of_a_blind_date_goes_ahead(tmp_path: Path, monkeypatch) -> None:
+    from floodfusion import live
+
+    class Planned(Exception):
+        pass
+
+    def planned(bbox: object) -> None:
+        raise Planned
+
+    monkeypatch.setattr(live, "tiles_for", planned)
+    with pytest.raises(Planned):   # past the date check: the map would now plan its tiles
+        live.map_area((12.0, 44.2, 12.1, 44.3), date(2026, 10, 20), tmp_path, predictor=None, name="x", cfg=None,
+                      sources=None, device=None)
 
 
 def test_only_the_allowed_fields_of_a_seen_record_are_read() -> None:

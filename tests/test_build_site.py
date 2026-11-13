@@ -381,9 +381,32 @@ def _entry(map_id, code="EMSR664", pass_time="2023-05-17T05:16:00+00:00", kind="
             "orbit_state": "descending"}
 
 
+def _switch_repo(tmp_path, *, on):
+    # 2026-11-13: the committed switch was turned on (the author's go; reports/v1_3_deviations.md). The tests of the
+    # guard "while blind floods are off" read that committed file until then; they now pass a repository root whose
+    # switch they set themselves, so they test the same rule whatever the committed switch says.
+    repo = tmp_path / ("repo_on" if on else "repo_off")
+    (repo / "configs" / "live").mkdir(parents=True)
+    (repo / "configs" / "live" / "service.yaml").write_text(f"blind_floods: {'true' if on else 'false'}\n",
+                                                            encoding="utf-8")
+    return repo
+
+
 def test_the_live_page_waits_for_its_first_maps(tmp_path):
-    data = _script().live_data(tmp_path / "absent")
+    data = _script().live_data(tmp_path / "absent", root=_switch_repo(tmp_path, on=False))   # 2026-11-13: see above
     assert data == {"maps": [], "updated_at": None, "blind_floods": False}
+    assert _script().live_data(tmp_path / "absent", root=_switch_repo(tmp_path, on=True))["blind_floods"] is True
+
+
+def test_the_live_page_shows_a_blind_flood_once_the_switch_is_on(tmp_path):
+    data = _script().live_data(_live_root(tmp_path, [_entry("x", code="EMSR935",
+                                                            pass_time="2026-10-20T05:00:00+00:00")]),
+                               root=_switch_repo(tmp_path, on=True))
+    assert [m["code"] for m in data["maps"]] == ["EMSR935"] and data["blind_floods"] is True
+
+
+def test_the_committed_switch_is_what_the_live_page_reads():
+    assert _script().blind_floods_on() is True   # 2026-11-13: switched on, on the author's go
 
 
 def test_the_live_page_lists_the_newest_pass_first_and_copies_only_its_polygons(tmp_path):
@@ -398,18 +421,19 @@ def test_the_live_page_lists_the_newest_pass_first_and_copies_only_its_polygons(
 
 
 def test_the_live_page_refuses_a_blind_flood_while_blind_floods_are_off(tmp_path):
+    off = _switch_repo(tmp_path, on=False)   # 2026-11-13: an explicit off switch (see _switch_repo)
     root = _live_root(tmp_path, [_entry("x", code="EMSR926")])
     with pytest.raises(ValueError, match="blind"):
-        _script().live_data(root)
+        _script().live_data(root, root=off)
     late = _live_root(tmp_path / "late", [_entry("y", code=None, kind="manual", pass_time="2026-09-01T05:00:00+00:00")])
     with pytest.raises(ValueError, match="blind"):
-        _script().live_data(late)
+        _script().live_data(late, root=off)
 
 
 @pytest.mark.parametrize("code", ["emsr926", " EMSR926", "EMSR926 "])
 def test_a_blind_code_in_another_spelling_is_still_refused(tmp_path, code):
     with pytest.raises(ValueError, match="blind"):
-        _script().live_data(_live_root(tmp_path, [_entry("x", code=code)]))
+        _script().live_data(_live_root(tmp_path, [_entry("x", code=code)]), root=_switch_repo(tmp_path, on=False))
 
 
 @pytest.mark.parametrize("code", ["LSR664", "EMSR", "EMSR664; x"])
@@ -472,10 +496,11 @@ def test_the_live_page_and_the_live_service_share_the_blind_rule():
 # --- after the security and code reviews of 2026-11-11 -------------------------------------------------------------
 
 def test_the_live_page_takes_the_blind_switch_from_the_repository_not_from_the_data(tmp_path):
+    off = _switch_repo(tmp_path, on=False)   # 2026-11-13: an explicit off switch (see _switch_repo)
     root = _live_root(tmp_path, [_entry("x", code="EMSR926")], blind=True)   # the data claims the switch is on
     with pytest.raises(ValueError, match="blind"):
-        _script().live_data(root)
-    assert _script().live_data(_live_root(tmp_path / "ok", [_entry("a")], blind=True))["blind_floods"] is False
+        _script().live_data(root, root=off)
+    assert _script().live_data(_live_root(tmp_path / "ok", [_entry("a")], blind=True), root=off)["blind_floods"] is False
 
 
 def test_the_live_page_refuses_a_symlinked_file(tmp_path):

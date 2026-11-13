@@ -85,8 +85,8 @@
 - **Run it anywhere.** `python -m floodfusion.live map --bbox W S E N --date YYYY-MM-DD --out DIR` maps a box on a
   Sentinel-1 pass, on CPU, and writes COG layers, a STAC item and flood polygons per tile. On a replayed benchmark tile
   its 14 input bands equal the benchmark's, pixel for pixel (`reports/live_replay.md`). It reads no Copernicus product
-  and reports no score. While blind floods are switched off (`configs/live/service.yaml`), it refuses pass dates from
-  18 July 2026 on.
+  and reports no score. Blind floods are switched on since 13 November 2026 (`configs/live/service.yaml`, the author's
+  go); with the switch off, it refuses pass dates from 18 July 2026 on.
 
 ## Intended use
 
