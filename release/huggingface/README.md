@@ -54,8 +54,9 @@ uv run --frozen python -m floodfusion.weights fetch --repo teo-clerk/floodfusion
 uv run --frozen python -m floodfusion.live map --bbox 11.8 44.15 12.2 44.3 --date 2023-05-17 --out maps/forli
 ```
 
-The `weights` and `live` commands reach the repository's `main` branch with release v1.3.0; until then they are on
-the branch `feat/v1.3-live` (`git checkout feat/v1.3-live` after cloning).
+The `weights` and `live` commands are in release [v1.3.0](https://github.com/teo-clerk/floodfusion/tree/v1.3.0) and
+later. The project's [live page](https://teo-clerk.github.io/floodfusion/live.html) shows the maps a scheduled job
+makes with these weights.
 
 The map command reads Sentinel-1 RTC, the Copernicus DEM, JRC surface water and ESA WorldCover from Microsoft Planetary
 Computer, and Sentinel-2 where it is clear. The live map rebuilds the benchmark's input stack bit for bit: on one
