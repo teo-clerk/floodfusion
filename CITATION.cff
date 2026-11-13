@@ -9,6 +9,17 @@ version: 1.3.0
 date-released: "2026-11-13"
 license: MIT
 repository-code: "https://github.com/teo-clerk/floodfusion"
+doi: 10.5281/zenodo.24194784
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.24194784
+    description: "Zenodo, all versions (resolves to the latest release)"
+  - type: doi
+    value: 10.5281/zenodo.24194785
+    description: "Zenodo, release v1.3.0"
+  - type: swh
+    value: "swh:1:snp:084feda8e19a3768ad891541e25a8e6d74f8421f"
+    description: "Software Heritage snapshot of 13 November 2026"
 keywords:
   - sentinel-1
   - sentinel-2

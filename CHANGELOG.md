@@ -11,6 +11,11 @@ All notable changes; the format follows [Keep a Changelog](https://keepachangelo
   and, as a disclosure, in `reports/v1_2_deviations.md`; the blind test itself is unchanged.
 - The model card points at release v1.3.0 and the live page.
 
+### Added
+- **DOIs.** Release v1.3.0 is archived on Zenodo (10.5281/zenodo.24194785; all versions 10.5281/zenodo.24194784)
+  and the repository on Software Heritage (`swh:1:snp:084feda8e19a3768ad891541e25a8e6d74f8421f`); the README,
+  `CITATION.cff` and the long paper cite them.
+
 ## [1.3.0] — 2026-11
 
 How good can a Sentinel-1 model get against Copernicus EMS, and the frozen model in service. The protocol

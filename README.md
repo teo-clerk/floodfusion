@@ -1,5 +1,7 @@
 # floodfusion
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24194784.svg)](https://doi.org/10.5281/zenodo.24194784)
+
 **Flood maps from Sentinel-1 radar that a duty officer can act on at 03:00.** The maps are calibrated,
 ship with an exclusion mask saying where they must not be trusted, and use Sentinel-2 only where it is
 clear. Version 1.1 tests them on **38 flood activations mapped independently by Copernicus EMS**, with four
@@ -487,7 +489,9 @@ design decision or acceptance check each piece of code implements.
 
 ## Citing
 
-See [`CITATION.cff`](CITATION.cff). Please also cite Sen1Floods11 (Bonafilia et al., 2020), Kuro Siwo
+See [`CITATION.cff`](CITATION.cff); the software's DOI is
+[10.5281/zenodo.24194784](https://doi.org/10.5281/zenodo.24194784) (all versions; release v1.3.0 is
+[10.5281/zenodo.24194785](https://doi.org/10.5281/zenodo.24194785)). Please also cite Sen1Floods11 (Bonafilia et al., 2020), Kuro Siwo
 (Bountos et al., NeurIPS 2024 Datasets and Benchmarks) and GEOID-Flood (Chiriaco et al., 2026) if you use their
 labels; the published weights were trained on the last two.
 

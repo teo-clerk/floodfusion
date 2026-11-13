@@ -144,8 +144,9 @@ delineations of the same area at most 24\,h apart (x). Dashed: equal agreement. 
 \subsection{Fine-tuning on Copernicus's own labels does not help}
 Fine-tuned on CEMS labels, R3 reaches 0.380 macro IoU against R1's 0.421 (seed 42): $-0.041$, better on 15 of the
 38 activations and on 12 of 30 clusters. It is not adopted, so there is no v1.3 model and its blind-test hypothesis
-is not run. The loss is not a threshold effect: at each activation's best threshold in hindsight R3 reaches 0.457
-against 0.468, and its average precision falls from 0.606 to 0.573. Per activation (Fig.~\ref{fig:ladder}) the
+is not run. Part of the loss is in the ranking: at each activation's best threshold in hindsight R3 reaches 0.457
+against 0.468, and its average precision falls from 0.606 to 0.573. Most of the loss at \tstar{} is calibration,
+which each fold fits on its validation groups alone. Per activation (Fig.~\ref{fig:ladder}) the
 change ranges from $+0.13$ to $-0.34$ (median $-0.01$): fine-tuning helps some floods and breaks a few. One reading,
 not tested here, is that labels which agree with themselves at 0.52 are too inconsistent between floods to
 transfer from a few dozen of them.

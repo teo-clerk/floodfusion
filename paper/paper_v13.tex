@@ -4,7 +4,7 @@
 % Every number is taken from a committed report under reports/; the source is named in a comment beside it.
 % Differences marked "derived" are subtractions of two sourced numbers. Figures: paper/make_figures.py (v1.2's) and
 % paper/igarss27/make_figures.py (the ceiling and the ladder), whose JSON files hold every number they plot.
-% "TODO(status)" marks what is updated at submission: the ledger's counts and Zenodo's DOIs.
+% "TODO(status)" marks what is updated at submission: the ledger's counts.
 \documentclass[10pt,twocolumn,a4paper]{article}
 
 \usepackage[T1]{fontenc}
@@ -65,8 +65,9 @@
   {\small Frozen weights: \url{https://huggingface.co/teo-clerk/floodfusion}\par}
   {\small Interactive Arena and live maps: \url{https://teo-clerk.github.io/floodfusion/}\par}
   \vspace{2pt}
-  {\footnotesize Preprint, November 2026. Release \texttt{v1.3.0}; blind-test models frozen at tag
-   \texttt{v1.2.0-freeze}. Not peer reviewed. Extends the v1.2 preprint of 15 October 2026.\par}
+  {\footnotesize\bfseries This is a non-peer-reviewed preprint submitted to EarthArXiv.\par}
+  {\footnotesize November 2026. Release \texttt{v1.3.0} (doi:10.5281/zenodo.24194785); blind-test models frozen at tag
+   \texttt{v1.2.0-freeze}. Extends the v1.2 preprint of 15 October 2026.\par}
 \end{center}
 \vspace{2pt}
 \begin{center}
@@ -76,7 +77,8 @@
 % src: reports/v11_sen1floods11_table.md (0.608), reports/v12_cems_rebuilt.md (CEMS scores, oracle 0.468),
 % reports/v12_cems_seen_tests.md, reports/reference_ceiling.md (0.520, 34 activations), reports/v13_ladder.md
 % (R1 0.421, R2 0.423, R3 0.380; nothing adopted), reports/protocol_v1_2.md, release/huggingface/README.md.
-% derived: +0.002 = 0.423 - 0.421; -0.041 from reports/v13_ladder.md.
+% derived: +0.002 = 0.423 - 0.421; -0.041 from reports/v13_ladder.md. 0.433 and 0.536 on the 27 activations in both
+% sets: paper/igarss27/figures/ceiling_scatter.json. 6-24 h: reports/reference_ceiling.md.
 Flood-segmentation models for Sentinel-1 synthetic aperture radar (SAR) are usually ranked by cross-validation on
 benchmark chips whose labels share sensors, dates and definitions with the model inputs. We measure how far such
 scores carry to operational reference maps, what limits them there, and whether adapting a model to the reference
@@ -86,11 +88,12 @@ training on these events, at its own calibrated threshold. A gated cross-attenti
 scores 0.608 IoU in leave-one-event-out cross-validation on Sen1Floods11 scores 0.266 on these maps, below a physics
 baseline (0.373); trained on Kuro Siwo's flood labels, the same architecture scores 0.407. Our v1.2 model adds a
 seasonal Sentinel-1 reference and is trained on 7,006 chips from 138 floods (Kuro Siwo and GEOID-Flood). It scores
-0.417 IoU, against 0.405 for TerraMind-base adapted fairly to the same labels, and 0.419 against 0.321 for
-Copernicus's Global Flood Monitoring (GFM) ensemble on the 34 activations GFM covers; at each activation's best
-threshold in hindsight it would reach 0.468. The reference itself sets a ceiling: two CEMS delineations of the same
-area, made at most 24\,h apart, agree with each other at 0.520 macro IoU over 34 activations. Adapting to the
-reference does not close the remaining gap. In grouped cross-validation over the 38 activations, a threshold
+0.417 IoU, against 0.405 for TerraMind-base adapted with LoRA to the same labels and tuning budget, and 0.419
+against 0.321 for Copernicus's Global Flood Monitoring (GFM) ensemble on the 34 activations GFM covers, with GFM's
+exclusion mask scored as dry. At each activation's best threshold in hindsight, our model would reach 0.468. The
+reference is itself uncertain: consecutive CEMS delineations of the same area, made 6--24\,h apart, agree with each
+other at 0.520 macro IoU over 34 activations; on the 27 activations in both sets, the model scores 0.433 and the
+consecutive products 0.536. Adapting to the reference does not close the remaining gap. In grouped cross-validation over the 38 activations, a threshold
 refitted on the other folds gains 0.002, and fine-tuning on their CEMS labels loses 0.041 (0.380 against 0.421), so
 an adoption rule fixed in advance adopted neither. Because this benchmark had been seen during development, all of
 these comparisons are exploratory. The confirmatory test is preregistered: every eligible CEMS flood activation from
@@ -110,17 +113,16 @@ Service; reference data; geospatial foundation models; TerraMind; preregistratio
 % =====================================================================================================================
 \section{Introduction}
 
-Floods are the hazard whose mapping depends most on radar: the weather that floods a valley is the weather that
-clouds it, and the C-band synthetic aperture radar (SAR) on Sentinel-1 sees the ground through cloud, day and night.
+Radar is central to flood mapping: the weather that floods a valley is the weather that clouds it, and the C-band synthetic aperture radar (SAR) on Sentinel-1 sees the ground through cloud, day and night.
 Two Copernicus services map floods operationally. Rapid mapping by the Emergency Management Service (CEMS) produces
 on-demand delineations for each activation, drawn by analysts on satellite imagery ranging from very-high-resolution
 commercial images to Sentinel data~\citep{cems2026rapidmapping}. The Global Flood Monitoring (GFM) product runs an ensemble of three algorithms
 on every Sentinel-1 acquisition, worldwide and automatically~\citep{salamon2021gfm,krullikowski2023gfm}.
 Deep-learning segmentation models trained on benchmark data sets---Sen1Floods11~\citep{bonafilia2020sen1floods11},
 Kuro Siwo~\citep{bountos2024kurosiwo} and, recently, GEOID-Flood~\citep{chiriaco2026geoid}---and geospatial
-foundation models such as TerraMind~\citep{jakubik2025terramind} promise to do better.
+foundation models such as TerraMind~\citep{jakubik2025terramind} are proposed as more accurate alternatives.
 
-These promises are mostly measured by cross-validation on benchmark chips. Spatial dependence between training and
+Such claims are mostly measured by cross-validation on benchmark chips. Spatial dependence between training and
 test data is known to inflate such estimates~\citep{roberts2017cv,ploton2020spatial,meyer2022maps}, and flood
 benchmarks add couplings of their own: Sen1Floods11's labels were drawn mostly on the Sentinel-2 image that a fusion
 model also receives, and they mark water on a date rather than flood. Recent comparisons also suggest that the encoder
@@ -150,9 +152,9 @@ Q2 confirmatorily; it is also our answer to Q5. Our contributions are:
   \item An exploratory comparison with Copernicus GFM on the floods it covers (0.419 vs 0.321). The gap lies more in
     GFM's fixed decision rule, exclusion mask included, than in how its likelihood ranks pixels
     (Section~\ref{sec:gfm}).
-  \item To our knowledge, the first measurement of how well two CEMS delineations of the same flood agree: 0.520
-    macro IoU over 34 activations, close to the models' 0.42. Per activation, the model's score tracks that
-    agreement (Section~\ref{sec:ceiling}).
+  \item A measurement, which we have not found published, of how well consecutive CEMS delineations of the same
+    flood agree: 0.520 macro IoU over 34 activations, against the models' 0.42. Per activation, the model's score is
+    associated with that agreement (post hoc, Spearman $\rho = 0.51$; Section~\ref{sec:ceiling}).
   \item An adaptation ladder with an adoption rule fixed in advance. Neither a threshold refitted on other CEMS floods
     ($+0.002$) nor fine-tuning on their labels ($-0.041$) was adopted (Section~\ref{sec:ladder}).
   \item A preregistered blind test on CEMS activations that no model had seen, with hash-committed scores and a power
@@ -734,7 +736,7 @@ on 22 of 38 ($+0.010$). With the blind test's own analysis (Table~\ref{tab:seen}
 % AP 0.5981-0.5827 = 0.0154
 The cross-validation comparison is single-seed and chip-level, the CEMS comparison three-seed and activation-level,
 and 38 activations resolve gaps of this size poorly. We therefore read the result as follows: on these maps, our
-task-specific model and the fairly adapted TerraMind-base are not distinguishable at this sample size (Holm $p=0.37$).
+task-specific model and the LoRA-adapted TerraMind-base are not distinguishable at this sample size (Holm $p=0.37$).
 Both were trained and scored on data rebuilt with the DEM fix; TerraMind reads DEM gaps inside a window as 0\,m
 (Section~\ref{sec:discussion}). The seasonal context's contribution on CEMS is not isolated, because no final model
 without it was scored there. Per-scene self-calibration barely helps row 21 (0.418 to 0.420 on the binned scores)
@@ -814,12 +816,12 @@ Test (v1.2 $-$ A) & Unit & K & Gap & B $>$ A & AP gap & Holm $p$ \\
 \footnotesize Had these been the blind floods, P5 and P7 would read \emph{not supported} and P6 \emph{supported}.
 \end{table}
 
-\subsection{Copernicus agrees with itself at 0.52}\label{sec:ceiling}
+\subsection{Consecutive Copernicus maps agree at 0.52}\label{sec:ceiling}
 % src: reports/reference_ceiling.md (all rows; per-activation range EMSR841 0.141 to EMSR711 0.987; probe);
 % reports/v1_3_deviations.md (sensitivity row: EMSR657 AOI01's three pairs, 43-58 %; disclosure on the scatter);
 % paper/igarss27/figures/ceiling_scatter.json (n 27, rho 0.509, p 0.0067, below 20, macros 0.536 and 0.433)
-Over 79 pairs in 34 activations, two CEMS delineations of the same area, made at most 24\,h apart, agree at 0.520
-macro IoU, and the median pair at 0.498 (Table~\ref{tab:ceiling}). All 79 pairs are 6--24\,h apart and none shares a
+Over 79 pairs in 34 activations, consecutive CEMS delineations of the same area, made at most 24\,h apart, agree at
+0.520 macro IoU, and the median pair at 0.498 (Table~\ref{tab:ceiling}). All 79 pairs are 6--24\,h apart and none shares a
 source image. Pairs drawn on two radar images agree at 0.515. The sensitivity row leaves out EMSR657 AOI~1's three
 pairs, whose later products repeat 43--58\pp{} of their flood from earlier images, and gives 0.509. Per activation,
 agreement ranges from 0.141 (EMSR841) to 0.987 (EMSR711).
@@ -827,10 +829,13 @@ agreement ranges from 0.141 (EMSR841) to 0.987 (EMSR711).
 By the reading fixed in the protocol, agreement near 0.5 places the benchmark near its ceiling: the models' 0.42 is
 close to the level at which the reference agrees with itself, rather than 0.42 of the way to a perfect map. The
 ceiling is not a bound, though: a model's map, compared under the same 24\,h tolerance, can agree with one product
-better than the next product does.
+better than the next product does. Nor is it two analysts mapping one image. It is the agreement of consecutive
+products, 6--24\,h apart, so it mixes disagreement with real change in the flood, whereas the benchmark pairs each
+product with the Sentinel-1 pass nearest to it in time. The comparison with the models' scores is therefore
+indicative, not like for like.
 
 Figure~\ref{fig:ceiling} pairs the two per activation, on the 27 activations in both sets, where the model scores
-0.433 and the reference agrees with itself at 0.536. The model scores below the reference's self-agreement in 20 of
+0.433 and the consecutive products agree at 0.536. The model scores below the reference's self-agreement in 20 of
 the 27, and the two are associated (Spearman $\rho = 0.51$, $p = 0.007$). This analysis was chosen after both had
 been computed, and it is exploratory. It is what one would see if floods that analysts cannot delineate consistently
 are also hard for a model; it is also what one would see if both depend on a third property, such as the flood's
@@ -886,8 +891,11 @@ leaves (Section~\ref{sec:cems}): the best threshold varies between floods more t
 CEMS.
 
 \textbf{R3: fine-tuning on CEMS labels.} It scores 0.380 against R1's 0.421: $-0.041$, better on 15 of 38 activations
-and on 12 of 30 clusters. It is not adopted, so there is no v1.3 model and H8 is not run. The loss is not a threshold
-effect: AP falls from 0.606 to 0.573, and the oracle IoU from 0.468 to 0.457. Per activation, the change ranges from
+and on 12 of 30 clusters. It is not adopted, so there is no v1.3 model and H8 is not run. Part of the loss is in
+the ranking itself: AP falls from 0.606 to 0.573, and the oracle IoU from 0.468 to 0.457. Most of the loss at
+$\tau^{*}$, though, is calibration: R3 sits 0.077 below its oracle IoU and R1 0.047, and each fold fits R3's
+calibration on its validation groups alone (protocol v1.3 §3).
+% derived: 0.457-0.380 = 0.077; 0.468-0.421 = 0.047 (reports/v13_ladder.md); calibration: reports/protocol_v1_3.md Per activation, the change ranges from
 $+0.131$ (EMSR841) to $-0.336$ (EMSR771), with a median of $-0.014$ (Figure~\ref{fig:ladder}).
 \begin{itemize}
   \item \textbf{Two folds carry the loss.} Fold~0 (nine activations) falls from 0.367 to 0.270 and fold~1 (seven)
@@ -1112,7 +1120,9 @@ that there is no v1.3 model, and only on the author's go. The ladder decided on 
 switched blind floods on on 13 November, logged before the first map of one existed. Showing a blind flood's map
 cannot change its score: the models are frozen, and every blind score is computed only by the blind test's runner and
 committed to its ledger. The rule protected the development of a later model, which must not see blind outputs before
-it is frozen; with no v1.3 model, none is in development.
+it is frozen; with no v1.3 model, none is in development. Once shown, though, the blind floods can no longer serve
+as unseen test data for a model developed after the switch. The service is a research demonstration, not an
+operational or official Copernicus product.
 
 % =====================================================================================================================
 \section{Discussion}\label{sec:discussion}
@@ -1135,10 +1145,10 @@ scores little; unlike GEOID-Flood, we see no foundation-model advantage. For ope
 semantics and an explicit decision rule mattered more here than the network.
 
 \paragraph{Reading a score against its reference.} A score of 0.42 IoU against CEMS reads differently beside the
-reference's own agreement: two CEMS maps of one area, hours apart, agree at 0.52. On the 27 activations in both sets,
-the model scores 0.433 and the reference agrees with itself at 0.536, a gap of about 0.1 IoU. About half of the
-model's shortfall is the threshold (0.468 at each activation's best threshold against 0.417 at $\tau^{*}$), which an
-oracle recovers in hindsight but neither our calibration nor a threshold refitted on other floods does.
+reference's own agreement: two consecutive CEMS maps of one area, hours apart, agree at 0.52. On the 27 activations
+in both sets, the model scores 0.433 and the consecutive products agree at 0.536, a gap of about 0.1 IoU. Part of the
+model's shortfall is the threshold: over the 38 activations, each activation's best threshold in hindsight lifts it
+from 0.417 to 0.468, which neither our calibration nor a threshold refitted on other floods recovers.
 Benchmarks that score models against analyst maps could report the reference's self-agreement beside every score,
 as other fields report agreement between annotators. Without it, a reader cannot tell how much of a score's distance
 from 1 is the model's.
@@ -1168,7 +1178,9 @@ adaptation of a model that was already good on this reference, under a rule that
   \item rules fixed before results.
 \end{itemize}
 It also needs a threshold-free metric beside the thresholded one, because thresholds transfer differently from one
-model to another. Our v1.1 comparison failed the recipe condition through a bug (erratum~1). It was caught while
+model to another. Our TerraMind opponent (row 24) met the first, second and fifth. Its tuning budget covered only
+the learning rate, and its inputs were not fully native (Limitations), so ``fair'' in its name states the intent of
+the design, not a guarantee. Our v1.1 comparison failed the recipe condition through a bug (erratum~1). It was caught while
 preparing a fair opponent for v1.2.
 
 \paragraph{Reading the GFM comparison.} GFM is built for automated global operation, with conservative exclusions
@@ -1182,8 +1194,9 @@ rule to each scene is not free.
   \item \textbf{Reference maps are products, not ground truth.} CEMS delineations are generalised analyst maps, drawn
     on commercial images (34 of the 75 primary pairs on VHR2-class images, 41 on coarser HR+-class images) taken up
     to 24\,h from the Sentinel-1 pass. Low IoU partly measures the difference between two products.
-  \item \textbf{The reference ceiling.} Its 0.520 includes real change in the flood within 24\,h, so it understates
-    how well two analysts would agree on one image. It covers the 34 activations mapped twice within a day, which
+  \item \textbf{Consecutive-product agreement.} Its 0.520 includes real change in the flood within 24\,h, which
+    lowers it, while an analyst who starts a product from the previous one raises it; the carry-over probe found
+    that only in EMSR657 AOI~1. It is not the agreement of two analysts on one image. It covers the 34 activations mapped twice within a day, which
     may differ from those mapped once, and only 27 of them are among the 38 the models are scored on.
   \item \textbf{The ladder.} One seed decides each rung, on 38 seen activations. R2's verdict depends on the seed: with
     seeds 43 and 44 it would gain more than 0.005. Fine-tuning used one recipe, row 21's, and one of three learning
@@ -1211,10 +1224,11 @@ rule to each scene is not free.
     freeze tag on 15 October 2026, before any blind flood was scored. Software Heritage archived the repository,
     the protocol, the freeze tag and the ledger included, on 13 November 2026
     (\file{swh:1:snp:084feda8e19a3768ad891541e25a8e6d74f8421f}). That is after the first blind AOI was scored, on
-    11 November, so the archive fixes the freeze's content from then on, not its date.
+    11 November, so the archive fixes the freeze's content from then on, not its date. Zenodo archived release
+    \texttt{v1.3.0} the same day (doi:10.5281/zenodo.24194785).
     % src: Software Heritage API, origin visit of 2026-11-13T11:10:43Z (status full); the snapshot lists
     % refs/tags/v1.2.0-freeze -> 66fda2bc (the local tag object) and refs/heads/blind/v1.2 -> d6fed1f.
-    % TODO(status): Zenodo DOIs, if archived before submission.
+    % src: Zenodo API, record 24194785 (concept 24194784), created 2026-11-13T11:50:50Z from the GitHub release v1.3.0.
 \end{itemize}
 
 % =====================================================================================================================
@@ -1225,7 +1239,7 @@ specification and defined the project's core research objectives: to test findin
 Copernicus EMS activations, to audit whether the comparison with a foundation model, TerraMind, is fair, and to decide
 the main comparison by a preregistered blind test. The specification fixed v1.0's architecture, its ablation grid,
 the training recipe and the decision rule. The repository's first commit (\texttt{212e0e6}, 9 October 2026) imported
-it unchanged (``as received'' in its message) with a skeleton package, the ablation configurations and a test
+it unchanged (the meaning of ``as received'' in its message) with a skeleton package, the ablation configurations and a test
 specification of 281 test functions. The specification documents were removed from the history before publication
 and are not public; the commit holds the package, the configurations and the tests. The author directed the agent
 workflow described below: they set each release's goals, reviewed and approved each release's plan, and made the
@@ -1239,7 +1253,7 @@ responsibility for the work, its errata and corrections, and this paper.
 % "exactly as delivered"); git ls-tree 212e0e6: configs/ 15 files, src/ 21, tests/ 16 with 281 test functions
 
 \paragraph{Use of an AI coding agent.} The project was built with Claude Code (Anthropic), an AI coding agent that the
-author operated throughout. In line with the generative-AI policies of publishers such as IEEE, NeurIPS and AGU, the
+author operated throughout. In line with the generative-AI policies of IEEE and AGU, and of venues such as NeurIPS, the
 agent is not an author, its use is described here, and the human author is accountable for the results. Under the
 author's direction, the agent:
 \begin{enumerate}[label=(\roman*)]
@@ -1247,7 +1261,8 @@ author's direction, the agent:
     rules, which the author approved;
   \item implemented the specification and the later releases: the data pipeline, the models, the scorers, the
     blind-test runner, the Arena page and the live service;
-  \item extended the test suite from the 281 specified test functions to 976;
+  \item extended the test suite from the 281 specified test functions to 976, which parametrisation expands to
+    1,240 test cases;
   \item ran structured review passes with separate agent instances: code, Python, machine-learning engineering and
     security. Their findings were fixed or, where a fix would have changed models already cross-validated,
     disclosed; findings that touched a rule were logged before the result they could affect. The review of the
@@ -1282,12 +1297,13 @@ v1.1's first amendment was written after the Stage A diagnostics of the v1.0 mod
 \section{Conclusion}
 On the seen CEMS benchmark (exploratory), the training data and the decision rule mattered more than the network:
 \begin{itemize}
-  \item a task-specific seasonal-context model and a fairly adapted TerraMind-base are not distinguishable over 38
+  \item a task-specific seasonal-context model and a LoRA-adapted TerraMind-base are not distinguishable over 38
     activations;
   \item both score above GFM's binary product on the floods it covers (0.419 and 0.400 against 0.321; only the first
     gap was tested);
-  \item cross-validation on a benchmark whose labels share the model's inputs overstated a model's score by up to
-    0.34 IoU;
+  \item from cross-validation on a benchmark whose labels share the model's inputs to independent maps, a model's
+    score fell by up to 0.34 IoU, a drop that mixes optimistic cross-validation with a change of label (water against
+    flood);
   \item the reference agrees with itself at 0.520, so scores near 0.42 should be read against that level, not
     against 1;
   \item neither a threshold refitted on other CEMS floods nor fine-tuning on their labels closed the gap, under a
@@ -1301,8 +1317,9 @@ from Sentinel-1 in the open.
 % =====================================================================================================================
 \section*{Data and code availability}
 The code (MIT licence), the protocols, the deviations logs and every report are at
-\url{https://github.com/teo-clerk/floodfusion}. The release is tag \texttt{v1.3.0}, and the blind test's models are
-frozen at tag \texttt{v1.2.0-freeze}. The frozen weights of v1.2's model (row 21, three seeds) are at
+\url{https://github.com/teo-clerk/floodfusion}. The release is tag \texttt{v1.3.0}, archived on Zenodo
+(\url{https://doi.org/10.5281/zenodo.24194785}) and Software Heritage, and the blind test's models are frozen at tag
+\texttt{v1.2.0-freeze}. The frozen weights of v1.2's model (row 21, three seeds) are at
 \url{https://huggingface.co/teo-clerk/floodfusion} under CC BY 4.0, at revision
 \texttt{faed3bb78668cf25052211a7e834f34652a4cdf6}. The interactive Arena
 (\url{https://teo-clerk.github.io/floodfusion/arena.html}) shows every model on the same floods, and the live page
