@@ -1,0 +1,120 @@
+{
+  "bbox": [
+    11.37644,
+    43.997764,
+    12.483602,
+    44.595615
+  ],
+  "date": "2023-05-18",
+  "name": "EMSR664_AOI01_20230518T1658_044",
+  "run": "runs/v12/final/all/all/row21_fusion_context_seasonal/seed42",
+  "skipped": {
+    "t00_00": "dropped: EMSR664_AOI01_20230518T1658_044_t00_00: no Sentinel-1 IW VV+VH scene on relative orbit 44 between 2023-05-18 and 2023-05-18 in sentinel-1-rtc",
+    "t00_01": "dropped: EMSR664_AOI01_20230518T1658_044_t00_01: no Sentinel-1 IW VV+VH scene on relative orbit 44 between 2023-05-18 and 2023-05-18 in sentinel-1-rtc",
+    "t00_02": "dropped: EMSR664_AOI01_20230518T1658_044_t00_02: no Sentinel-1 IW VV+VH scene on relative orbit 44 between 2023-05-18 and 2023-05-18 in sentinel-1-rtc",
+    "t00_03": "dropped: EMSR664_AOI01_20230518T1658_044_t00_03: no Sentinel-1 IW VV+VH scene on relative orbit 44 between 2023-05-18 and 2023-05-18 in sentinel-1-rtc",
+    "t01_00": "dropped: EMSR664_AOI01_20230518T1658_044_t01_00: no Sentinel-1 IW VV+VH scene on relative orbit 44 between 2023-05-18 and 2023-05-18 in sentinel-1-rtc",
+    "t01_01": "dropped: EMSR664_AOI01_20230518T1658_044_t01_01: no Sentinel-1 IW VV+VH scene on relative orbit 44 between 2023-05-18 and 2023-05-18 in sentinel-1-rtc",
+    "t01_02": "dropped: EMSR664_AOI01_20230518T1658_044_t01_02: no Sentinel-1 IW VV+VH scene on relative orbit 44 between 2023-05-18 and 2023-05-18 in sentinel-1-rtc",
+    "t01_03": "dropped: EMSR664_AOI01_20230518T1658_044_t01_03: no Sentinel-1 IW VV+VH scene on relative orbit 44 between 2023-05-18 and 2023-05-18 in sentinel-1-rtc",
+    "t02_00": "dropped: EMSR664_AOI01_20230518T1658_044_t02_00: no Sentinel-1 IW VV+VH scene on relative orbit 44 between 2023-05-18 and 2023-05-18 in sentinel-1-rtc",
+    "t02_01": "dropped: EMSR664_AOI01_20230518T1658_044_t02_01: no Sentinel-1 IW VV+VH scene on relative orbit 44 between 2023-05-18 and 2023-05-18 in sentinel-1-rtc",
+    "t02_02": "dropped: EMSR664_AOI01_20230518T1658_044_t02_02: no Sentinel-1 IW VV+VH scene on relative orbit 44 between 2023-05-18 and 2023-05-18 in sentinel-1-rtc",
+    "t02_03": "dropped: EMSR664_AOI01_20230518T1658_044_t02_03: no Sentinel-1 IW VV+VH scene on relative orbit 44 between 2023-05-18 and 2023-05-18 in sentinel-1-rtc",
+    "t03_00": "dropped: EMSR664_AOI01_20230518T1658_044_t03_00: no Sentinel-1 IW VV+VH scene on relative orbit 44 between 2023-05-18 and 2023-05-18 in sentinel-1-rtc",
+    "t03_01": "dropped: EMSR664_AOI01_20230518T1658_044_t03_01: no Sentinel-1 IW VV+VH scene on relative orbit 44 between 2023-05-18 and 2023-05-18 in sentinel-1-rtc",
+    "t03_02": "dropped: EMSR664_AOI01_20230518T1658_044_t03_02: no Sentinel-1 IW VV+VH scene on relative orbit 44 between 2023-05-18 and 2023-05-18 in sentinel-1-rtc",
+    "t03_03": "dropped: EMSR664_AOI01_20230518T1658_044_t03_03: no Sentinel-1 IW VV+VH scene on relative orbit 44 between 2023-05-18 and 2023-05-18 in sentinel-1-rtc"
+  },
+  "tau": 0.25,
+  "tiles": {
+    "t00_04": {
+      "bbox": [
+        12.176440000000001,
+        44.445615000000004,
+        12.37644,
+        44.595615
+      ],
+      "flood_km2": 3.9437,
+      "pass_time": "2023-05-18T16:58:50.153495+00:00",
+      "valid_km2": 42.9259
+    },
+    "t00_05": {
+      "bbox": [
+        12.37644,
+        44.445615000000004,
+        12.483602,
+        44.595615
+      ],
+      "flood_km2": 5.7431,
+      "pass_time": "2023-05-18T16:58:50.153495+00:00",
+      "valid_km2": 5.7805
+    },
+    "t01_04": {
+      "bbox": [
+        12.176440000000001,
+        44.295615000000005,
+        12.37644,
+        44.445615000000004
+      ],
+      "flood_km2": 2.554,
+      "pass_time": "2023-05-18T16:58:50.153495+00:00",
+      "valid_km2": 48.2342
+    },
+    "t01_05": {
+      "bbox": [
+        12.37644,
+        44.295615000000005,
+        12.483602,
+        44.445615000000004
+      ],
+      "flood_km2": 0.0,
+      "pass_time": "2023-05-18T16:58:50.153495+00:00",
+      "valid_km2": 0.0
+    },
+    "t02_04": {
+      "bbox": [
+        12.176440000000001,
+        44.14561500000001,
+        12.37644,
+        44.295615000000005
+      ],
+      "flood_km2": 11.0212,
+      "pass_time": "2023-05-18T16:58:50.153495+00:00",
+      "valid_km2": 58.8211
+    },
+    "t02_05": {
+      "bbox": [
+        12.37644,
+        44.14561500000001,
+        12.483602,
+        44.295615000000005
+      ],
+      "flood_km2": 0.8051,
+      "pass_time": "2023-05-18T16:58:50.153495+00:00",
+      "valid_km2": 37.807
+    },
+    "t03_04": {
+      "bbox": [
+        12.176440000000001,
+        43.997764,
+        12.37644,
+        44.145615
+      ],
+      "flood_km2": 0.304,
+      "pass_time": "2023-05-18T16:58:50.153495+00:00",
+      "valid_km2": 15.7574
+    },
+    "t03_05": {
+      "bbox": [
+        12.37644,
+        43.997764,
+        12.483602,
+        44.145615
+      ],
+      "flood_km2": 0.3862,
+      "pass_time": "2023-05-18T16:58:50.153495+00:00",
+      "valid_km2": 148.3383
+    }
+  }
+}
