@@ -1,0 +1,156 @@
+{
+  "bbox": [
+    15.763752,
+    50.57069,
+    17.335918,
+    51.302843
+  ],
+  "date": "2024-09-16",
+  "name": "EMSR756_AOI01_20240916T1652_146",
+  "run": "runs/v12/final/all/all/row21_fusion_context_seasonal/seed42",
+  "skipped": {
+    "t00_02": "dropped: EMSR756_AOI01_20240916T1652_146_t00_02: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t00_03": "dropped: EMSR756_AOI01_20240916T1652_146_t00_03: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t00_04": "dropped: EMSR756_AOI01_20240916T1652_146_t00_04: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t00_05": "dropped: EMSR756_AOI01_20240916T1652_146_t00_05: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t00_06": "dropped: EMSR756_AOI01_20240916T1652_146_t00_06: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t00_07": "dropped: EMSR756_AOI01_20240916T1652_146_t00_07: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t01_02": "dropped: EMSR756_AOI01_20240916T1652_146_t01_02: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t01_03": "dropped: EMSR756_AOI01_20240916T1652_146_t01_03: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t01_04": "dropped: EMSR756_AOI01_20240916T1652_146_t01_04: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t01_05": "dropped: EMSR756_AOI01_20240916T1652_146_t01_05: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t01_06": "dropped: EMSR756_AOI01_20240916T1652_146_t01_06: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t01_07": "dropped: EMSR756_AOI01_20240916T1652_146_t01_07: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t02_02": "dropped: EMSR756_AOI01_20240916T1652_146_t02_02: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t02_03": "dropped: EMSR756_AOI01_20240916T1652_146_t02_03: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t02_04": "dropped: EMSR756_AOI01_20240916T1652_146_t02_04: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t02_05": "dropped: EMSR756_AOI01_20240916T1652_146_t02_05: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t02_06": "dropped: EMSR756_AOI01_20240916T1652_146_t02_06: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t02_07": "dropped: EMSR756_AOI01_20240916T1652_146_t02_07: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t03_02": "dropped: EMSR756_AOI01_20240916T1652_146_t03_02: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t03_03": "dropped: EMSR756_AOI01_20240916T1652_146_t03_03: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t03_04": "dropped: EMSR756_AOI01_20240916T1652_146_t03_04: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t03_05": "dropped: EMSR756_AOI01_20240916T1652_146_t03_05: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t03_06": "dropped: EMSR756_AOI01_20240916T1652_146_t03_06: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t03_07": "dropped: EMSR756_AOI01_20240916T1652_146_t03_07: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t04_02": "dropped: EMSR756_AOI01_20240916T1652_146_t04_02: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t04_03": "dropped: EMSR756_AOI01_20240916T1652_146_t04_03: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t04_04": "dropped: EMSR756_AOI01_20240916T1652_146_t04_04: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t04_05": "dropped: EMSR756_AOI01_20240916T1652_146_t04_05: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t04_06": "dropped: EMSR756_AOI01_20240916T1652_146_t04_06: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc",
+    "t04_07": "dropped: EMSR756_AOI01_20240916T1652_146_t04_07: no Sentinel-1 IW VV+VH scene on relative orbit 146 between 2024-09-16 and 2024-09-16 in sentinel-1-rtc"
+  },
+  "tau": 0.25,
+  "tiles": {
+    "t00_00": {
+      "bbox": [
+        15.763752,
+        51.152843000000004,
+        15.963752,
+        51.302843
+      ],
+      "flood_km2": 0.3172,
+      "pass_time": "2024-09-16T16:52:22.969724+00:00",
+      "valid_km2": 238.8096
+    },
+    "t00_01": {
+      "bbox": [
+        15.963752,
+        51.152843000000004,
+        16.163752,
+        51.302843
+      ],
+      "flood_km2": 0.0758,
+      "pass_time": "2024-09-16T16:52:22.969724+00:00",
+      "valid_km2": 28.3675
+    },
+    "t01_00": {
+      "bbox": [
+        15.763752,
+        51.002843000000006,
+        15.963752,
+        51.152843000000004
+      ],
+      "flood_km2": 0.1387,
+      "pass_time": "2024-09-16T16:52:22.969724+00:00",
+      "valid_km2": 239.2062
+    },
+    "t01_01": {
+      "bbox": [
+        15.963752,
+        51.002843000000006,
+        16.163752,
+        51.152843000000004
+      ],
+      "flood_km2": 0.1357,
+      "pass_time": "2024-09-16T16:52:22.969724+00:00",
+      "valid_km2": 74.6374
+    },
+    "t02_00": {
+      "bbox": [
+        15.763752,
+        50.85284300000001,
+        15.963752,
+        51.002843000000006
+      ],
+      "flood_km2": 1.598,
+      "pass_time": "2024-09-16T16:52:22.969724+00:00",
+      "valid_km2": 239.4191
+    },
+    "t02_01": {
+      "bbox": [
+        15.963752,
+        50.85284300000001,
+        16.163752,
+        51.002843000000006
+      ],
+      "flood_km2": 0.0804,
+      "pass_time": "2024-09-16T16:52:22.969724+00:00",
+      "valid_km2": 120.0544
+    },
+    "t03_00": {
+      "bbox": [
+        15.763752,
+        50.702843,
+        15.963752,
+        50.852843
+      ],
+      "flood_km2": 0.3386,
+      "pass_time": "2024-09-16T16:52:22.969724+00:00",
+      "valid_km2": 238.8017
+    },
+    "t03_01": {
+      "bbox": [
+        15.963752,
+        50.702843,
+        16.163752,
+        50.852843
+      ],
+      "flood_km2": 0.8809,
+      "pass_time": "2024-09-16T16:52:22.969724+00:00",
+      "valid_km2": 166.2361
+    },
+    "t04_00": {
+      "bbox": [
+        15.763752,
+        50.57069,
+        15.963752,
+        50.702843
+      ],
+      "flood_km2": 0.0,
+      "pass_time": "2024-09-16T16:52:22.969724+00:00",
+      "valid_km2": 211.7892
+    },
+    "t04_01": {
+      "bbox": [
+        15.963752,
+        50.57069,
+        16.163752,
+        50.702843
+      ],
+      "flood_km2": 0.0,
+      "pass_time": "2024-09-16T16:52:22.969724+00:00",
+      "valid_km2": 184.8561
+    }
+  }
+}
