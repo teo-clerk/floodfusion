@@ -1,0 +1,42 @@
+{
+  "bbox": [
+    15.617605,
+    50.715583,
+    16.1996,
+    50.967438
+  ],
+  "date": "2024-09-15",
+  "name": "EMSR756_AOI02_20240915T0501_124",
+  "run": "runs/v12/final/all/all/row21_fusion_context_seasonal/seed42",
+  "skipped": {
+    "t00_00": "dropped: EMSR756_AOI02_20240915T0501_124_t00_00: no Sentinel-1 IW VV+VH scene on relative orbit 124 between 2024-09-15 and 2024-09-15 in sentinel-1-rtc",
+    "t00_01": "dropped: EMSR756_AOI02_20240915T0501_124_t00_01: no Sentinel-1 IW VV+VH scene on relative orbit 124 between 2024-09-15 and 2024-09-15 in sentinel-1-rtc",
+    "t01_00": "dropped: EMSR756_AOI02_20240915T0501_124_t01_00: no Sentinel-1 IW VV+VH scene on relative orbit 124 between 2024-09-15 and 2024-09-15 in sentinel-1-rtc",
+    "t01_01": "dropped: EMSR756_AOI02_20240915T0501_124_t01_01: no Sentinel-1 IW VV+VH scene on relative orbit 124 between 2024-09-15 and 2024-09-15 in sentinel-1-rtc"
+  },
+  "tau": 0.25,
+  "tiles": {
+    "t00_02": {
+      "bbox": [
+        16.017605,
+        50.817438,
+        16.1996,
+        50.967438
+      ],
+      "flood_km2": 0.0091,
+      "pass_time": "2024-09-15T05:01:37.084116+00:00",
+      "valid_km2": 95.5313
+    },
+    "t01_02": {
+      "bbox": [
+        16.017605,
+        50.715583,
+        16.1996,
+        50.817438
+      ],
+      "flood_km2": 0.0328,
+      "pass_time": "2024-09-15T05:01:37.084116+00:00",
+      "valid_km2": 90.0913
+    }
+  }
+}
