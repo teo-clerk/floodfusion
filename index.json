@@ -1,14 +1,15 @@
 {
- "abandoned": [],
+ "abandoned": [
+  "EMSR773_AOI01_20241101T0602_110"
+ ],
  "blind_floods": true,
  "complete": [
   "EMSR664",
-  "EMSR756"
+  "EMSR756",
+  "EMSR773"
  ],
  "empty": [],
- "failures": {
-  "EMSR773_AOI01_20241101T0602_110": 2
- },
+ "failures": {},
  "last_code": 935,
  "maps": [
   {
@@ -1130,13 +1131,55 @@
    ],
    "tiles": 4,
    "valid_km2": 437.3439
+  },
+  {
+   "aoi": 4,
+   "aoi_name": "Algemesi",
+   "bbox": [
+    -0.59835,
+    39.163119,
+    -0.389124,
+    39.298917
+   ],
+   "code": "EMSR773",
+   "delay_hours": 17856.4,
+   "event_date": "2024-10-29",
+   "files": [
+    "maps/EMSR773_AOI04_20241101T0602_110/t00_00/flood.geojson",
+    "maps/EMSR773_AOI04_20241101T0602_110/t00_01/flood.geojson"
+   ],
+   "flood_km2": 3.8038,
+   "id": "EMSR773_AOI04_20241101T0602_110",
+   "kind": "showcase",
+   "mapped_at": "2026-11-15T06:24:54.674788+00:00",
+   "name": "Flood in Valencia Region, Spain",
+   "orbit": 110,
+   "orbit_state": "descending",
+   "pass_time": "2024-11-01T06:02:44.666044+00:00",
+   "skipped_tiles": 0,
+   "tile_bboxes": [
+    [
+     -0.59835,
+     39.163119,
+     -0.39835000000000004,
+     39.298917
+    ],
+    [
+     -0.39835000000000004,
+     39.163119,
+     -0.389124,
+     39.298917
+    ]
+   ],
+   "tiles": 2,
+   "valid_km2": 293.7432
   }
  ],
  "pending_codes": {
   "EMSR911": "2026-11-13T19:39:20.378128+00:00",
   "EMSR919": "2026-11-13T19:39:20.378128+00:00"
  },
- "updated_at": "2026-11-14T22:22:08.351143+00:00",
+ "updated_at": "2026-11-15T06:24:54.674788+00:00",
  "watching": {
   "EMSR926": "2026-08-21",
   "EMSR927": "2026-08-25",
