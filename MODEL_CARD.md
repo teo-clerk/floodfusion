@@ -8,7 +8,7 @@
   missing-modality embedding are fused as a gated residual on the SAR stream:
   `F = F_s + g ⊙ Attn(Q_o, K_s, V_s)`, with `g ∈ [0, 1]`. With the gate closed, the output is the
   SAR-only path, bit for bit. A U-Net decoder outputs one logit per pixel.
-- **Size.** About 19 M parameters; 6 ms per 256 × 256 chip on an RTX 4060 Laptop GPU.
+- **Size.** 18.2 M parameters; 6 ms per 256 × 256 chip on an RTX 4060 Laptop GPU.
 - **Inputs (10 m, one UTM grid).**
   - Post- and pre-event Sentinel-1 RTC γ⁰ in dB (VV, VH) and the VV change.
   - Sentinel-2 L2A B3, B8, B11, MNDWI and a per-pixel quality from the scene classification (SCL).
